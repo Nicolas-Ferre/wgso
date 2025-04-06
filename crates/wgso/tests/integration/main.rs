@@ -2,6 +2,6 @@
 
 #[test]
 pub fn test_parsing() {
-    // nothing tested for now, we be replaced later
+    // nothing tested for now, will be replaced later
     wgso::parse("folder");
 }
