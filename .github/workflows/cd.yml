@@ -47,7 +47,7 @@ jobs:
   create-release:
     environment: Deployment
     runs-on: ubuntu-22.04
-    needs: publish
+    needs: [ check-version, publish ]
     steps:
       - name: Install dependencies
         run: sudo apt-get install node-semver -y
