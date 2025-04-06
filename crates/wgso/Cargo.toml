@@ -1,0 +1,18 @@
+[package]
+name = "wgso"
+description = "WebGPU Shader Orchestrator to create GPU-native applications"
+readme = "../../README.md"
+keywords = ["gpu", "rendering", "compute", "shader", "wgsl"]
+categories = ["game-development", "graphics", "rendering", "concurrency"]
+exclude = [".github", "README.md"]
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true
