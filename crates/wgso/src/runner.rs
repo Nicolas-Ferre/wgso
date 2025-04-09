@@ -52,7 +52,6 @@ impl Runner {
     }
 
     /// Read GPU buffer value.
-    /// 
     /// If the buffer doesn't exist, an empty vector is returned.
     pub fn read(&self, name: &str) -> Vec<u8> {
         if let (Some(storage), Some(buffer)) =
