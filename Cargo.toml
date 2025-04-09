@@ -11,9 +11,19 @@ repository = "https://github.com/Nicolas-Ferre/wgso"
 rust-version = "1.84.1"
 
 [workspace.dependencies]
+annotate-snippets = "0.11"
 cargo-run-wasm = "0.4"
-fs_extra = "1.2"
+clap = { version = "4", features = ["derive"] }
+fs_extra = "1"
+futures = "0.3"
+fxhash = "0.2"
+itertools = "0.14"
+naga = { version = "24", features = ["wgsl-in"] }
 pico-args = "0.5"
+regex = "1"
+rstest = "0.25"
+strip-ansi-escapes = "0.2"
+wgpu = "24.0"
 
 [workspace.lints.rust]
 anonymous_parameters = "warn"

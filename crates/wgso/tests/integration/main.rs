@@ -1,7 +1,5 @@
-#![allow(missing_docs)]
+#![allow(missing_docs, clippy::unwrap_used)]
 
-#[test]
-pub fn test_parsing() {
-    // nothing tested for now, will be replaced later
-    wgso::parse("folder");
-}
+mod invalid_cases;
+mod io_errors;
+mod valid_cases;
