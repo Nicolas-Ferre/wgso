@@ -1,9 +1,9 @@
 use crate::storage::Storage;
 use crate::Program;
 use annotate_snippets::{Level, Renderer, Snippet};
-use naga::front::wgsl::ParseError;
 use std::io;
 use std::path::{Path, PathBuf};
+use wgpu::naga::front::wgsl::ParseError;
 
 /// A WGSO error.
 #[derive(Debug)]
@@ -15,6 +15,8 @@ pub enum Error {
     Parsing(PathBuf, ParseError),
     /// Two storages have been found with the same name.
     StorageConflict(Storage, Storage),
+    /// A storage has a size higher than default `max_storage_buffer_binding_size` value from [`wgpu::Limits`].
+    TooLargeStorage(Storage),
 }
 
 impl Error {
@@ -79,13 +81,36 @@ impl Error {
                     )
                 )
             }
+            Self::TooLargeStorage(storage) => {
+                let path_str = storage.path.display().to_string();
+                format!(
+                    "{}",
+                    Renderer::styled().render(
+                        Level::Error
+                            .title(&format!(
+                                "too large size for buffer `{}` (max allowed size: {} bytes, actual size: {} bytes)",
+                                storage.name, Storage::max_allowed_size(), storage.size
+                            ))
+                            .snippet(
+                                Snippet::source(&program.files[&storage.path].code)
+                                    .fold(true)
+                                    .origin(&path_str)
+                                    .annotation(
+                                        Level::Error
+                                            .span(storage.span.to_range().unwrap_or(0..0))
+                                            .label("too large storage variable"),
+                                    )
+                            )
+                    )
+                )
+            }
         }
     }
 
     pub(crate) fn path(&self) -> &Path {
         match self {
             Self::Io(path, _) | Self::Parsing(path, _) => path,
-            Self::StorageConflict(first, _) => &first.path,
+            Self::StorageConflict(storage, _) | Self::TooLargeStorage(storage) => &storage.path,
         }
     }
 }

@@ -18,7 +18,6 @@ fs_extra = "1"
 futures = "0.3"
 fxhash = "0.2"
 itertools = "0.14"
-naga = { version = "24", features = ["wgsl-in"] }
 pico-args = "0.5"
 regex = "1"
 rstest = "0.25"

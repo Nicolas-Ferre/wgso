@@ -18,7 +18,6 @@ clap.workspace = true
 fxhash.workspace = true
 futures.workspace = true
 itertools.workspace = true
-naga.workspace = true
 regex.workspace = true
 strip-ansi-escapes.workspace = true
 

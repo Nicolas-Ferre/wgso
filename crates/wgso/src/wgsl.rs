@@ -1,8 +1,8 @@
 use crate::error::Error;
 use crate::file::File;
-use naga::front::wgsl;
-use naga::Module;
 use std::path::PathBuf;
+use wgpu::naga::front::wgsl;
+use wgpu::naga::Module;
 
 #[derive(Debug)]
 pub(crate) struct Wgsl {

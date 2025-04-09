@@ -65,7 +65,7 @@ impl Program {
     fn extract_storages(&self, errors: &mut Vec<Error>) -> FxHashMap<String, Storage> {
         let mut storages = FxHashMap::default();
         for wgsl in self.wgsl.iter().sorted_unstable_by_key(|wgsl| &wgsl.path) {
-            for storage in Storage::extract(wgsl) {
+            for storage in Storage::extract(wgsl, errors) {
                 match storages.entry(storage.name.clone()) {
                     Entry::Vacant(entry) => {
                         entry.insert(storage);
