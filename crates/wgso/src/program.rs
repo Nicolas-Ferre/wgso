@@ -3,6 +3,7 @@ use crate::storage::Storage;
 use crate::wgsl::Wgsl;
 use crate::Error;
 use fxhash::FxHashMap;
+use itertools::Itertools;
 use std::collections::hash_map::Entry;
 use std::path::{Path, PathBuf};
 
@@ -63,7 +64,7 @@ impl Program {
 
     fn extract_storages(&self, errors: &mut Vec<Error>) -> FxHashMap<String, Storage> {
         let mut storages = FxHashMap::default();
-        for wgsl in &self.wgsl {
+        for wgsl in self.wgsl.iter().sorted_unstable_by_key(|wgsl| &wgsl.path) {
             for storage in Storage::extract(wgsl) {
                 match storages.entry(storage.name.clone()) {
                     Entry::Vacant(entry) => {
