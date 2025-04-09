@@ -13,6 +13,22 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+annotate-snippets.workspace = true
+clap.workspace = true
+fxhash.workspace = true
+futures.workspace = true
+itertools.workspace = true
+regex.workspace = true
+strip-ansi-escapes.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+wgpu.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wgpu = { workspace = true, features = ["webgl", "wgsl"] }
+
+[dev-dependencies]
+rstest.workspace = true
 
 [lints]
 workspace = true

@@ -26,6 +26,16 @@ It is planned to also support Android and WASM targets in the future.
 
 WGSO may also work on some other platforms, but they have not been tested.
 
+## Getting started
+
+WGSO examples can be run with the following command:
+
+```shell
+cargo run --release --bin wgso -- run <example path>
+```
+
+Examples of WGSO programs are located in the `examples` folder.
+
 ## License
 
 Licensed under either of
