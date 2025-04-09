@@ -21,6 +21,7 @@ impl Storage {
             .filter(|(_, var)| matches!(var.space, AddressSpace::Storage { .. }))
             .filter_map(|(_, var)| {
                 var.name.as_ref().map(|name| {
+                    // pattern should be valid because code has been successfully parsed with Naga
                     let var_pattern = Regex::new(&format!(r"> *({name}) *:"))
                         .expect("internal error: invalid storage pattern");
                     let var_pattern_match = var_pattern
