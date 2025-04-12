@@ -51,7 +51,7 @@ impl Error {
             }
             Self::ShaderConflict(shader, _) => Some(&shader.path),
             Self::StorageConflict(storage, _) => Some(&storage.path),
-            Self::WgpuValidation(_) => None,
+            Self::WgpuValidation(_) => None, // no-coverage (never called in practice)
         }
     }
 
