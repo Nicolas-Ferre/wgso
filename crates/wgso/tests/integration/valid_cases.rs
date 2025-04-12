@@ -4,7 +4,8 @@ use wgso::Runner;
 
 #[rstest::rstest]
 fn run_valid_code(#[files("./tests/cases_valid/*")] path: PathBuf) {
-    let runner = Runner::new(&path).unwrap();
+    let mut runner = Runner::new(&path).unwrap();
+    runner.run_step();
     let mut buffers = runner
         .buffers()
         .map(|buffer| format!("{buffer}={:?}", runner.read(buffer)))

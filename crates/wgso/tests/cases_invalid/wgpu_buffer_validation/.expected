@@ -1,0 +1,5 @@
+error: Validation Error
+
+Caused by:
+  In Device::create_buffer, label = '[var<storage, _> too_large_buffer]'
+    Buffer size 3999999996 is greater than the maximum buffer size (268435456)

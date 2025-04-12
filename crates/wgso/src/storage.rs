@@ -1,5 +1,4 @@
-use crate::wgsl::Wgsl;
-use crate::Error;
+use crate::wgsl::WgslModule;
 use regex::Regex;
 use std::path::PathBuf;
 use wgpu::naga::{AddressSpace, Span};
@@ -14,12 +13,8 @@ pub struct Storage {
 }
 
 impl Storage {
-    pub(crate) fn max_allowed_size() -> u32 {
-        wgpu::Limits::default().max_storage_buffer_binding_size
-    }
-
     #[allow(clippy::cast_possible_truncation)]
-    pub(crate) fn extract(wgsl: &Wgsl, errors: &mut Vec<Error>) -> Vec<Self> {
+    pub(crate) fn extract(wgsl: &WgslModule) -> Vec<Self> {
         wgsl.module
             .global_variables
             .iter()
@@ -34,7 +29,7 @@ impl Storage {
                         .expect("internal error: not found storage pattern")
                         .get(1)
                         .expect("internal error: not found storage pattern group");
-                    let storage = Self {
+                    Self {
                         name: name.clone(),
                         size: wgsl.module.types[var.ty].inner.size(wgsl.module.to_ctx()),
                         path: wgsl.path.clone(),
@@ -42,16 +37,9 @@ impl Storage {
                             var_pattern_match.start() as u32,
                             var_pattern_match.end() as u32,
                         ),
-                    };
-                    if storage.size > Self::max_allowed_size() {
-                        errors.push(Error::TooLargeStorage(storage));
-                        None
-                    } else {
-                        Some(storage)
                     }
                 })
             })
-            .flatten()
             .collect()
     }
 }

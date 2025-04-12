@@ -29,7 +29,6 @@ impl File {
         })
     }
 
-    #[allow(clippy::result_large_err)]
     fn read_file(path: &Path) -> Result<Self, Error> {
         Ok(Self {
             path: path.into(),

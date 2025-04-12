@@ -1,6 +1,0 @@
-error: too large size for buffer `too_large` (max allowed size: 134217728 bytes, actual size: 3999999996 bytes)
- --> ./tests/cases_invalid/too_large_buffer/main.wgsl:1:26
-  |
-1 | var<storage, read_write> too_large: array<f32, 999999999>;
-  |                          ^^^^^^^^^ too large storage variable
-  |
