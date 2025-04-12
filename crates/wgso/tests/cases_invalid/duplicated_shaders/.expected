@@ -1,0 +1,11 @@
+error: same name `duplicated` used for two shaders
+ --> ./tests/cases_invalid/duplicated_shaders/shader1.wgsl:1:2
+  |
+1 | #shader<compute> duplicated
+  |  ^^^^^^^^^^^^^^^^^^^^^^^^^^ first definition
+  |
+ ::: ./tests/cases_invalid/duplicated_shaders/shader2.wgsl:1:2
+  |
+1 | #shader<compute> duplicated
+  |  ^^^^^^^^^^^^^^^^^^^^^^^^^^ second definition
+  |

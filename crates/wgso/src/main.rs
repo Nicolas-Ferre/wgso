@@ -5,7 +5,7 @@ use clap::Parser;
 use std::process;
 use wgso::{Program, Runner};
 
-// coverage: off (not simple to test)
+// coverage: off (not easy to test)
 
 fn main() {
     Args::parse().run();
@@ -45,14 +45,14 @@ struct RunArgs {
 impl RunArgs {
     fn run(self) {
         match Runner::new(&self.path) {
-            Ok(runner) => {
+            Ok(mut runner) => {
                 if self.steps == 0 {
                     loop {
-                        self.run_step(&runner);
+                        self.run_step(&mut runner);
                     }
                 } else {
                     for _ in 0..self.steps {
-                        self.run_step(&runner);
+                        self.run_step(&mut runner);
                     }
                 }
             }
@@ -60,7 +60,8 @@ impl RunArgs {
         }
     }
 
-    fn run_step(&self, runner: &Runner) {
+    fn run_step(&self, runner: &mut Runner) {
+        runner.run_step();
         for buffer in &self.buffer {
             println!("Buffer `{buffer}`: {:?}", runner.read(buffer));
         }

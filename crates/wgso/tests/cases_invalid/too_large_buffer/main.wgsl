@@ -1,1 +1,0 @@
-var<storage, read_write> too_large: array<f32, 999999999>;
