@@ -181,7 +181,12 @@ struct ComputeShaderResources {
 }
 
 impl ComputeShaderResources {
-    fn new(name: &str, wgsl: &WgslModule, buffers: &FxHashMap<String, Buffer>, device: &Device) -> Self {
+    fn new(
+        name: &str,
+        wgsl: &WgslModule,
+        buffers: &FxHashMap<String, Buffer>,
+        device: &Device,
+    ) -> Self {
         let layout = Self::create_bind_group_layout(name, wgsl, device);
         let pipeline = Self::create_pipeline(name, wgsl, device, &layout);
         let bind_group = (!wgsl.storages.is_empty())
