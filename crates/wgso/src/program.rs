@@ -21,11 +21,6 @@ pub struct Program {
 }
 
 impl Program {
-    /// Parses a WGSO program directory.
-    ///
-    /// # Errors
-    ///
-    /// An error is returned if the parsing has failed.
     pub(crate) fn parse(folder_path: impl AsRef<Path>) -> Self {
         let folder_path = folder_path.as_ref();
         let mut program = Self {
@@ -44,9 +39,12 @@ impl Program {
         program.runs = program.extract_runs();
         program.errors = errors;
         program
-            .errors
+    }
+
+    pub(crate) fn with_sorted_errors(mut self) -> Self {
+        self.errors
             .sort_unstable_by_key(|e| e.path().map(Path::to_path_buf));
-        program
+        self
     }
 
     fn read_dir(folder_path: &Path, errors: &mut Vec<Error>) -> FxHashMap<PathBuf, File> {

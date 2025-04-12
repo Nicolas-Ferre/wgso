@@ -56,7 +56,7 @@ impl Runner {
                         unreachable!("internal error: WGPU error should be for validation")
                     }
                 }));
-                Err(program)
+                Err(program.with_sorted_errors())
             } else {
                 Ok(Self {
                     program,
@@ -67,7 +67,7 @@ impl Runner {
                 })
             }
         } else {
-            Err(program)
+            Err(program.with_sorted_errors())
         }
     }
 
