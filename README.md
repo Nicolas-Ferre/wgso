@@ -34,7 +34,7 @@ WGSO examples can be run with the following command:
 cargo run --release --bin wgso -- run <example path>
 ```
 
-Examples of WGSO programs are located in the `examples` folder.
+Examples of WGSO programs are located in the `crates/wgso/tests/cases_valid` folder.
 
 ## License
 

@@ -1,5 +1,5 @@
 use crate::storage::Storage;
-use crate::wgsl::WgslModule;
+use crate::wgsl_module::WgslModule;
 use crate::{Error, Program};
 use futures::executor;
 use fxhash::FxHashMap;

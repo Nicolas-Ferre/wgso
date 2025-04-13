@@ -1,7 +1,8 @@
-use crate::wgsl::WgslModule;
-use regex::Regex;
+use crate::wgsl_module::WgslModule;
+use crate::wgsl_parsing;
+use std::ops::Range;
 use std::path::PathBuf;
-use wgpu::naga::{AddressSpace, Span};
+use wgpu::naga::AddressSpace;
 
 /// A parsed WGSL storage variable.
 #[derive(Debug, Clone)]
@@ -9,35 +10,21 @@ pub struct Storage {
     pub(crate) name: String,
     pub(crate) size: u32,
     pub(crate) path: PathBuf,
-    pub(crate) span: Span,
+    pub(crate) span: Range<usize>,
 }
 
 impl Storage {
-    #[allow(clippy::cast_possible_truncation)]
     pub(crate) fn extract(wgsl: &WgslModule) -> Vec<Self> {
         wgsl.module
             .global_variables
             .iter()
             .filter(|(_, var)| matches!(var.space, AddressSpace::Storage { .. }))
             .filter_map(|(_, var)| {
-                var.name.as_ref().map(|name| {
-                    // pattern should be valid because code has been successfully parsed with Naga
-                    let var_pattern = Regex::new(&format!(r"> *({name}) *:"))
-                        .expect("internal error: invalid storage pattern");
-                    let var_pattern_match = var_pattern
-                        .captures(&wgsl.code)
-                        .expect("internal error: not found storage pattern")
-                        .get(1)
-                        .expect("internal error: not found storage pattern group");
-                    Self {
-                        name: name.clone(),
-                        size: wgsl.module.types[var.ty].inner.size(wgsl.module.to_ctx()),
-                        path: wgsl.path.clone(),
-                        span: Span::new(
-                            var_pattern_match.start() as u32,
-                            var_pattern_match.end() as u32,
-                        ),
-                    }
+                var.name.as_ref().map(|name| Self {
+                    name: name.clone(),
+                    size: wgsl.module.types[var.ty].inner.size(wgsl.module.to_ctx()),
+                    path: wgsl.path.clone(),
+                    span: wgsl_parsing::storage_name_span(&wgsl.code, name),
                 })
             })
             .collect()

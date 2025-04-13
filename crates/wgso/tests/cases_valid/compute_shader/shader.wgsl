@@ -3,8 +3,6 @@
 
 const BUFFER_SIZE = 10;
 
-@group(0)
-@binding(0)
 var<storage, read_write> buffer: array<u32, BUFFER_SIZE>;
 
 @compute

@@ -129,7 +129,7 @@ impl Error {
                             .origin(&first.path.display().to_string())
                             .annotation(
                                 Level::Error
-                                    .span(first.span.to_range().unwrap_or(0..0))
+                                    .span(first.span.clone())
                                     .label("first definition"),
                             )
                     )
@@ -139,7 +139,7 @@ impl Error {
                             .origin(&second.path.display().to_string())
                             .annotation(
                                 Level::Error
-                                    .span(second.span.to_range().unwrap_or(0..0))
+                                    .span(second.span.clone())
                                     .label("second definition"),
                             )
                     )

@@ -1,7 +1,7 @@
-use crate::directive;
 use crate::directive::Directive;
 use crate::error::Error;
 use crate::file::File;
+use crate::{directive, wgsl_parsing};
 use std::path::PathBuf;
 use wgpu::naga::front::wgsl;
 use wgpu::naga::{AddressSpace, Module};
@@ -18,21 +18,25 @@ pub(crate) struct WgslModule {
 
 impl WgslModule {
     pub(crate) fn parse(file: &File, errors: &mut Vec<Error>) -> Option<Self> {
-        let (cleaned_code, directives) = Self::extract_directives(file, errors);
-        match wgsl::parse_str(&cleaned_code) {
-            Ok(module) => Some(Self {
-                path: file.path.clone(),
-                storages: module
+        let (code_without_directives, directives) = Self::extract_directives(file, errors);
+        match wgsl::parse_str(&code_without_directives) {
+            Ok(module) => {
+                let storages = module
                     .global_variables
                     .iter()
                     .filter(|(_, var)| matches!(var.space, AddressSpace::Storage { .. }))
                     .filter_map(|(_, var)| var.name.clone())
-                    .collect(),
-                module,
-                directives,
-                code: file.code.clone(),
-                cleaned_code,
-            }),
+                    .collect::<Vec<_>>();
+                let cleaned_code = Self::add_bindings(code_without_directives, &storages);
+                Some(Self {
+                    path: file.path.clone(),
+                    storages,
+                    module,
+                    directives,
+                    code: file.code.clone(),
+                    cleaned_code,
+                })
+            }
             Err(error) => {
                 errors.push(Error::WgslParsing(file.path.clone(), error));
                 None
@@ -62,5 +66,13 @@ impl WgslModule {
             cleaned_code.push('\n');
         }
         (cleaned_code, directives)
+    }
+
+    fn add_bindings(mut code: String, storages: &[String]) -> String {
+        for (binding, name) in storages.iter().enumerate() {
+            let position = wgsl_parsing::storage_var_start(&code, name);
+            code.insert_str(position, &format!("@group(0) @binding({binding}) "));
+        }
+        code
     }
 }
