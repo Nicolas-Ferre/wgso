@@ -56,12 +56,14 @@ impl RunArgs {
                     }
                 }
             }
-            Err(program) => trigger_errors(program),
+            Err(program) => trigger_errors(&program),
         }
     }
 
     fn run_step(&self, runner: &mut Runner) {
-        runner.run_step();
+        if let Err(program) = runner.run_step() {
+            trigger_errors(program);
+        }
         for buffer in &self.buffer {
             println!("Buffer `{buffer}`: {:?}", runner.read(buffer));
         }
@@ -80,14 +82,14 @@ impl AnalyzeArgs {
     fn run(self) {
         match Runner::new(&self.path) {
             Ok(runner) => println!("{runner:#?}"),
-            Err(program) => trigger_errors(program),
+            Err(program) => trigger_errors(&program),
         }
     }
 }
 
-fn trigger_errors(program: Program) {
+fn trigger_errors(program: &Program) {
     for error in &program.errors {
-        println!("{}", error.render(&program));
+        println!("{}", error.render(program));
     }
     process::exit(1);
 }

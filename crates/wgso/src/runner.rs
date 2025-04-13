@@ -1,3 +1,4 @@
+use crate::directive::RunDirective;
 use crate::storage::Storage;
 use crate::wgsl_module::WgslModule;
 use crate::{Error, Program};
@@ -20,6 +21,7 @@ pub struct Runner {
     device: Device,
     queue: Queue,
     compute_shaders: FxHashMap<String, ComputeShaderResources>,
+    compute_shader_runs: Vec<ComputeShaderRun>,
     buffers: FxHashMap<String, Buffer>,
 }
 
@@ -28,7 +30,7 @@ impl Runner {
     ///
     /// # Errors
     ///
-    /// An error is returned if the parsing has failed.
+    /// An error is returned if the program initialization has failed.
     pub fn new(folder_path: impl AsRef<Path>) -> Result<Self, Program> {
         let instance = Self::create_instance();
         let adapter = Self::create_adapter(&instance);
@@ -45,17 +47,25 @@ impl Runner {
                 .compute_shaders
                 .iter()
                 .map(|(name, wgsl)| {
-                    let shader = ComputeShaderResources::new(name, wgsl, &buffers, &device);
+                    let shader = ComputeShaderResources::new(name, wgsl, &device);
                     (name.clone(), shader)
+                })
+                .collect::<FxHashMap<_, _>>();
+            let compute_shader_runs = program
+                .runs
+                .iter()
+                .map(|run| {
+                    ComputeShaderRun::new(
+                        run,
+                        &program.compute_shaders[&run.name],
+                        &buffers,
+                        &device,
+                        &compute_shaders[&run.name].layout,
+                    )
                 })
                 .collect();
             if let Some(error) = executor::block_on(device.pop_error_scope()) {
-                program.errors.push(Error::WgpuValidation(match error {
-                    wgpu::Error::Validation { description, .. } => description,
-                    wgpu::Error::OutOfMemory { .. } | wgpu::Error::Internal { .. } => {
-                        unreachable!("internal error: WGPU error should be for validation")
-                    }
-                }));
+                program.errors.push(Self::convert_wgpu_error(error));
                 Err(program.with_sorted_errors())
             } else {
                 Ok(Self {
@@ -63,6 +73,7 @@ impl Runner {
                     device,
                     queue,
                     compute_shaders,
+                    compute_shader_runs,
                     buffers,
                 })
             }
@@ -107,19 +118,39 @@ impl Runner {
     }
 
     /// Runs a step of the program.
-    pub fn run_step(&mut self) {
+    ///
+    /// # Errors
+    ///
+    /// An error is returned if shader execution failed.
+    pub fn run_step(&mut self) -> Result<(), &Program> {
+        self.device.push_error_scope(ErrorFilter::Validation);
         let mut encoder = Self::create_encoder(&self.device);
         let mut pass = Self::start_compute_pass(&mut encoder);
-        for run in &self.program.runs {
-            let shader = &self.compute_shaders[&run.name];
+        for run in &self.compute_shader_runs {
+            let shader = &self.compute_shaders[&run.shader_name];
             pass.set_pipeline(&shader.pipeline);
-            if let Some(bind_group) = &shader.bind_group {
+            if let Some(bind_group) = &run.bind_group {
                 pass.set_bind_group(0, bind_group, &[]);
             }
             pass.dispatch_workgroups(1, 1, 1);
         }
         drop(pass);
         self.queue.submit(Some(encoder.finish()));
+        if let Some(error) = executor::block_on(self.device.pop_error_scope()) {
+            self.program.errors.push(Self::convert_wgpu_error(error));
+            Err(&self.program)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn convert_wgpu_error(error: wgpu::Error) -> Error {
+        Error::WgpuValidation(match error {
+            wgpu::Error::Validation { description, .. } => description,
+            wgpu::Error::OutOfMemory { .. } | wgpu::Error::Internal { .. } => {
+                unreachable!("internal error: WGPU error should be for validation")
+            }
+        })
     }
 
     fn create_instance() -> Instance {
@@ -153,16 +184,20 @@ impl Runner {
 
     fn create_buffer(device: &Device, storage: &Storage) -> Buffer {
         device.create_buffer(&BufferDescriptor {
-            label: Some(&format!("[var<storage, _> {}]", storage.name)),
+            label: Some(&format!("`var<storage, _> {}`", storage.name)),
             size: storage.size.into(),
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
+            usage: BufferUsages::STORAGE
+                | BufferUsages::COPY_SRC
+                | BufferUsages::UNIFORM
+                | BufferUsages::VERTEX
+                | BufferUsages::INDEX,
             mapped_at_creation: false,
         })
     }
 
     fn create_encoder(device: &Device) -> CommandEncoder {
         device.create_command_encoder(&CommandEncoderDescriptor {
-            label: Some("shad:encoder"),
+            label: Some("wgso:encoder"),
         })
     }
 
@@ -177,33 +212,28 @@ impl Runner {
 #[derive(Debug)]
 struct ComputeShaderResources {
     pipeline: ComputePipeline,
-    bind_group: Option<BindGroup>,
+    layout: BindGroupLayout,
 }
 
 impl ComputeShaderResources {
-    fn new(
-        name: &str,
-        wgsl: &WgslModule,
-        buffers: &FxHashMap<String, Buffer>,
-        device: &Device,
-    ) -> Self {
-        let layout = Self::create_bind_group_layout(name, wgsl, device);
-        let pipeline = Self::create_pipeline(name, wgsl, device, &layout);
-        let bind_group = (!wgsl.storages.is_empty())
-            .then(|| Self::create_bind_group(name, wgsl, buffers, device, &layout));
-        Self {
-            pipeline,
-            bind_group,
-        }
+    fn new(name: &str, module: &WgslModule, device: &Device) -> Self {
+        let layout = Self::create_bind_group_layout(name, module, device);
+        let pipeline = Self::create_pipeline(name, module, device, &layout);
+        Self { pipeline, layout }
     }
 
     #[allow(clippy::cast_possible_truncation)]
-    fn create_bind_group_layout(name: &str, wgsl: &WgslModule, device: &Device) -> BindGroupLayout {
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some(&format!("[#shader<compute> {name}]")),
-            entries: &(0..wgsl.storages.len())
+    fn create_bind_group_layout(
+        name: &str,
+        module: &WgslModule,
+        device: &Device,
+    ) -> BindGroupLayout {
+        let storage_entries =
+            module
+                .storage_bindings
+                .values()
                 .map(|binding| BindGroupLayoutEntry {
-                    binding: binding as u32,
+                    binding: binding.index as u32,
                     visibility: ShaderStages::COMPUTE,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Storage { read_only: false },
@@ -211,21 +241,37 @@ impl ComputeShaderResources {
                         min_binding_size: None,
                     },
                     count: None,
-                })
-                .collect::<Vec<_>>(),
+                });
+        let uniform_entries =
+            module
+                .uniform_bindings
+                .values()
+                .map(|binding| BindGroupLayoutEntry {
+                    binding: binding.index as u32,
+                    visibility: ShaderStages::COMPUTE,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                });
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some(&format!("#shader<compute> {name}")),
+            entries: &storage_entries.chain(uniform_entries).collect::<Vec<_>>(),
         })
     }
 
     fn create_pipeline(
         name: &str,
-        wgsl: &WgslModule,
+        module: &WgslModule,
         device: &Device,
         layout: &BindGroupLayout,
     ) -> ComputePipeline {
-        let label = format!("[#shader<compute> {name}]");
+        let label = format!("#shader<compute> {name}");
         let module = device.create_shader_module(ShaderModuleDescriptor {
             label: Some(&label),
-            source: wgpu::ShaderSource::Wgsl(wgsl.cleaned_code.as_str().into()),
+            source: wgpu::ShaderSource::Wgsl(module.cleaned_code.as_str().into()),
         });
         device.create_compute_pipeline(&ComputePipelineDescriptor {
             label: Some(&label),
@@ -240,27 +286,58 @@ impl ComputeShaderResources {
             cache: None,
         })
     }
+}
+
+#[derive(Debug)]
+struct ComputeShaderRun {
+    shader_name: String,
+    bind_group: Option<BindGroup>,
+}
+
+impl ComputeShaderRun {
+    fn new(
+        directive: &RunDirective,
+        module: &WgslModule,
+        buffers: &FxHashMap<String, Buffer>,
+        device: &Device,
+        layout: &BindGroupLayout,
+    ) -> Self {
+        let bind_group = (!module.storage_bindings.is_empty())
+            .then(|| Self::create_bind_group(directive, module, buffers, device, layout));
+        Self {
+            shader_name: directive.name.clone(),
+            bind_group,
+        }
+    }
 
     #[allow(clippy::cast_possible_truncation)]
     fn create_bind_group(
-        name: &str,
-        wgsl: &WgslModule,
+        directive: &RunDirective,
+        module: &WgslModule,
         buffers: &FxHashMap<String, Buffer>,
         device: &Device,
         layout: &BindGroupLayout,
     ) -> BindGroup {
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some(&format!("[#shader<compute> {name}]")),
-            layout,
-            entries: &wgsl
-                .storages
+        let storage_entries =
+            module
+                .storage_bindings
                 .iter()
-                .enumerate()
-                .map(|(index, name)| wgpu::BindGroupEntry {
-                    binding: index as u32,
+                .map(|(name, binding)| wgpu::BindGroupEntry {
+                    binding: binding.index as u32,
                     resource: buffers[name].as_entire_binding(),
-                })
-                .collect::<Vec<_>>(),
+                });
+        let uniform_entries =
+            module
+                .uniform_bindings
+                .iter()
+                .map(|(name, binding)| wgpu::BindGroupEntry {
+                    binding: binding.index as u32,
+                    resource: buffers[&directive.params[name].value].as_entire_binding(),
+                });
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some(&format!("#{}", directive.source)),
+            layout,
+            entries: &storage_entries.chain(uniform_entries).collect::<Vec<_>>(),
         })
     }
 }
