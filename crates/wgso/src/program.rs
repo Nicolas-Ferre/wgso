@@ -1,7 +1,7 @@
 use crate::directive::{Directive, RunDirective};
 use crate::file::File;
 use crate::storage::Storage;
-use crate::wgsl::WgslModule;
+use crate::wgsl_module::WgslModule;
 use crate::Error;
 use fxhash::FxHashMap;
 use itertools::Itertools;

@@ -7,7 +7,8 @@ mod file;
 mod program;
 mod runner;
 mod storage;
-mod wgsl;
+mod wgsl_module;
+mod wgsl_parsing;
 
 pub use error::*;
 pub use program::*;
