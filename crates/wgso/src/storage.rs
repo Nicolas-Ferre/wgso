@@ -11,6 +11,7 @@ pub struct Storage {
     pub(crate) size: u32,
     pub(crate) path: PathBuf,
     pub(crate) span: Range<usize>,
+    pub(crate) type_: String,
 }
 
 impl Storage {
@@ -25,6 +26,7 @@ impl Storage {
                     size: wgsl.module.types[var.ty].inner.size(wgsl.module.to_ctx()),
                     path: wgsl.path.clone(),
                     span: wgsl_parsing::storage_name_span(&wgsl.code, name),
+                    type_: wgsl.storage_bindings[name].type_.clone(),
                 })
             })
             .collect()

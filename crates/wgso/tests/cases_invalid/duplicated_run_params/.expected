@@ -1,0 +1,6 @@
+error: duplicated parameter
+ --> ./tests/cases_invalid/duplicated_run_params/shader.wgsl:2:31
+  |
+2 | #run test(param1=a, param2=b, param1=c)
+  |                               ^^^^^^
+  |

@@ -1,0 +1,6 @@
+error: found buffer with type `i32`, expected uniform type `u32`
+ --> ./tests/cases_invalid/invalid_uniform_param_type/compute_shader.wgsl:2:17
+  |
+2 | #run test(value=buffer)
+  |                 ^^^^^^
+  |

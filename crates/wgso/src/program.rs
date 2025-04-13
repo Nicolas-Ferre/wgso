@@ -3,7 +3,7 @@ use crate::file::File;
 use crate::storage::Storage;
 use crate::wgsl_module::WgslModule;
 use crate::Error;
-use fxhash::FxHashMap;
+use fxhash::{FxHashMap, FxHashSet};
 use itertools::Itertools;
 use std::collections::hash_map::Entry;
 use std::path::{Path, PathBuf};
@@ -37,6 +37,7 @@ impl Program {
         program.storages = program.extract_storages(&mut errors);
         program.compute_shaders = program.extract_compute_shaders(&mut errors);
         program.runs = program.extract_runs();
+        program.validate_run_params(&mut errors);
         program.errors = errors;
         program
     }
@@ -128,5 +129,52 @@ impl Program {
                 }
             })
             .collect()
+    }
+
+    fn validate_run_params(&self, errors: &mut Vec<Error>) {
+        for run in &self.runs {
+            let shader = &self.compute_shaders[&run.name];
+            let expected_uniform_names: FxHashSet<_> = shader.uniform_bindings.keys().collect();
+            let actual_uniform_names: FxHashSet<_> = run.params.keys().collect();
+            for &missing_param in expected_uniform_names.difference(&actual_uniform_names) {
+                errors.push(Error::DirectiveParsing(
+                    run.path.clone(),
+                    run.span.clone(),
+                    format!("missing uniform parameter `{missing_param}`"),
+                ));
+            }
+            for &unknown_param in actual_uniform_names.difference(&expected_uniform_names) {
+                errors.push(Error::DirectiveParsing(
+                    run.path.clone(),
+                    run.params[unknown_param].name_span.clone(),
+                    format!(
+                        "no uniform variable `{unknown_param}` in shader `{}`",
+                        run.name
+                    ),
+                ));
+            }
+            for (name, param) in &run.params {
+                if let Some(storage) = self.storages.get(&param.value) {
+                    if let Some(uniform) = shader.uniform_bindings.get(name) {
+                        if uniform.type_ != storage.type_ {
+                            errors.push(Error::DirectiveParsing(
+                                run.path.clone(),
+                                param.value_span.clone(),
+                                format!(
+                                    "found buffer with type `{}`, expected uniform type `{}`",
+                                    storage.type_, uniform.type_
+                                ),
+                            ));
+                        }
+                    }
+                } else {
+                    errors.push(Error::DirectiveParsing(
+                        run.path.clone(),
+                        param.value_span.clone(),
+                        format!("unknown storage variable `{}`", param.value),
+                    ));
+                }
+            }
+        }
     }
 }
