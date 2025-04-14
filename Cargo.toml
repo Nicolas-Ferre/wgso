@@ -23,7 +23,7 @@ pico-args = "0.5"
 regex = "1"
 rstest = "0.25"
 strip-ansi-escapes = "0.2"
-wgpu = "24.0"
+wgpu = "25.0"
 
 [workspace.lints.rust]
 anonymous_parameters = "warn"
