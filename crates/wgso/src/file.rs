@@ -74,7 +74,7 @@ impl File {
         let code = fs::read_to_string(path).map_err(|error| Error::Io(path.into(), error))?;
         Ok(Self {
             path: path.into(),
-            directives: Directives::parse(&path, &code, errors),
+            directives: Directives::parse(path, &code, errors),
             code,
         })
     }

@@ -1,11 +1,10 @@
 use crate::file::{File, Files};
+use crate::type_::Type;
 use crate::Error;
 use fxhash::FxHashMap;
 use itertools::Itertools;
 use naga::back::wgsl::WriterFlags;
-use naga::common::wgsl::TryToWgsl;
 use naga::valid::{Capabilities, ModuleInfo, ValidationFlags};
-use naga::{ArraySize, Scalar, TypeInner, VectorSize};
 use std::path::Path;
 use std::slice::Iter;
 use std::sync::Arc;
@@ -216,119 +215,4 @@ pub(crate) struct Binding {
 pub(crate) enum BindingKind {
     Storage,
     Uniform,
-}
-
-// TODO: move in dedicated module
-// TODO: add fields to avoid type conflict
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) struct Type {
-    pub(crate) size: u32,
-    pub(crate) label: String,
-}
-
-impl Type {
-    fn new(parsed_module: &naga::Module, parsed_type: &naga::Type) -> Self {
-        Self {
-            size: parsed_type.inner.size(parsed_module.to_ctx()),
-            label: Self::label(parsed_module, parsed_type),
-        }
-    }
-
-    fn label(parsed_module: &naga::Module, parsed_type: &naga::Type) -> String {
-        if let Some(name) = &parsed_type.name {
-            return name.clone();
-        }
-        // TODO: finish implementation
-        match parsed_type.inner {
-            TypeInner::Scalar(scalar) => Self::scalar_label(scalar),
-            TypeInner::Vector { size, scalar } => format!(
-                "vec{}<{}>",
-                Self::vector_size_value(size),
-                Self::scalar_label(scalar)
-            ),
-            TypeInner::Matrix {
-                columns,
-                rows,
-                scalar,
-            } => format!(
-                "mat{}x{}<{}>",
-                Self::vector_size_value(columns),
-                Self::vector_size_value(rows),
-                Self::scalar_label(scalar)
-            ),
-            TypeInner::Atomic(scalar) => format!("atomic<{}>", Self::scalar_label(scalar)),
-            TypeInner::Pointer { base, space } => format!(
-                "ptr<{}, {}>",
-                Self::address_space_keyword(space),
-                Self::label(parsed_module, &parsed_module.types[base])
-            ),
-            TypeInner::ValuePointer {
-                size,
-                scalar,
-                space,
-            } => format!(
-                "ptr<{}, {}>",
-                Self::address_space_keyword(space),
-                if let Some(size) = size {
-                    format!(
-                        "vec{}<{}>",
-                        Self::vector_size_value(size),
-                        Self::scalar_label(scalar)
-                    )
-                } else {
-                    Self::scalar_label(scalar)
-                }
-            ),
-            TypeInner::Array { base, size, .. } => format!(
-                "array<{}{}>",
-                Self::label(parsed_module, &parsed_module.types[base]),
-                Self::array_size_value(size),
-            ),
-            TypeInner::Struct { .. } => unreachable!("internal error: name should be present"),
-            TypeInner::Image { .. } => "".into(),
-            TypeInner::Sampler { .. } => "".into(),
-            TypeInner::AccelerationStructure { .. } => "".into(),
-            TypeInner::RayQuery { .. } => "".into(),
-            TypeInner::BindingArray { .. } => "".into(),
-        }
-    }
-
-    fn scalar_label(scalar: Scalar) -> String {
-        scalar
-            .try_to_wgsl()
-            .expect("internal error: unsupported WGSL type")
-            .into()
-    }
-
-    fn vector_size_value(size: VectorSize) -> u32 {
-        match size {
-            VectorSize::Bi => 2,
-            VectorSize::Tri => 3,
-            VectorSize::Quad => 4,
-        }
-    }
-
-    fn array_size_value(size: ArraySize) -> String {
-        match size {
-            ArraySize::Constant(value) => value.to_string(),
-            ArraySize::Dynamic => String::new(),
-            ArraySize::Pending(_) => {
-                unreachable!("internal error: WGSL override should not be accepted")
-            }
-        }
-    }
-
-    fn address_space_keyword(space: AddressSpace) -> &'static str {
-        match space {
-            AddressSpace::Function => "function",
-            AddressSpace::Private => "private",
-            AddressSpace::WorkGroup => "workgroup",
-            AddressSpace::Uniform => "uniform",
-            AddressSpace::Storage { .. } => "storage",
-            AddressSpace::Handle => "handle",
-            AddressSpace::PushConstant => {
-                unreachable!("internal error: WGSL address space should not be push constant")
-            }
-        }
-    }
 }

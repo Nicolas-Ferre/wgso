@@ -8,6 +8,7 @@ mod module;
 mod program;
 mod resource;
 mod runner;
+mod type_;
 
 pub use error::*;
 pub use program::*;

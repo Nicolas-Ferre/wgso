@@ -1,6 +1,7 @@
 use crate::directive::run::RunDirective;
 use crate::directive::shader::ShaderDirective;
-use crate::module::{Module, Modules, Type};
+use crate::module::{Module, Modules};
+use crate::type_::Type;
 use crate::Error;
 use fxhash::{FxHashMap, FxHashSet};
 use std::collections::hash_map::Entry;
