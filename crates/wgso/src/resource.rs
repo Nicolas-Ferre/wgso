@@ -30,7 +30,13 @@ impl Resources {
                         .runs()
                         .map(|directive| (directive.clone(), module.clone()))
                 })
-                .sorted_by_key(|(directive, module)| (!directive.is_init, module.file.path.clone()))
+                .sorted_by_key(|(directive, module)| {
+                    (
+                        !directive.is_init,
+                        directive.priority.unwrap_or(0),
+                        module.file.path.clone(),
+                    )
+                })
                 .collect(),
         };
         for (directive, module) in &resources.runs {

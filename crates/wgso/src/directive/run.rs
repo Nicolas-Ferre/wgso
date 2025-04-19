@@ -10,6 +10,7 @@ pub(crate) struct RunDirective {
     pub(crate) args: FxHashMap<String, RunArg>,
     pub(crate) code: String,
     pub(crate) is_init: bool,
+    pub(crate) priority: Option<i32>,
 }
 
 impl RunDirective {
@@ -18,6 +19,26 @@ impl RunDirective {
         hashtag: &Token<'_>,
         is_init: bool,
     ) -> Result<Self, Error> {
+        let priority = if lexer
+            .clone()
+            .next_expected(&[TokenKind::OpenAngleBracket])
+            .is_ok()
+        {
+            lexer.next_expected(&[TokenKind::OpenAngleBracket])?;
+            let path = lexer.path().to_path_buf();
+            let priority = lexer.next_expected(&[TokenKind::Integer])?;
+            let priority = priority.slice.parse::<i32>().map_err(|_| {
+                Error::DirectiveParsing(
+                    path,
+                    priority.span,
+                    "priority is not a valid `i32` value".into(),
+                )
+            })?;
+            lexer.next_expected(&[TokenKind::CloseAngleBracket])?;
+            Some(priority)
+        } else {
+            None
+        };
         let name = Ident::parse(lexer)?;
         lexer.next_expected(&[TokenKind::OpenParenthesis])?;
         let mut args = FxHashMap::default();
@@ -51,6 +72,7 @@ impl RunDirective {
                 .source_slice(hashtag.span.start..lexer.offset())
                 .into(),
             is_init,
+            priority,
         })
     }
 }

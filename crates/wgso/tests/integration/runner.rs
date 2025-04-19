@@ -31,7 +31,7 @@ fn read_invalid_buffer_field() {
 
 #[test]
 fn run_init_shaders_only_once() {
-    let mut runner = Runner::new("tests/cases_valid/init_shaders").unwrap();
+    let mut runner = Runner::new("tests/cases_valid/shader_run_ordering").unwrap();
     runner.run_step().unwrap();
     runner.run_step().unwrap();
     assert_eq!(runner.read("buffer"), vec![65, 0, 0, 0]);
