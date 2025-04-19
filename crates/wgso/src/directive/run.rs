@@ -42,7 +42,7 @@ impl RunDirective {
             name,
             args,
             code: lexer
-                .source_slice(hashtag.span.start..lexer.offest())
+                .source_slice(hashtag.span.start..lexer.offset())
                 .into(),
         })
     }

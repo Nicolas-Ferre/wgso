@@ -50,7 +50,7 @@ impl Error {
 
     pub(crate) fn path(&self) -> Option<&Path> {
         match self {
-            Self::Io(path, _)
+            Self::Io(path, _) // no-coverage (not easy to test)
             | Self::WgslParsing(path, _)
             | Self::DirectiveParsing(path, _, _)
             | Self::StorageConflict(path, _, _)

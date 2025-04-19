@@ -15,7 +15,7 @@ impl ShaderDirective {
         Ok(Self {
             name: Ident::parse(lexer)?,
             code: lexer
-                .source_slice(hashtag.span.start..lexer.offest())
+                .source_slice(hashtag.span.start..lexer.offset())
                 .into(),
         })
     }

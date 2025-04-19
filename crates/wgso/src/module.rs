@@ -3,8 +3,8 @@ use crate::type_::Type;
 use crate::Error;
 use fxhash::FxHashMap;
 use itertools::Itertools;
-use naga::back::wgsl::WriterFlags;
-use naga::valid::{Capabilities, ModuleInfo, ValidationFlags};
+use naga::back::wgsl::{Writer, WriterFlags};
+use naga::valid::{Capabilities, ModuleInfo, ValidationFlags, Validator};
 use std::path::Path;
 use std::slice::Iter;
 use std::sync::Arc;
@@ -91,7 +91,7 @@ impl Module {
     fn write_code(parsed: &naga::Module) -> String {
         let module_info = Self::validate_code(parsed);
         let mut code = String::new();
-        naga::back::wgsl::Writer::new(&mut code, WriterFlags::empty())
+        Writer::new(&mut code, WriterFlags::empty())
             .write(parsed, &module_info)
             .expect("internal error: parsed WGSL code should be valid");
         code
@@ -122,7 +122,7 @@ impl Module {
     }
 
     fn validate_code(parsed: &naga::Module) -> ModuleInfo {
-        match naga::valid::Validator::new(ValidationFlags::all(), Capabilities::all())
+        match Validator::new(ValidationFlags::all(), Capabilities::all())
             .subgroup_stages(naga::valid::ShaderStages::all())
             .subgroup_operations(naga::valid::SubgroupOperationSet::all())
             .validate(parsed)

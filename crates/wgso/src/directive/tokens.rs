@@ -41,7 +41,7 @@ impl<'a> Lexer<'a> {
         &self.lexer.source()[span]
     }
 
-    pub(crate) fn offest(&self) -> usize {
+    pub(crate) fn offset(&self) -> usize {
         self.lexer.span().end
     }
 
