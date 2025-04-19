@@ -147,7 +147,9 @@ impl Type {
             AddressSpace::WorkGroup => "workgroup",
             AddressSpace::Uniform => "uniform",
             AddressSpace::Storage { .. } => "storage",
-            AddressSpace::Handle => "handle",
+            AddressSpace::Handle => {
+                unreachable!("internal error: WGSL address space should not be handle")
+            }
             AddressSpace::PushConstant => {
                 unreachable!("internal error: WGSL address space should not be push constant")
             }
@@ -159,7 +161,7 @@ impl Type {
             ScalarKind::Sint => "i32",
             ScalarKind::Uint => "u32",
             ScalarKind::Float => "f32",
-            ScalarKind::Bool => "bool",
+            ScalarKind::Bool => unreachable!("internal error: WGSL type should not be bool"),
             ScalarKind::AbstractInt | ScalarKind::AbstractFloat => {
                 unreachable!("internal error: WGSL type should not be abstract")
             }
@@ -175,48 +177,51 @@ mod tests {
 
     #[test]
     fn parse_type_label() {
-        assert_type_label("u32", "u32");
-        assert_type_label("i32", "i32");
-        assert_type_label("f32", "f32");
-        assert_type_label("bool", "bool");
-        assert_type_label("vec2<f32>", "vec2<f32>");
-        assert_type_label("vec3<f32>", "vec3<f32>");
-        assert_type_label("vec4<f32>", "vec4<f32>");
-        assert_type_label("mat4x2<f32>", "mat4x2<f32>");
-        assert_type_label("atomic<f32>", "atomic<f32>");
-        assert_type_label("ptr<storage, f32>", "ptr<storage, f32>");
-        assert_type_label("array<f32, 42>", "array<f32, 42>");
-        assert_type_label("array<f32>", "array<f32>");
-        assert_type_label("MyStruct", "MyStruct");
-        assert_type_label("texture_2d<f32>", "texture_2d<f32>");
-        assert_type_label("texture_2d_array<f32>", "texture_2d_array<f32>");
-        assert_type_label("texture_cube<f32>", "texture_cube<f32>");
-        assert_type_label(
-            "texture_multisampled_2d<f32>",
-            "texture_multisampled_2d<f32>",
-        );
-        assert_type_label(
-            "texture_depth_multisampled_2d",
-            "texture_depth_multisampled_2d",
-        );
+        assert_type_label("u32", None);
+        assert_type_label("i32", None);
+        assert_type_label("f32", None);
+        assert_type_label("bool", None);
+        assert_type_label("vec2<f32>", None);
+        assert_type_label("vec3<f32>", None);
+        assert_type_label("vec4<f32>", None);
+        assert_type_label("mat4x2<f32>", None);
+        assert_type_label("atomic<f32>", None);
+        assert_type_label("ptr<function, f32>", None);
+        assert_type_label("ptr<private, f32>", None);
+        assert_type_label("ptr<workgroup, f32>", None);
+        assert_type_label("ptr<uniform, f32>", None);
+        assert_type_label("ptr<storage, f32>", None);
+        assert_type_label("array<f32, 42>", None);
+        assert_type_label("array<f32>", None);
+        assert_type_label("MyStruct", None);
+        assert_type_label("texture_2d<f32>", None);
+        assert_type_label("texture_2d<i32>", None);
+        assert_type_label("texture_2d<u32>", None);
+        assert_type_label("texture_2d_array<f32>", None);
+        assert_type_label("texture_cube<f32>", None);
+        assert_type_label("texture_multisampled_2d<f32>", None);
+        assert_type_label("texture_depth_multisampled_2d", None);
         assert_type_label(
             "texture_storage_2d<rgba8unorm, write>",
-            "texture_storage_2d<rgba8unorm>",
+            Some("texture_storage_2d<rgba8unorm>"),
         );
         assert_type_label(
             "texture_storage_2d_array<rgba8unorm, write>",
-            "texture_storage_2d_array<rgba8unorm>",
+            Some("texture_storage_2d_array<rgba8unorm>"),
         );
-        assert_type_label("sampler", "sampler");
-        assert_type_label("sampler_comparison", "sampler_comparison");
-        assert_type_label("binding_array<f32, 4>", "binding_array<f32, 4>");
+        assert_type_label("sampler", None);
+        assert_type_label("sampler_comparison", None);
+        assert_type_label("binding_array<f32, 4>", None);
     }
 
-    fn assert_type_label(type_name: &str, expected_label: &str) {
+    fn assert_type_label(type_name: &str, expected_label: Option<&str>) {
         let code = format!("struct MyStruct {{field: f32}} var<storage> value: {type_name};");
         let module = wgsl::parse_str(&code).unwrap();
         let var = module.global_variables.iter().next().unwrap().1;
         let type_ = &module.types[var.ty];
-        assert_eq!(Type::label(&module, type_), expected_label);
+        assert_eq!(
+            Type::label(&module, type_),
+            expected_label.unwrap_or(type_name)
+        );
     }
 }

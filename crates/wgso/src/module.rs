@@ -128,10 +128,7 @@ impl Module {
             .validate(parsed)
         {
             Ok(module_info) => module_info,
-            Err(error) => unreachable!(
-                "internal error: WGSL parsed module should be valid: {}",
-                error
-            ),
+            Err(err) => unreachable!("internal error: WGSL parsed module should be valid: {err}"),
         }
     }
 
