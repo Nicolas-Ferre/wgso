@@ -147,7 +147,7 @@ impl Resources {
         let offset_alignment = Limits::default().min_uniform_buffer_offset_alignment;
         for (name, arg) in &directive.args {
             if let Some(storage_type) = self.storages.get(&arg.value.buffer_name.label) {
-                match storage_type.field_type(&arg.value.fields) {
+                match storage_type.field_ident_type(&arg.value.fields) {
                     Ok(arg_type) => {
                         if let Some(uniform) = shader_module.uniform_binding(name) {
                             if &*uniform.type_ != arg_type {
