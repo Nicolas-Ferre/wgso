@@ -20,10 +20,11 @@ fxhash = "0.2"
 itertools = "0.14"
 logos = "0.15"
 pico-args = "0.5"
-regex = "1"
 rstest = "0.25"
 strip-ansi-escapes = "0.2"
-wgpu = "24.0"
+
+naga = { version = "25.0", features = ["wgsl-in", "wgsl-out"] }
+wgpu = "25.0"
 
 [workspace.lints.rust]
 anonymous_parameters = "warn"

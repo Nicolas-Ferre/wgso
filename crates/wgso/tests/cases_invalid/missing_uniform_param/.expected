@@ -1,6 +1,6 @@
-error: missing uniform parameter `value`
- --> ./tests/cases_invalid/missing_uniform_param/compute_shader.wgsl:2:2
+error: missing uniform argument `value`
+ --> ./tests/cases_invalid/missing_uniform_param/compute_shader.wgsl:2:6
   |
 2 | #run test()
-  |  ^^^^^^^^^^
+  |      ^^^^
   |

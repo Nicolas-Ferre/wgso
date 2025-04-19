@@ -4,10 +4,11 @@
 mod directive;
 mod error;
 mod file;
-mod module;
 mod program;
-mod resource;
 mod runner;
+mod storage;
+mod wgsl_module;
+mod wgsl_parsing;
 
 pub use error::*;
 pub use program::*;

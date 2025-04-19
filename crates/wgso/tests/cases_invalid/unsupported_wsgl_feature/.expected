@@ -1,0 +1,4 @@
+error: override constants are not supported by WGSO
+--> ./tests/cases_invalid/unsupported_wsgl_feature/override_constants.wgsl
+ |
+ |
