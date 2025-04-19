@@ -19,7 +19,7 @@ fxhash.workspace = true
 futures.workspace = true
 itertools.workspace = true
 logos.workspace = true
-regex.workspace = true
+naga.workspace = true
 strip-ansi-escapes.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

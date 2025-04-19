@@ -1,18 +1,16 @@
-use crate::directive::RunDirective;
-use crate::storage::Storage;
-use crate::wgsl_module::WgslModule;
 use crate::{Error, Program};
 use futures::executor;
 use fxhash::FxHashMap;
+use shader::{ComputeShaderResources, ComputeShaderRun};
 use std::path::Path;
 use wgpu::{
-    Adapter, BackendOptions, Backends, BindGroup, BindGroupLayout, BindGroupLayoutEntry,
-    BindingType, Buffer, BufferBindingType, BufferDescriptor, BufferUsages, CommandEncoder,
-    CommandEncoderDescriptor, ComputePass, ComputePassDescriptor, ComputePipeline,
-    ComputePipelineDescriptor, Device, DeviceDescriptor, ErrorFilter, Features, Instance,
-    InstanceFlags, Limits, MapMode, MemoryHints, PipelineLayoutDescriptor, PowerPreference, Queue,
-    RequestAdapterOptions, ShaderModuleDescriptor, ShaderStages,
+    Adapter, BackendOptions, Backends, Buffer, BufferDescriptor, BufferUsages, CommandEncoder,
+    CommandEncoderDescriptor, ComputePass, ComputePassDescriptor, Device, DeviceDescriptor,
+    ErrorFilter, Features, Instance, InstanceFlags, Limits, MapMode, MemoryHints, PollType,
+    PowerPreference, Queue, RequestAdapterOptions, Trace,
 };
+
+mod shader;
 
 /// A runner to execute a WGSO program.
 #[derive(Debug)]
@@ -39,28 +37,34 @@ impl Runner {
         if program.errors.is_empty() {
             device.push_error_scope(ErrorFilter::Validation);
             let buffers = program
+                .resources
                 .storages
-                .values()
-                .map(|storage| (storage.name.clone(), Self::create_buffer(&device, storage)))
+                .iter()
+                .map(|(name, type_)| {
+                    let size = type_.size.into();
+                    (name.clone(), Self::create_buffer(&device, name, size))
+                })
                 .collect();
             let compute_shaders = program
+                .resources
                 .compute_shaders
                 .iter()
-                .map(|(name, wgsl)| {
-                    let shader = ComputeShaderResources::new(name, wgsl, &device);
+                .map(|(name, (directive, module))| {
+                    let shader = ComputeShaderResources::new(name, directive, module, &device);
                     (name.clone(), shader)
                 })
                 .collect::<FxHashMap<_, _>>();
             let compute_shader_runs = program
+                .resources
                 .runs
                 .iter()
-                .map(|run| {
+                .map(|(directive, _)| {
                     ComputeShaderRun::new(
-                        run,
-                        &program.compute_shaders[&run.name],
+                        directive,
+                        &program.resources.compute_shaders[&directive.name.label].1,
                         &buffers,
                         &device,
-                        &compute_shaders[&run.name].layout,
+                        &compute_shaders[&directive.name.label].layout,
                     )
                 })
                 .collect();
@@ -84,16 +88,17 @@ impl Runner {
 
     /// Lists all GPU buffer names.
     pub fn buffers(&self) -> impl Iterator<Item = &str> {
-        self.program.storages.keys().map(String::as_str)
+        self.program.resources.storages.keys().map(String::as_str)
     }
 
     /// Read GPU buffer value.
     ///
     /// If the buffer doesn't exist, an empty vector is returned.
     pub fn read(&self, name: &str) -> Vec<u8> {
-        if let (Some(storage), Some(buffer)) =
-            (self.program.storages.get(name), self.buffers.get(name))
-        {
+        if let (Some(storage), Some(buffer)) = (
+            self.program.resources.storages.get(name),
+            self.buffers.get(name),
+        ) {
             let read_buffer = self.device.create_buffer(&BufferDescriptor {
                 label: Some("wgso:storage_read_buffer"),
                 size: storage.size.into(),
@@ -106,7 +111,8 @@ impl Runner {
             let slice = read_buffer.slice(..);
             slice.map_async(MapMode::Read, |_| ());
             self.device
-                .poll(wgpu::Maintain::WaitForSubmissionIndex(submission_index));
+                .poll(PollType::WaitForSubmissionIndex(submission_index))
+                .expect("cannot read buffer");
             let view = slice.get_mapped_range();
             let content = view.to_vec();
             drop(view);
@@ -177,15 +183,16 @@ impl Runner {
             required_features: Features::default(),
             required_limits: Limits::default(),
             memory_hints: MemoryHints::Performance,
+            trace: Trace::Off,
         };
-        executor::block_on(adapter.request_device(&device_descriptor, None))
+        executor::block_on(adapter.request_device(&device_descriptor))
             .expect("error when retrieving graphic device")
     }
 
-    fn create_buffer(device: &Device, storage: &Storage) -> Buffer {
+    fn create_buffer(device: &Device, name: &str, size: u64) -> Buffer {
         device.create_buffer(&BufferDescriptor {
-            label: Some(&format!("`var<storage, _> {}`", storage.name)),
-            size: storage.size.into(),
+            label: Some(&format!("`var<storage, _> {name}`")),
+            size,
             usage: BufferUsages::STORAGE
                 | BufferUsages::COPY_SRC
                 | BufferUsages::UNIFORM
@@ -205,139 +212,6 @@ impl Runner {
         encoder.begin_compute_pass(&ComputePassDescriptor {
             label: None,
             timestamp_writes: None,
-        })
-    }
-}
-
-#[derive(Debug)]
-struct ComputeShaderResources {
-    pipeline: ComputePipeline,
-    layout: BindGroupLayout,
-}
-
-impl ComputeShaderResources {
-    fn new(name: &str, module: &WgslModule, device: &Device) -> Self {
-        let layout = Self::create_bind_group_layout(name, module, device);
-        let pipeline = Self::create_pipeline(name, module, device, &layout);
-        Self { pipeline, layout }
-    }
-
-    #[allow(clippy::cast_possible_truncation)]
-    fn create_bind_group_layout(
-        name: &str,
-        module: &WgslModule,
-        device: &Device,
-    ) -> BindGroupLayout {
-        let storage_entries =
-            module
-                .storage_bindings
-                .values()
-                .map(|binding| BindGroupLayoutEntry {
-                    binding: binding.index as u32,
-                    visibility: ShaderStages::COMPUTE,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                });
-        let uniform_entries =
-            module
-                .uniform_bindings
-                .values()
-                .map(|binding| BindGroupLayoutEntry {
-                    binding: binding.index as u32,
-                    visibility: ShaderStages::COMPUTE,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                });
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some(&format!("#shader<compute> {name}")),
-            entries: &storage_entries.chain(uniform_entries).collect::<Vec<_>>(),
-        })
-    }
-
-    fn create_pipeline(
-        name: &str,
-        module: &WgslModule,
-        device: &Device,
-        layout: &BindGroupLayout,
-    ) -> ComputePipeline {
-        let label = format!("#shader<compute> {name}");
-        let module = device.create_shader_module(ShaderModuleDescriptor {
-            label: Some(&label),
-            source: wgpu::ShaderSource::Wgsl(module.cleaned_code.as_str().into()),
-        });
-        device.create_compute_pipeline(&ComputePipelineDescriptor {
-            label: Some(&label),
-            layout: Some(&device.create_pipeline_layout(&PipelineLayoutDescriptor {
-                label: Some(&label),
-                bind_group_layouts: &[layout],
-                push_constant_ranges: &[],
-            })),
-            module: &module,
-            entry_point: None,
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
-            cache: None,
-        })
-    }
-}
-
-#[derive(Debug)]
-struct ComputeShaderRun {
-    shader_name: String,
-    bind_group: Option<BindGroup>,
-}
-
-impl ComputeShaderRun {
-    fn new(
-        directive: &RunDirective,
-        module: &WgslModule,
-        buffers: &FxHashMap<String, Buffer>,
-        device: &Device,
-        layout: &BindGroupLayout,
-    ) -> Self {
-        let bind_group = (!module.storage_bindings.is_empty())
-            .then(|| Self::create_bind_group(directive, module, buffers, device, layout));
-        Self {
-            shader_name: directive.name.clone(),
-            bind_group,
-        }
-    }
-
-    #[allow(clippy::cast_possible_truncation)]
-    fn create_bind_group(
-        directive: &RunDirective,
-        module: &WgslModule,
-        buffers: &FxHashMap<String, Buffer>,
-        device: &Device,
-        layout: &BindGroupLayout,
-    ) -> BindGroup {
-        let storage_entries =
-            module
-                .storage_bindings
-                .iter()
-                .map(|(name, binding)| wgpu::BindGroupEntry {
-                    binding: binding.index as u32,
-                    resource: buffers[name].as_entire_binding(),
-                });
-        let uniform_entries =
-            module
-                .uniform_bindings
-                .iter()
-                .map(|(name, binding)| wgpu::BindGroupEntry {
-                    binding: binding.index as u32,
-                    resource: buffers[&directive.params[name].value].as_entire_binding(),
-                });
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some(&format!("#{}", directive.source)),
-            layout,
-            entries: &storage_entries.chain(uniform_entries).collect::<Vec<_>>(),
         })
     }
 }

@@ -1,0 +1,1 @@
+#shader<compute> test invalidtoken

@@ -1,0 +1,6 @@
+error: shader not found
+ --> ./tests/cases_invalid/unknown_run_shader/root.wgsl:1:6
+  |
+1 | #run unknown()
+  |      ^^^^^^^
+  |
