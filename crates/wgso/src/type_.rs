@@ -150,15 +150,17 @@ impl Type {
         parsed_type: &naga::Type,
         global_offset: u32,
     ) -> FxHashMap<String, Arc<Self>> {
-        let mut final_offset = global_offset;
         match &parsed_type.inner {
             TypeInner::Struct { members, .. } => members
                 .iter()
                 .filter_map(|member| member.name.clone().map(|name| (name, member)))
                 .map(|(name, member)| {
-                    final_offset += member.offset;
                     let parsed_member_type = &parsed_module.types[member.ty];
-                    let member_type = Self::new(parsed_module, parsed_member_type, final_offset);
+                    let member_type = Self::new(
+                        parsed_module,
+                        parsed_member_type,
+                        global_offset + member.offset,
+                    );
                     (name, Arc::new(member_type))
                 })
                 .collect(),
