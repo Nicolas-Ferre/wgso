@@ -152,6 +152,9 @@ pub(crate) enum TokenKind {
     #[regex("[a-zA-Z_][a-zA-Z0-9_]*")]
     Ident,
 
+    #[regex("-?[0-9]+")]
+    Integer,
+
     #[regex("(\r\n|\r|\n)")]
     LineBreak,
 }
@@ -173,6 +176,7 @@ impl TokenKind {
             Self::OpenAngleBracket => "`<`",
             Self::CloseAngleBracket => "`>`",
             Self::Ident => "identifier",
+            Self::Integer => "integer",
             Self::LineBreak => "line break",
         }
     }

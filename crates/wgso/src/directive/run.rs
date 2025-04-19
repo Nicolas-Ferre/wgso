@@ -10,6 +10,7 @@ pub(crate) struct RunDirective {
     pub(crate) args: FxHashMap<String, RunArg>,
     pub(crate) code: String,
     pub(crate) is_init: bool,
+    pub(crate) priority: Option<i32>,
 }
 
 impl RunDirective {
@@ -18,14 +19,12 @@ impl RunDirective {
         hashtag: &Token<'_>,
         is_init: bool,
     ) -> Result<Self, Error> {
+        let priority = Self::parse_priority(lexer)?;
         let name = Ident::parse(lexer)?;
         lexer.next_expected(&[TokenKind::OpenParenthesis])?;
         let mut args = FxHashMap::default();
-        while lexer
-            .clone()
-            .next_expected(&[TokenKind::CloseParenthesis])
-            .is_err()
-        {
+        let close_parenthesis = &[TokenKind::CloseParenthesis];
+        while lexer.clone().next_expected(close_parenthesis).is_err() {
             if !args.is_empty() {
                 lexer.next_expected(&[TokenKind::Comma])?;
             }
@@ -43,7 +42,7 @@ impl RunDirective {
                 }
             }
         }
-        lexer.next_expected(&[TokenKind::CloseParenthesis])?;
+        lexer.next_expected(close_parenthesis)?;
         Ok(Self {
             name,
             args,
@@ -51,7 +50,28 @@ impl RunDirective {
                 .source_slice(hashtag.span.start..lexer.offset())
                 .into(),
             is_init,
+            priority,
         })
+    }
+
+    fn parse_priority(lexer: &mut Lexer<'_>) -> Result<Option<i32>, Error> {
+        let open_bracket = &[TokenKind::OpenAngleBracket];
+        if lexer.clone().next_expected(open_bracket).is_ok() {
+            lexer.next_expected(open_bracket)?;
+            let path = lexer.path().to_path_buf();
+            let priority = lexer.next_expected(&[TokenKind::Integer])?;
+            let priority_value = priority.slice.parse::<i32>().map_err(|_| {
+                Error::DirectiveParsing(
+                    path,
+                    priority.span,
+                    "priority is not a valid `i32` value".into(),
+                )
+            })?;
+            lexer.next_expected(&[TokenKind::CloseAngleBracket])?;
+            Ok(Some(priority_value))
+        } else {
+            Ok(None)
+        }
     }
 }
 

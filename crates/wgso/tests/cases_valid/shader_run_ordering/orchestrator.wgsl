@@ -11,6 +11,6 @@ fn main() {
 }
 
 #init orchestrator()
-#run test_compute(mode=mode1)
-#run test_compute(mode=mode0)
+#run<42> test_compute(mode=mode0)
+#run<-42> test_compute(mode=mode1)
 #init test_compute(mode=mode0)
