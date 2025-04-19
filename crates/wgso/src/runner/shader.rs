@@ -1,11 +1,12 @@
 use crate::directive::run::RunDirective;
 use crate::directive::shader::ShaderDirective;
 use crate::module::Module;
+use crate::Program;
 use fxhash::FxHashMap;
 use wgpu::{
-    BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType,
-    ComputePipeline, ComputePipelineDescriptor, Device, PipelineLayoutDescriptor,
-    ShaderModuleDescriptor, ShaderStages,
+    BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
+    BufferBinding, BufferBindingType, ComputePipeline, ComputePipelineDescriptor, Device,
+    PipelineLayoutDescriptor, ShaderModuleDescriptor, ShaderStages,
 };
 
 #[derive(Debug)]
@@ -96,14 +97,24 @@ pub(crate) struct ComputeShaderRun {
 
 impl ComputeShaderRun {
     pub(crate) fn new(
+        program: &Program,
         run_directive: &RunDirective,
-        shader_module: &Module,
         buffers: &FxHashMap<String, Buffer>,
         device: &Device,
         layout: &BindGroupLayout,
     ) -> Self {
-        let bind_group = (shader_module.storage_bindings().count() > 0).then(|| {
-            Self::create_bind_group(run_directive, shader_module, buffers, device, layout)
+        let shader_module = &program.resources.compute_shaders[&run_directive.name.label].1;
+        let binding_count =
+            shader_module.storage_bindings().count() + shader_module.uniform_bindings().count();
+        let bind_group = (binding_count > 0).then(|| {
+            Self::create_bind_group(
+                program,
+                run_directive,
+                shader_module,
+                buffers,
+                device,
+                layout,
+            )
         });
         Self {
             shader_name: run_directive.name.label.clone(),
@@ -113,6 +124,7 @@ impl ComputeShaderRun {
 
     #[allow(clippy::cast_possible_truncation)]
     fn create_bind_group(
+        program: &Program,
         run_directive: &RunDirective,
         shader_module: &Module,
         buffers: &FxHashMap<String, Buffer>,
@@ -126,13 +138,24 @@ impl ComputeShaderRun {
                     binding: binding.index,
                     resource: buffers[name].as_entire_binding(),
                 });
-        let uniform_entries =
-            shader_module
-                .uniform_bindings()
-                .map(|(name, binding)| wgpu::BindGroupEntry {
-                    binding: binding.index,
-                    resource: buffers[&run_directive.args[name].value.label].as_entire_binding(),
-                });
+        let uniform_entries = shader_module.uniform_bindings().map(|(name, binding)| {
+            let type_ = program.resources.storages
+                [&run_directive.args[name].value.buffer_name.label]
+                .field_ident_type(&run_directive.args[name].value.fields)
+                .expect("internal error: type field should be validated");
+            wgpu::BindGroupEntry {
+                binding: binding.index,
+                resource: BindingResource::Buffer(BufferBinding {
+                    buffer: &buffers[&run_directive.args[name].value.buffer_name.label],
+                    offset: type_.offset.into(),
+                    size: Some(
+                        u64::from(type_.size)
+                            .try_into()
+                            .expect("internal error: type size should be validated"),
+                    ),
+                }),
+            }
+        });
         device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some(&run_directive.code),
             layout,

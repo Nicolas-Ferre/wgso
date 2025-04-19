@@ -161,7 +161,7 @@ impl Module {
                         name.clone(),
                         Binding {
                             kind: BindingKind::Storage,
-                            type_: Arc::new(Type::new(&parsed_clone, &types[var.ty])),
+                            type_: Arc::new(Type::new(&parsed_clone, &types[var.ty], 0)),
                             index: binding_index,
                         },
                     )
@@ -192,7 +192,7 @@ impl Module {
                         name.clone(),
                         Binding {
                             kind: BindingKind::Uniform,
-                            type_: Arc::new(Type::new(&parsed_clone, &types[var.ty])),
+                            type_: Arc::new(Type::new(&parsed_clone, &types[var.ty], 0)),
                             index: binding_index,
                         },
                     )

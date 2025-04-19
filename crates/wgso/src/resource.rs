@@ -6,6 +6,7 @@ use crate::Error;
 use fxhash::{FxHashMap, FxHashSet};
 use std::collections::hash_map::Entry;
 use std::sync::Arc;
+use wgpu::Limits;
 
 #[derive(Debug)]
 pub(crate) struct Resources {
@@ -143,25 +144,41 @@ impl Resources {
         errors: &mut Vec<Error>,
         shader_module: &Arc<Module>,
     ) {
+        let offset_alignment = Limits::default().min_uniform_buffer_offset_alignment;
         for (name, arg) in &directive.args {
-            if let Some(storage_type) = self.storages.get(&arg.value.label) {
-                if let Some(uniform) = shader_module.uniform_binding(name) {
-                    if &uniform.type_ != storage_type {
-                        errors.push(Error::DirectiveParsing(
-                            module.file.path.clone(),
-                            arg.value.span.clone(),
-                            format!(
-                                "found buffer with type `{}`, expected uniform type `{}`",
-                                storage_type.label, uniform.type_.label
-                            ),
-                        ));
+            if let Some(storage_type) = self.storages.get(&arg.value.buffer_name.label) {
+                match storage_type.field_ident_type(&arg.value.fields) {
+                    Ok(arg_type) => {
+                        if let Some(uniform) = shader_module.uniform_binding(name) {
+                            if &*uniform.type_ != arg_type {
+                                errors.push(Error::DirectiveParsing(
+                                    module.file.path.clone(),
+                                    arg.value.span(),
+                                    format!(
+                                        "found buffer with type `{}`, expected uniform type `{}`",
+                                        arg_type.label, uniform.type_.label
+                                    ),
+                                ));
+                            } else if arg_type.offset % offset_alignment != 0 {
+                                errors.push(Error::DirectiveParsing(
+                                    module.file.path.clone(),
+                                    arg.value.span(),
+                                    format!(
+                                        "value has an offset of {} bytes in `{}`, which is not a multiple of 256 bytes",
+                                        arg_type.offset,
+                                        arg.value.buffer_name.label,
+                                    ),
+                                ));
+                            }
+                        }
                     }
+                    Err(error) => errors.push(error),
                 }
             } else {
                 errors.push(Error::DirectiveParsing(
                     module.file.path.clone(),
-                    arg.value.span.clone(),
-                    format!("unknown storage variable `{}`", arg.value.label),
+                    arg.value.span(),
+                    format!("unknown storage variable `{}`", arg.value.buffer_name.label),
                 ));
             }
         }

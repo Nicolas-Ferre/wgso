@@ -1,3 +1,4 @@
+use crate::fields::StorageField;
 use crate::{Error, Program};
 use futures::executor;
 use fxhash::FxHashMap;
@@ -60,8 +61,8 @@ impl Runner {
                 .iter()
                 .map(|(directive, _)| {
                     ComputeShaderRun::new(
+                        &program,
                         directive,
-                        &program.resources.compute_shaders[&directive.name.label].1,
                         &buffers,
                         &device,
                         &compute_shaders[&directive.name.label].layout,
@@ -94,33 +95,36 @@ impl Runner {
     /// Read GPU buffer value.
     ///
     /// If the buffer doesn't exist, an empty vector is returned.
-    pub fn read(&self, name: &str) -> Vec<u8> {
-        if let (Some(storage), Some(buffer)) = (
-            self.program.resources.storages.get(name),
-            self.buffers.get(name),
-        ) {
-            let read_buffer = self.device.create_buffer(&BufferDescriptor {
-                label: Some("wgso:storage_read_buffer"),
-                size: storage.size.into(),
-                usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
-            let mut encoder = Self::create_encoder(&self.device);
-            encoder.copy_buffer_to_buffer(buffer, 0, &read_buffer, 0, storage.size.into());
-            let submission_index = self.queue.submit(Some(encoder.finish()));
-            let slice = read_buffer.slice(..);
-            slice.map_async(MapMode::Read, |_| ());
-            self.device
-                .poll(PollType::WaitForSubmissionIndex(submission_index))
-                .expect("cannot read buffer");
-            let view = slice.get_mapped_range();
-            let content = view.to_vec();
-            drop(view);
-            read_buffer.unmap();
-            content
-        } else {
-            vec![]
-        }
+    /// Inner fields can also be provided (e.g. `my_buffer.field.inner`).
+    pub fn read(&self, path: &str) -> Vec<u8> {
+        let Some(field) = StorageField::parse(&self.program, path) else {
+            return vec![];
+        };
+        let read_buffer = self.device.create_buffer(&BufferDescriptor {
+            label: Some("wgso:storage_read_buffer"),
+            size: field.type_.size.into(),
+            usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let mut encoder = Self::create_encoder(&self.device);
+        encoder.copy_buffer_to_buffer(
+            &self.buffers[&field.buffer_name],
+            field.type_.offset.into(),
+            &read_buffer,
+            0,
+            field.type_.size.into(),
+        );
+        let submission_index = self.queue.submit(Some(encoder.finish()));
+        let slice = read_buffer.slice(..);
+        slice.map_async(MapMode::Read, |_| ());
+        self.device
+            .poll(PollType::WaitForSubmissionIndex(submission_index))
+            .expect("cannot read buffer");
+        let view = slice.get_mapped_range();
+        let content = view.to_vec();
+        drop(view);
+        read_buffer.unmap();
+        content
     }
 
     /// Runs a step of the program.

@@ -128,6 +128,9 @@ pub(crate) enum TokenKind {
     #[token(",")]
     Comma,
 
+    #[token(".")]
+    Dot,
+
     #[token("=")]
     Equal,
 
@@ -159,6 +162,7 @@ impl TokenKind {
             Self::Run => "`run`",
             Self::Hashtag => "`#`",
             Self::Comma => "`,`",
+            Self::Dot => "`.`",
             Self::Equal => "`=`",
             Self::OpenParenthesis => "`(`",
             Self::CloseParenthesis => "`)`",

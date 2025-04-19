@@ -1,20 +1,64 @@
+use crate::directive::tokens::Ident;
+use crate::Error;
 use fxhash::FxHashMap;
 use naga::common::wgsl::{ToWgsl, TryToWgsl};
 use naga::{AddressSpace, ArraySize, ImageClass, Scalar, ScalarKind, TypeInner, VectorSize};
+use std::sync::Arc;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Eq, Clone)]
 pub(crate) struct Type {
     pub(crate) size: u32,
     pub(crate) label: String,
-    pub(crate) fields: FxHashMap<String, Type>, // used to compare two structs with same name
+    pub(crate) fields: FxHashMap<String, Arc<Type>>,
+    pub(crate) offset: u32, // relative to root parent type
+}
+
+impl PartialEq for Type {
+    fn eq(&self, other: &Self) -> bool {
+        // comparing labels is not enough, as two types can have same name but different fields
+        self.label == other.label && self.fields == other.fields
+    }
 }
 
 impl Type {
-    pub(crate) fn new(parsed_module: &naga::Module, parsed_type: &naga::Type) -> Self {
+    pub(crate) fn new(
+        parsed_module: &naga::Module,
+        parsed_type: &naga::Type,
+        global_offset: u32,
+    ) -> Self {
         Self {
             size: parsed_type.inner.size(parsed_module.to_ctx()),
             label: Self::label(parsed_module, parsed_type),
-            fields: Self::fields(parsed_module, parsed_type),
+            fields: Self::fields(parsed_module, parsed_type, global_offset),
+            offset: global_offset,
+        }
+    }
+
+    pub(crate) fn field_ident_type(&self, fields: &[Ident]) -> Result<&Self, Error> {
+        if let Some((field, other_fields)) = fields.split_first() {
+            if let Some(field_type) = self.fields.get(&field.label) {
+                field_type.field_ident_type(other_fields)
+            } else {
+                Err(Error::DirectiveParsing(
+                    field.path.clone(),
+                    field.span.clone(),
+                    format!("unknown field for type `{}`", self.label),
+                ))
+            }
+        } else {
+            Ok(self)
+        }
+    }
+
+    pub(crate) fn field_name_type(&self, fields: &[&str]) -> Option<&Self> {
+        if let Some((field, other_fields)) = fields.split_first() {
+            if let Some(field_type) = self.fields.get(*field) {
+                field_type.field_name_type(other_fields)
+            } else {
+                None
+            }
+        } else {
+            Some(self)
         }
     }
 
@@ -101,14 +145,23 @@ impl Type {
     }
 
     #[allow(clippy::wildcard_enum_match_arm)]
-    fn fields(parsed_module: &naga::Module, parsed_type: &naga::Type) -> FxHashMap<String, Self> {
+    fn fields(
+        parsed_module: &naga::Module,
+        parsed_type: &naga::Type,
+        global_offset: u32,
+    ) -> FxHashMap<String, Arc<Self>> {
         match &parsed_type.inner {
             TypeInner::Struct { members, .. } => members
                 .iter()
                 .filter_map(|member| member.name.clone().map(|name| (name, member)))
                 .map(|(name, member)| {
-                    let type_ = Self::new(parsed_module, &parsed_module.types[member.ty]);
-                    (name, type_)
+                    let parsed_member_type = &parsed_module.types[member.ty];
+                    let member_type = Self::new(
+                        parsed_module,
+                        parsed_member_type,
+                        global_offset + member.offset,
+                    );
+                    (name, Arc::new(member_type))
                 })
                 .collect(),
             _ => FxHashMap::default(),

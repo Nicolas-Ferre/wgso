@@ -3,6 +3,7 @@
 
 mod directive;
 mod error;
+mod fields;
 mod file;
 mod module;
 mod program;

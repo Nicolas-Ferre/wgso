@@ -1,0 +1,6 @@
+error: value has an offset of 4 bytes in `buffer`, which is not a multiple of 256 bytes
+ --> ./tests/cases_invalid/invalid_run_arg_alignment/root.wgsl:2:17
+  |
+2 | #run test(param=buffer.field2)
+  |                 ^^^^^^^^^^^^^
+  |
