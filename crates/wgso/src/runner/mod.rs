@@ -100,9 +100,6 @@ impl Runner {
         let Some(field) = StorageField::parse(&self.program, path) else {
             return vec![];
         };
-        let Some(buffer) = self.buffers.get(&field.buffer_name) else {
-            return vec![];
-        };
         let read_buffer = self.device.create_buffer(&BufferDescriptor {
             label: Some("wgso:storage_read_buffer"),
             size: field.type_.size.into(),
@@ -111,7 +108,7 @@ impl Runner {
         });
         let mut encoder = Self::create_encoder(&self.device);
         encoder.copy_buffer_to_buffer(
-            buffer,
+            &self.buffers[&field.buffer_name],
             field.type_.offset.into(),
             &read_buffer,
             0,

@@ -3,13 +3,13 @@
 
 mod directive;
 mod error;
+mod fields;
 mod file;
 mod module;
 mod program;
 mod resource;
 mod runner;
 mod type_;
-mod fields;
 
 pub use error::*;
 pub use program::*;
