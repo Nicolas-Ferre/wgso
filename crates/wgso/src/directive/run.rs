@@ -9,10 +9,15 @@ pub(crate) struct RunDirective {
     pub(crate) name: Ident,
     pub(crate) args: FxHashMap<String, RunArg>,
     pub(crate) code: String,
+    pub(crate) is_init: bool,
 }
 
 impl RunDirective {
-    pub(crate) fn parse(lexer: &mut Lexer<'_>, hashtag: &Token<'_>) -> Result<Self, Error> {
+    pub(crate) fn parse(
+        lexer: &mut Lexer<'_>,
+        hashtag: &Token<'_>,
+        is_init: bool,
+    ) -> Result<Self, Error> {
         let name = Ident::parse(lexer)?;
         lexer.next_expected(&[TokenKind::OpenParenthesis])?;
         let mut args = FxHashMap::default();
@@ -45,6 +50,7 @@ impl RunDirective {
             code: lexer
                 .source_slice(hashtag.span.start..lexer.offset())
                 .into(),
+            is_init,
         })
     }
 }

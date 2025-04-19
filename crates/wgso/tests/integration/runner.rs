@@ -28,3 +28,11 @@ fn read_invalid_buffer_field() {
     let runner = Runner::new("tests/cases_valid/uniforms").unwrap();
     assert_eq!(runner.read("modes.invalid"), vec![]);
 }
+
+#[test]
+fn run_init_shaders_only_once() {
+    let mut runner = Runner::new("tests/cases_valid/init_shaders").unwrap();
+    runner.run_step().unwrap();
+    runner.run_step().unwrap();
+    assert_eq!(runner.read("buffer"), vec![65, 0, 0, 0]);
+}

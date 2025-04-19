@@ -22,6 +22,7 @@ pub struct Runner {
     compute_shaders: FxHashMap<String, ComputeShaderResources>,
     compute_shader_runs: Vec<ComputeShaderRun>,
     buffers: FxHashMap<String, Buffer>,
+    is_initialized: bool,
 }
 
 impl Runner {
@@ -80,6 +81,7 @@ impl Runner {
                     compute_shaders,
                     compute_shader_runs,
                     buffers,
+                    is_initialized: false,
                 })
             }
         } else {
@@ -137,13 +139,16 @@ impl Runner {
         let mut encoder = Self::create_encoder(&self.device);
         let mut pass = Self::start_compute_pass(&mut encoder);
         for run in &self.compute_shader_runs {
-            let shader = &self.compute_shaders[&run.shader_name];
-            pass.set_pipeline(&shader.pipeline);
-            if let Some(bind_group) = &run.bind_group {
-                pass.set_bind_group(0, bind_group, &[]);
+            if !run.is_init || !self.is_initialized {
+                let shader = &self.compute_shaders[&run.shader_name];
+                pass.set_pipeline(&shader.pipeline);
+                if let Some(bind_group) = &run.bind_group {
+                    pass.set_bind_group(0, bind_group, &[]);
+                }
+                pass.dispatch_workgroups(1, 1, 1);
             }
-            pass.dispatch_workgroups(1, 1, 1);
         }
+        self.is_initialized = true;
         drop(pass);
         self.queue.submit(Some(encoder.finish()));
         if let Some(error) = executor::block_on(self.device.pop_error_scope()) {
