@@ -2,6 +2,7 @@ use crate::directive::tokens::{Ident, Lexer, Token, TokenKind};
 use crate::Error;
 use fxhash::FxHashMap;
 use std::collections::hash_map::Entry;
+use std::ops::Range;
 
 #[derive(Debug, Clone)]
 pub(crate) struct RunDirective {
@@ -51,14 +52,43 @@ impl RunDirective {
 #[derive(Debug, Clone)]
 pub(crate) struct RunArg {
     pub(crate) name: Ident,
-    pub(crate) value: Ident,
+    pub(crate) value: RunArgValue,
 }
 
 impl RunArg {
     fn parse(lexer: &mut Lexer<'_>) -> Result<Self, Error> {
         let name = Ident::parse(lexer)?;
         lexer.next_expected(&[TokenKind::Equal])?;
-        let value = Ident::parse(lexer)?;
+        let value = RunArgValue::parse(lexer)?;
         Ok(Self { name, value })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct RunArgValue {
+    pub(crate) buffer_name: Ident,
+    pub(crate) fields: Vec<Ident>,
+}
+
+impl RunArgValue {
+    pub(crate) fn span(&self) -> Range<usize> {
+        let end = self
+            .fields
+            .last()
+            .map_or(self.buffer_name.span.end, |field| field.span.end);
+        self.buffer_name.span.start..end
+    }
+
+    fn parse(lexer: &mut Lexer<'_>) -> Result<Self, Error> {
+        let buffer_name = Ident::parse(lexer)?;
+        let mut fields = vec![];
+        while lexer.clone().next_expected(&[TokenKind::Dot]).is_ok() {
+            lexer.next_expected(&[TokenKind::Dot])?;
+            fields.push(Ident::parse(lexer)?);
+        }
+        Ok(Self {
+            buffer_name,
+            fields,
+        })
     }
 }

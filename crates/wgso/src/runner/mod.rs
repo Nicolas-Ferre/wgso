@@ -60,8 +60,8 @@ impl Runner {
                 .iter()
                 .map(|(directive, _)| {
                     ComputeShaderRun::new(
+                        &program,
                         directive,
-                        &program.resources.compute_shaders[&directive.name.label].1,
                         &buffers,
                         &device,
                         &compute_shaders[&directive.name.label].layout,

@@ -1,0 +1,6 @@
+error: unknown field for type `TestStruct`
+ --> ./tests/cases_invalid/unknown_run_arg_field/root.wgsl:2:24
+  |
+2 | #run test(param=buffer.unknown)
+  |                        ^^^^^^^
+  |
