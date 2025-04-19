@@ -62,10 +62,11 @@ impl Directives {
 
     #[allow(clippy::wildcard_enum_match_arm)]
     fn parse_directive(lexer: &mut Lexer<'_>, hashtag: Token<'_>) -> Result<Directive, Error> {
-        let token = lexer.next_expected(&[TokenKind::Shader, TokenKind::Run])?;
+        let token = lexer.next_expected(&[TokenKind::Shader, TokenKind::Init, TokenKind::Run])?;
         Ok(match token.kind {
             TokenKind::Shader => Directive::Shader(ShaderDirective::parse(lexer, &hashtag)?),
-            TokenKind::Run => Directive::Run(RunDirective::parse(lexer, &hashtag)?),
+            TokenKind::Init => Directive::Run(RunDirective::parse(lexer, &hashtag, true)?),
+            TokenKind::Run => Directive::Run(RunDirective::parse(lexer, &hashtag, false)?),
             _ => unreachable!("internal error: unexpected token"),
         })
     }

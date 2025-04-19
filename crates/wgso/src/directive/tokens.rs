@@ -119,6 +119,9 @@ pub(crate) enum TokenKind {
     #[token("compute")]
     Compute,
 
+    #[token("init")]
+    Init,
+
     #[token("run")]
     Run,
 
@@ -159,6 +162,7 @@ impl TokenKind {
         match self {
             Self::Shader => "`shader`",
             Self::Compute => "`compute`",
+            Self::Init => "`init`",
             Self::Run => "`run`",
             Self::Hashtag => "`#`",
             Self::Comma => "`,`",

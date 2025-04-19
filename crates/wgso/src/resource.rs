@@ -4,6 +4,7 @@ use crate::module::{Module, Modules};
 use crate::type_::Type;
 use crate::Error;
 use fxhash::{FxHashMap, FxHashSet};
+use itertools::Itertools;
 use std::collections::hash_map::Entry;
 use std::sync::Arc;
 use wgpu::Limits;
@@ -29,6 +30,7 @@ impl Resources {
                         .runs()
                         .map(|directive| (directive.clone(), module.clone()))
                 })
+                .sorted_by_key(|(directive, module)| (!directive.is_init, module.file.path.clone()))
                 .collect(),
         };
         for (directive, module) in &resources.runs {

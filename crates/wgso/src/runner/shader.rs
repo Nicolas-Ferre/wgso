@@ -93,6 +93,7 @@ impl ComputeShaderResources {
 pub(crate) struct ComputeShaderRun {
     pub(crate) shader_name: String,
     pub(crate) bind_group: Option<BindGroup>,
+    pub(crate) is_init: bool,
 }
 
 impl ComputeShaderRun {
@@ -119,6 +120,7 @@ impl ComputeShaderRun {
         Self {
             shader_name: run_directive.name.label.clone(),
             bind_group,
+            is_init: run_directive.is_init,
         }
     }
 
