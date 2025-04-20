@@ -5,9 +5,9 @@ use annotate_snippets::{Level, Renderer, Snippet};
 use logos::Span;
 use naga::valid::ValidationError;
 use naga::WithSpan;
-use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::{error, io};
 use wgpu::naga::front::wgsl::ParseError;
 
 /// A WGSO error.
@@ -141,8 +141,6 @@ impl Error {
         files: &[Arc<File>],
         error: &WithSpan<ValidationError>,
     ) -> String {
-        let error_message = error.to_string();
-        let mut message = Level::Error.title(&error_message);
         let paths: Vec<_> = error
             .spans()
             .map(|(naga_span, label)| {
@@ -157,6 +155,12 @@ impl Error {
                 )
             })
             .collect();
+        let error_message = error.to_string();
+        let mut message = Level::Error.title(&error_message);
+        let source = error::Error::source(error.as_inner()).map(ToString::to_string);
+        if let Some(source) = &source {
+            message = message.footer(Level::Info.title(source));
+        };
         for (label, span, path, path_str) in &paths {
             message = message.snippet(
                 Snippet::source(&program.files.get(path).code)
