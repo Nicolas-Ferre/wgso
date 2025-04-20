@@ -12,7 +12,8 @@ use wgpu::{
 #[derive(Debug)]
 pub(crate) struct ComputeShaderResources {
     pub(crate) pipeline: ComputePipeline,
-    pub(crate) layout: BindGroupLayout,
+    pub(crate) layout: Option<BindGroupLayout>,
+    pub(crate) directive: ShaderDirective,
 }
 
 impl ComputeShaderResources {
@@ -22,9 +23,14 @@ impl ComputeShaderResources {
         module: &Module,
         device: &Device,
     ) -> Self {
-        let layout = Self::create_bind_group_layout(directive, module, device);
-        let pipeline = Self::create_pipeline(name, module, device, &layout);
-        Self { pipeline, layout }
+        let layout = (module.binding_count() > 0)
+            .then(|| Self::create_bind_group_layout(directive, module, device));
+        let pipeline = Self::create_pipeline(name, module, device, layout.as_ref());
+        Self {
+            pipeline,
+            layout,
+            directive: directive.clone(),
+        }
     }
 
     #[allow(clippy::cast_possible_truncation)]
@@ -67,7 +73,7 @@ impl ComputeShaderResources {
         name: &str,
         module: &Module,
         device: &Device,
-        layout: &BindGroupLayout,
+        layout: Option<&BindGroupLayout>,
     ) -> ComputePipeline {
         let label = format!("#shader<compute> {name}");
         let module = device.create_shader_module(ShaderModuleDescriptor {
@@ -78,7 +84,7 @@ impl ComputeShaderResources {
             label: Some(&label),
             layout: Some(&device.create_pipeline_layout(&PipelineLayoutDescriptor {
                 label: Some(&label),
-                bind_group_layouts: &[layout],
+                bind_group_layouts: &layout.map_or(vec![], |layout| vec![layout]),
                 push_constant_ranges: &[],
             })),
             module: &module,
@@ -102,12 +108,10 @@ impl ComputeShaderRun {
         run_directive: &RunDirective,
         buffers: &FxHashMap<String, Buffer>,
         device: &Device,
-        layout: &BindGroupLayout,
+        layout: Option<&BindGroupLayout>,
     ) -> Self {
         let shader_module = &program.resources.compute_shaders[&run_directive.name.label].1;
-        let binding_count =
-            shader_module.storage_bindings().count() + shader_module.uniform_bindings().count();
-        let bind_group = (binding_count > 0).then(|| {
+        let bind_group = layout.as_ref().map(|layout| {
             Self::create_bind_group(
                 program,
                 run_directive,

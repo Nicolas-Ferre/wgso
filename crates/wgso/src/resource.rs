@@ -33,7 +33,7 @@ impl Resources {
                 .sorted_by_key(|(directive, module)| {
                     (
                         !directive.is_init,
-                        directive.priority.unwrap_or(0),
+                        directive.priority,
                         module.file.path.clone(),
                     )
                 })

@@ -60,6 +60,10 @@ impl Module {
         })
     }
 
+    pub(crate) fn binding_count(&self) -> usize {
+        self.bindings.len()
+    }
+
     pub(crate) fn storage_bindings(&self) -> impl Iterator<Item = (&String, &Binding)> + '_ {
         self.bindings
             .iter()

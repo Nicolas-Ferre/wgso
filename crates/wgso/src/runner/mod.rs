@@ -66,7 +66,7 @@ impl Runner {
                         directive,
                         &buffers,
                         &device,
-                        &compute_shaders[&directive.name.label].layout,
+                        compute_shaders[&directive.name.label].layout.as_ref(),
                     )
                 })
                 .collect();
@@ -145,7 +145,11 @@ impl Runner {
                 if let Some(bind_group) = &run.bind_group {
                     pass.set_bind_group(0, bind_group, &[]);
                 }
-                pass.dispatch_workgroups(1, 1, 1);
+                pass.dispatch_workgroups(
+                    shader.directive.workgroup_count_x.into(),
+                    shader.directive.workgroup_count_y.into(),
+                    shader.directive.workgroup_count_z.into(),
+                );
             }
         }
         self.is_initialized = true;
