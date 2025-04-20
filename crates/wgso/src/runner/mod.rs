@@ -58,15 +58,13 @@ impl Runner {
             let window = Self::create_window(event_loop, target.size);
             let surface = Self::create_surface(&instance, window.clone());
             (window, surface)
-            // coverage: on
-        });
+        }); // coverage: on
         let adapter = Self::create_adapter(&instance, window_surface.as_ref());
         let (device, queue) = Self::create_device(&adapter);
         let surface_config = window_surface.as_ref().map(|(_, surface)| {
             // coverage: off (window cannot be tested)
             Self::create_surface_config(&adapter, &device, surface, target.size)
-            // coverage: on
-        });
+        }); // coverage: on
         let depth_buffer = Self::create_depth_buffer(&device, target.size);
         let mut program = Program::parse(folder_path);
         if program.errors.is_empty() {
