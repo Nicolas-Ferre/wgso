@@ -4,9 +4,8 @@ use logos::Logos;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-/// A parsed identifier.
 #[derive(Debug, Clone)]
-pub struct Ident {
+pub(crate) struct Ident {
     pub(crate) label: String,
     pub(crate) span: Range<usize>,
     pub(crate) path: PathBuf,
@@ -113,6 +112,9 @@ pub(crate) struct Token<'a> {
 #[derive(Logos, Debug, PartialEq, Eq, Clone, Copy)]
 #[logos(skip r"[ \t]+")]
 pub(crate) enum TokenKind {
+    #[token("import")]
+    Import,
+
     #[token("shader")]
     Shader,
 
@@ -163,6 +165,7 @@ impl TokenKind {
     // coverage: off (not all labels are used in practice)
     pub(crate) fn label(self) -> &'static str {
         match self {
+            Self::Import => "`import`",
             Self::Shader => "`shader`",
             Self::Compute => "`compute`",
             Self::Init => "`init`",

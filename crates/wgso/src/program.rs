@@ -2,6 +2,7 @@ use crate::file::Files;
 use crate::module::Modules;
 use crate::resource::Resources;
 use crate::Error;
+use itertools::Itertools;
 use std::path::Path;
 
 /// A parsed WGSO program.
@@ -14,12 +15,21 @@ pub struct Program {
 }
 
 impl Program {
-    pub(crate) fn parse(folder_path: impl AsRef<Path>) -> Self {
-        let folder_path = folder_path.as_ref();
+    /// Render found errors.
+    pub fn render_errors(&self) -> String {
+        self.errors
+            .iter()
+            .map(|err| err.render(self))
+            .unique()
+            .join("\n")
+    }
+
+    pub(crate) fn parse(root_path: impl AsRef<Path>) -> Self {
+        let root_path = root_path.as_ref();
         let mut errors = vec![];
-        let files = Files::new(folder_path, &mut errors);
-        let modules = Modules::new(&files, &mut errors);
-        let resources = Resources::new(&modules, &mut errors);
+        let files = Files::new(root_path, &mut errors);
+        let modules = Modules::new(root_path, &files, &mut errors);
+        let resources = Resources::new(&files, &modules, &mut errors);
         Self {
             errors,
             files,

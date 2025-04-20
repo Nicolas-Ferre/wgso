@@ -60,7 +60,7 @@ impl Runner {
                 .resources
                 .runs
                 .iter()
-                .map(|(directive, _)| {
+                .map(|directive| {
                     ComputeShaderRun::new(
                         &program,
                         directive,

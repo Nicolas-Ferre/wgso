@@ -29,8 +29,12 @@ impl Files {
             .sorted_unstable_by_key(|file| &file.path)
     }
 
-    pub(crate) fn code(&self, path: &Path) -> &str {
-        &self.files[path].code
+    pub(crate) fn get(&self, path: &Path) -> &Arc<File> {
+        &self.files[path]
+    }
+
+    pub(crate) fn exists(&self, path: &Path) -> bool {
+        self.files.contains_key(path)
     }
 
     fn list_wgsl_files_recursively(path: &Path, errors: &mut Vec<Error>) -> Vec<File> {
