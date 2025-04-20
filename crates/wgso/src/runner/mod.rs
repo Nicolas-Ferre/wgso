@@ -54,51 +54,27 @@ impl Runner {
         };
         let instance = Self::create_instance();
         let window_surface = event_loop.map(|event_loop| {
+            // coverage: off (window cannot be tested)
             let window = Self::create_window(event_loop, target.size);
             let surface = Self::create_surface(&instance, window.clone());
             (window, surface)
+            // coverage: on
         });
-        let adapter = Self::create_adapter(&instance);
+        let adapter = Self::create_adapter(&instance, window_surface.as_ref());
         let (device, queue) = Self::create_device(&adapter);
         let surface_config = window_surface.as_ref().map(|(_, surface)| {
+            // coverage: off (window cannot be tested)
             Self::create_surface_config(&adapter, &device, surface, target.size)
+            // coverage: on
         });
         let depth_buffer = Self::create_depth_buffer(&device, target.size);
         let mut program = Program::parse(folder_path);
         if program.errors.is_empty() {
             device.push_error_scope(ErrorFilter::Validation);
-            let buffers = program
-                .resources
-                .storages
-                .iter()
-                .map(|(name, type_)| {
-                    let size = type_.size.into();
-                    (name.clone(), Self::create_buffer(&device, name, size))
-                })
-                .collect();
-            let compute_shaders = program
-                .resources
-                .compute_shaders
-                .iter()
-                .map(|(name, (directive, module))| {
-                    let shader = ComputeShaderResources::new(name, directive, module, &device);
-                    (name.clone(), shader)
-                })
-                .collect::<FxHashMap<_, _>>();
-            let compute_shader_runs = program
-                .resources
-                .runs
-                .iter()
-                .map(|directive| {
-                    ComputeShaderRun::new(
-                        &program,
-                        directive,
-                        &buffers,
-                        &device,
-                        compute_shaders[&directive.name.label].layout.as_ref(),
-                    )
-                })
-                .collect();
+            let buffers = Self::create_buffers(&device, &program);
+            let compute_shaders = Self::create_compute_shaders(&device, &program);
+            let compute_shader_runs =
+                Self::create_compute_shader_runs(&device, &program, &buffers, &compute_shaders);
             if let Some(error) = executor::block_on(device.pop_error_scope()) {
                 program.errors.push(Self::convert_wgpu_error(error));
                 Err(program.with_sorted_errors())
@@ -106,6 +82,7 @@ impl Runner {
                 let target = if let (Some((window, surface)), Some(surface_config)) =
                     (window_surface, surface_config)
                 {
+                    // coverage: off (window cannot be tested)
                     Target {
                         inner: TargetSpecialized::Window(WindowTarget {
                             window,
@@ -115,6 +92,7 @@ impl Runner {
                         config: target,
                         depth_buffer,
                     }
+                    // coverage: on
                 } else {
                     let texture = Self::create_target_texture(&device, target.size);
                     let view = texture.create_view(&TextureViewDescriptor::default());
@@ -273,20 +251,6 @@ impl Runner {
         }
     }
 
-    /// Requests window surface redraw.
-    ///
-    /// # Panics
-    ///
-    /// This will panic if the surface is not a window.
-    pub fn request_redraw(&self) {
-        match &self.target.inner {
-            TargetSpecialized::Window(target) => target.window.request_redraw(),
-            TargetSpecialized::Texture(_) => {
-                unreachable!("surface should be a window")
-            }
-        }
-    }
-
     fn convert_wgpu_error(error: wgpu::Error) -> Error {
         Error::WgpuValidation(match error {
             wgpu::Error::Validation { description, .. } => description,
@@ -304,11 +268,14 @@ impl Runner {
         })
     }
 
-    fn create_adapter(instance: &Instance) -> Adapter {
+    fn create_adapter(
+        instance: &Instance,
+        window_surface: Option<&(Arc<Window>, Surface<'_>)>,
+    ) -> Adapter {
         let adapter_request = RequestAdapterOptions {
             power_preference: PowerPreference::default(),
             force_fallback_adapter: false,
-            compatible_surface: None,
+            compatible_surface: window_surface.map(|(_, surface)| surface),
         };
         executor::block_on(instance.request_adapter(&adapter_request))
             .expect("no supported graphic adapter found")
@@ -416,6 +383,55 @@ impl Runner {
         })
     }
 
+    fn create_buffers(device: &Device, program: &Program) -> FxHashMap<String, Buffer> {
+        program
+            .resources
+            .storages
+            .iter()
+            .map(|(name, type_)| {
+                let size = type_.size.into();
+                (name.clone(), Self::create_buffer(device, name, size))
+            })
+            .collect()
+    }
+
+    fn create_compute_shaders(
+        device: &Device,
+        program: &Program,
+    ) -> FxHashMap<String, ComputeShaderResources> {
+        program
+            .resources
+            .compute_shaders
+            .iter()
+            .map(|(name, (directive, module))| {
+                let shader = ComputeShaderResources::new(name, directive, module, device);
+                (name.clone(), shader)
+            })
+            .collect()
+    }
+
+    fn create_compute_shader_runs(
+        device: &Device,
+        program: &Program,
+        buffers: &FxHashMap<String, Buffer>,
+        compute_shaders: &FxHashMap<String, ComputeShaderResources>,
+    ) -> Vec<ComputeShaderRun> {
+        program
+            .resources
+            .runs
+            .iter()
+            .map(|directive| {
+                ComputeShaderRun::new(
+                    program,
+                    directive,
+                    buffers,
+                    device,
+                    compute_shaders[&directive.name.label].layout.as_ref(),
+                )
+            })
+            .collect()
+    }
+
     fn calculate_padded_row_bytes(width: u32) -> u32 {
         let unpadded_bytes_per_row = Self::calculate_unpadded_row_bytes(width);
         let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
@@ -452,6 +468,20 @@ impl Runner {
     }
 
     // coverage: off (window cannot be tested)
+
+    /// Requests window surface redraw.
+    ///
+    /// # Panics
+    ///
+    /// This will panic if the surface is not a window.
+    pub fn request_redraw(&self) {
+        match &self.target.inner {
+            TargetSpecialized::Window(target) => target.window.request_redraw(),
+            TargetSpecialized::Texture(_) => {
+                unreachable!("surface should be a window")
+            }
+        }
+    }
 
     /// Refreshes the rendering surface.
     pub fn refresh_surface(&mut self) {
