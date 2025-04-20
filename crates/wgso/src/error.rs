@@ -1,21 +1,24 @@
 use crate::directive::tokens::Ident;
+use crate::file::File;
 use crate::Program;
 use annotate_snippets::{Level, Renderer, Snippet};
 use logos::Span;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use wgpu::naga::front::wgsl::ParseError;
 
 /// A WGSO error.
 #[derive(Debug)]
 #[non_exhaustive]
+#[allow(private_interfaces)]
 pub enum Error {
     /// An I/O error.
     Io(PathBuf, io::Error),
     /// A WGPU validation error.
     WgpuValidation(String),
     /// A Naga parsing error.
-    WgslParsing(PathBuf, ParseError),
+    WgslParsing(Vec<Arc<File>>, ParseError),
     /// A directive parsing error.
     DirectiveParsing(PathBuf, Span, String),
     /// Two shaders have been found with the same name.
@@ -32,7 +35,7 @@ impl Error {
         match self {
             Self::Io(path, error) => Self::io_message(path, error),
             Self::WgpuValidation(error) => Self::wgpu_validation_message(error),
-            Self::WgslParsing(path, error) => Self::wgsl_parsing_message(program, path, error),
+            Self::WgslParsing(files, error) => Self::wgsl_parsing_message(program, files, error),
             Self::DirectiveParsing(path, span, error) => {
                 Self::directive_parsing_message(program, path, span.clone(), error)
             }
@@ -51,13 +54,35 @@ impl Error {
     pub(crate) fn path(&self) -> Option<&Path> {
         match self {
             Self::Io(path, _) // no-coverage (not easy to test)
-            | Self::WgslParsing(path, _)
             | Self::DirectiveParsing(path, _, _)
             | Self::StorageConflict(path, _, _)
             | Self::UnsupportedWgslFeature(path, _) => Some(path),
+            Self::WgslParsing(module, error) => Some(Self::wgsl_parsing_error_path(module, error)),
             Self::ShaderConflict(first, _) => Some(&first.path),
             Self::WgpuValidation(_) => None, // no-coverage (never called in practice)
         }
+    }
+
+    fn wgsl_parsing_error_path<'a>(files: &'a [Arc<File>], error: &'a ParseError) -> &'a Path {
+        Self::merged_file(
+            files,
+            error
+                .labels()
+                .next()
+                .map_or(0, |(span, _)| span.to_range().unwrap_or(0..0).start),
+        )
+        .0
+    }
+
+    fn merged_file(files: &[Arc<File>], offset: usize) -> (&Path, usize) {
+        let mut current_offset = 0;
+        for file in files {
+            if offset < current_offset + file.code.len() {
+                return (&file.path, current_offset);
+            }
+            current_offset += file.code.len();
+        }
+        unreachable!("internal error: invalid span")
     }
 
     fn io_message(path: &Path, error: &io::Error) -> String {
@@ -67,22 +92,26 @@ impl Error {
         )
     }
 
-    fn wgsl_parsing_message(program: &Program, path: &Path, error: &ParseError) -> String {
-        let path_str = path.display().to_string();
-        let mut snippet = Snippet::source(program.files.code(path))
-            .fold(true)
-            .origin(&path_str);
-        for (span, label) in error.labels() {
-            snippet = snippet.annotation(
-                Level::Error
-                    .span(span.to_range().unwrap_or(0..0))
-                    .label(label),
+    fn wgsl_parsing_message(program: &Program, files: &[Arc<File>], error: &ParseError) -> String {
+        let mut message = Level::Error.title(error.message());
+        let paths: Vec<_> = error
+            .labels()
+            .map(|(span, _)| {
+                let span = span.to_range().unwrap_or(0..0);
+                let (path, offset) = Self::merged_file(files, span.start);
+                let path_str = path.display().to_string();
+                (span.start - offset..span.end - offset, path, path_str)
+            })
+            .collect();
+        for ((_, label), (span, path, path_str)) in error.labels().zip(&paths) {
+            message = message.snippet(
+                Snippet::source(program.files.code(path))
+                    .fold(true)
+                    .origin(path_str)
+                    .annotation(Level::Error.span(span.clone()).label(label)),
             );
         }
-        format!(
-            "{}",
-            Renderer::styled().render(Level::Error.title(error.message()).snippet(snippet))
-        )
+        format!("{}", Renderer::styled().render(message))
     }
 
     fn wgpu_validation_message(error: &str) -> String {

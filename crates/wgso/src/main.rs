@@ -88,8 +88,6 @@ impl AnalyzeArgs {
 }
 
 fn trigger_errors(program: &Program) {
-    for error in &program.errors {
-        println!("{}", error.render(program));
-    }
+    println!("{}", program.render_errors());
     process::exit(1);
 }

@@ -1,11 +1,12 @@
 use crate::file::{File, Files};
 use crate::type_::Type;
 use crate::Error;
-use fxhash::FxHashMap;
+use fxhash::{FxHashMap, FxHashSet};
 use itertools::Itertools;
 use naga::back::wgsl::{Writer, WriterFlags};
 use naga::valid::{Capabilities, ModuleInfo, ValidationFlags, Validator};
-use std::path::Path;
+use std::iter;
+use std::path::{Path, PathBuf};
 use std::slice::Iter;
 use std::sync::Arc;
 use wgpu::naga;
@@ -19,11 +20,11 @@ pub(crate) struct Modules {
 }
 
 impl Modules {
-    pub(crate) fn new(files: &Files, errors: &mut Vec<Error>) -> Self {
+    pub(crate) fn new(root_path: &Path, files: &Files, errors: &mut Vec<Error>) -> Self {
         Self {
             modules: files
                 .iter()
-                .filter_map(|file| match Module::new(file) {
+                .filter_map(|file| match Module::new(root_path, file, files) {
                     Ok(module) => Some(Arc::new(module)),
                     Err(error) => {
                         errors.push(error);
@@ -41,20 +42,20 @@ impl Modules {
 
 #[derive(Debug)]
 pub(crate) struct Module {
-    pub(crate) file: Arc<File>,
+    pub(crate) files: Vec<Arc<File>>,
     pub(crate) bindings: FxHashMap<String, Binding>,
     pub(crate) code: String,
 }
 
 impl Module {
-    pub(crate) fn new(file: &Arc<File>) -> Result<Self, Error> {
-        let code = Self::extract_code(file);
+    pub(crate) fn new(root_path: &Path, file: &Arc<File>, files: &Files) -> Result<Self, Error> {
+        let (code, files) = Self::extract_code(root_path, file, files)?;
         let mut parsed = naga::front::wgsl::parse_str(&code)
-            .map_err(|error| Error::WgslParsing(file.path.clone(), error))?;
+            .map_err(|error| Error::WgslParsing(files.clone(), error))?;
         Self::check_unsupported_features(&file.path, &parsed)?;
         let bindings = Self::configure_bindings(&mut parsed);
         Ok(Self {
-            file: file.clone(),
+            files,
             bindings,
             code: Self::write_code(&parsed),
         })
@@ -101,17 +102,58 @@ impl Module {
         code
     }
 
-    fn extract_code(file: &Arc<File>) -> String {
-        file.code
-            .lines()
-            .map(|line| {
-                if line.trim_start().starts_with('#') {
-                    format!("{: ^1$}", "", line.len())
-                } else {
-                    line.into()
-                }
+    fn extract_code(
+        root_path: &Path,
+        file: &Arc<File>,
+        files: &Files,
+    ) -> Result<(String, Vec<Arc<File>>), Error> {
+        let files: Vec<_> = Self::extract_file_paths(root_path, file, files)?
+            .into_iter()
+            .map(|path| files.get(&path).clone())
+            .collect();
+        let code = files
+            .iter()
+            .map(|file| {
+                file.code
+                    .lines()
+                    .map(|line| {
+                        if line.trim_start().starts_with('#') {
+                            format!("{: ^1$}\n", "", line.len())
+                        } else {
+                            format!("{line}\n")
+                        }
+                    })
+                    .join("")
             })
-            .join("\n")
+            .join("");
+        Ok((code, files))
+    }
+
+    fn extract_file_paths(
+        root_path: &Path,
+        file: &Arc<File>,
+        files: &Files,
+    ) -> Result<Vec<PathBuf>, Error> {
+        let mut paths: FxHashSet<_> = iter::once(file.path.clone()).collect();
+        let mut last_path_count = 0;
+        while last_path_count < paths.len() {
+            last_path_count = paths.len();
+            for path in paths.clone() {
+                for directive in files.imports(&path) {
+                    let path = directive.file_path(root_path);
+                    if files.exists(&path) {
+                        paths.insert(path);
+                    } else {
+                        return Err(Error::DirectiveParsing(
+                            directive.path[0].path.clone(),
+                            directive.span.clone(),
+                            format!("file at '{}' does not exist", path.display()),
+                        ));
+                    }
+                }
+            }
+        }
+        Ok(paths.into_iter().collect())
     }
 
     fn check_unsupported_features(path: &Path, parsed: &naga::Module) -> Result<(), Error> {

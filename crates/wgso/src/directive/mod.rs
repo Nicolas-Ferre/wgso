@@ -1,9 +1,11 @@
+use crate::directive::import::ImportDirective;
 use crate::Error;
 use run::RunDirective;
 use shader::ShaderDirective;
 use std::path::Path;
 use tokens::{Lexer, Token, TokenKind};
 
+pub(crate) mod import;
 pub(crate) mod run;
 pub(crate) mod shader;
 pub(crate) mod tokens;
@@ -42,12 +44,21 @@ impl Directives {
         Self { directives }
     }
 
+    pub(crate) fn imports(&self) -> impl Iterator<Item = &ImportDirective> + '_ {
+        self.directives
+            .iter()
+            .filter_map(|directive| match directive {
+                Directive::Import(directive) => Some(directive),
+                Directive::Shader(_) | Directive::Run(_) => None,
+            })
+    }
+
     pub(crate) fn compute_shaders(&self) -> impl Iterator<Item = &ShaderDirective> + '_ {
         self.directives
             .iter()
             .filter_map(|directive| match directive {
                 Directive::Shader(directive) => Some(directive),
-                Directive::Run(_) => None,
+                Directive::Import(_) | Directive::Run(_) => None,
             })
     }
 
@@ -55,15 +66,21 @@ impl Directives {
         self.directives
             .iter()
             .filter_map(|directive| match directive {
-                Directive::Shader(_) => None,
                 Directive::Run(directive) => Some(directive),
+                Directive::Import(_) | Directive::Shader(_) => None,
             })
     }
 
     #[allow(clippy::wildcard_enum_match_arm)]
     fn parse_directive(lexer: &mut Lexer<'_>, hashtag: Token<'_>) -> Result<Directive, Error> {
-        let token = lexer.next_expected(&[TokenKind::Shader, TokenKind::Init, TokenKind::Run])?;
+        let token = lexer.next_expected(&[
+            TokenKind::Import,
+            TokenKind::Shader,
+            TokenKind::Init,
+            TokenKind::Run,
+        ])?;
         Ok(match token.kind {
+            TokenKind::Import => Directive::Import(ImportDirective::parse(lexer, &hashtag)?),
             TokenKind::Shader => Directive::Shader(ShaderDirective::parse(lexer, &hashtag)?),
             TokenKind::Init => Directive::Run(RunDirective::parse(lexer, &hashtag, true)?),
             TokenKind::Run => Directive::Run(RunDirective::parse(lexer, &hashtag, false)?),
@@ -74,6 +91,7 @@ impl Directives {
 
 #[derive(Debug)]
 enum Directive {
+    Import(ImportDirective),
     Shader(ShaderDirective),
     Run(RunDirective),
 }
