@@ -1,6 +1,6 @@
-error: workgroup count is not a valid `u32` value
+error: workgroup count is not a valid `u16` value
  --> ./tests/cases_invalid/invalid_workgroup_count/root.wgsl:1:18
   |
-1 | #shader<compute, 9999999999999> test
-  |                  ^^^^^^^^^^^^^
+1 | #shader<compute, 99999> test
+  |                  ^^^^^
   |

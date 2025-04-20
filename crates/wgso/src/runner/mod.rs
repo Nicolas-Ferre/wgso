@@ -66,7 +66,7 @@ impl Runner {
                         directive,
                         &buffers,
                         &device,
-                        &compute_shaders[&directive.name.label].layout,
+                        compute_shaders[&directive.name.label].layout.as_ref(),
                     )
                 })
                 .collect();
@@ -146,9 +146,9 @@ impl Runner {
                     pass.set_bind_group(0, bind_group, &[]);
                 }
                 pass.dispatch_workgroups(
-                    shader.directive.workgroup_count_x,
-                    shader.directive.workgroup_count_y,
-                    shader.directive.workgroup_count_z,
+                    shader.directive.workgroup_count_x.into(),
+                    shader.directive.workgroup_count_y.into(),
+                    shader.directive.workgroup_count_z.into(),
                 );
             }
         }

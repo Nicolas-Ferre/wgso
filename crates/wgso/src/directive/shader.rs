@@ -5,9 +5,9 @@ use crate::Error;
 pub(crate) struct ShaderDirective {
     pub(crate) name: Ident,
     pub(crate) code: String,
-    pub(crate) workgroup_count_x: u32,
-    pub(crate) workgroup_count_y: u32,
-    pub(crate) workgroup_count_z: u32,
+    pub(crate) workgroup_count_x: u16,
+    pub(crate) workgroup_count_y: u16,
+    pub(crate) workgroup_count_z: u16,
 }
 
 impl ShaderDirective {
@@ -29,16 +29,16 @@ impl ShaderDirective {
         })
     }
 
-    fn parse_workgroup_count(lexer: &mut Lexer<'_>) -> Result<u32, Error> {
+    fn parse_workgroup_count(lexer: &mut Lexer<'_>) -> Result<u16, Error> {
         if lexer.clone().next_expected(&[TokenKind::Comma]).is_ok() {
             lexer.next_expected(&[TokenKind::Comma])?;
             let path = lexer.path().to_path_buf();
             let count = lexer.next_expected(&[TokenKind::Integer])?;
-            Ok(count.slice.parse::<u32>().map_err(|_| {
+            Ok(count.slice.parse::<u16>().map_err(|_| {
                 Error::DirectiveParsing(
                     path,
                     count.span,
-                    "workgroup count is not a valid `u32` value".into(),
+                    "workgroup count is not a valid `u16` value".into(),
                 )
             })?)
         } else {
