@@ -1,3 +1,9 @@
+error: expected `import`, `shader`, `init` or `run`
+ --> ./tests/cases_invalid/wgsl_validation_error/other_error.wgsl:1:2
+  |
+1 | #invalid
+  |  ^^^^^^^
+  |
 error: Function [0] 'increment' is invalid
  --> ./tests/cases_invalid/wgsl_validation_error/root.wgsl:3:1
   |
