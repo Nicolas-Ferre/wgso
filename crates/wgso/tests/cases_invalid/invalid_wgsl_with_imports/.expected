@@ -1,6 +1,6 @@
 error: expected global item (`struct`, `const`, `var`, `alias`, `fn`, `diagnostic`, `enable`, `requires`, `;`) or the end of the file, found "invalid"
- --> ./tests/cases_invalid/invalid_wgsl_with_imports/invalid.wgsl:3:1
+ --> ./tests/cases_invalid/invalid_wgsl_with_imports/invalid.wgsl:5:1
   |
-3 | invalid
+5 | invalid
   | ^^^^^^^ expected global item (`struct`, `const`, `var`, `alias`, `fn`, `diagnostic`, `enable`, `requires`, `;`) or the end of the file
   |

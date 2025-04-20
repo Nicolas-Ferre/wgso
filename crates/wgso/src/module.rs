@@ -55,9 +55,9 @@ impl Module {
         Self::check_unsupported_features(&file.path, &parsed)?;
         let bindings = Self::configure_bindings(&mut parsed);
         Ok(Self {
+            code: Self::write_code(&parsed, &files)?,
             files,
             bindings,
-            code: Self::write_code(&parsed),
         })
     }
 
@@ -93,13 +93,13 @@ impl Module {
             .map(|(_, binding)| binding)
     }
 
-    fn write_code(parsed: &naga::Module) -> String {
-        let module_info = Self::validate_code(parsed);
+    fn write_code(parsed: &naga::Module, files: &[Arc<File>]) -> Result<String, Error> {
+        let module_info = Self::validate_code(parsed, files)?;
         let mut code = String::new();
         Writer::new(&mut code, WriterFlags::empty())
             .write(parsed, &module_info)
             .expect("internal error: parsed WGSL code should be valid");
-        code
+        Ok(code)
     }
 
     fn extract_code(
@@ -167,14 +167,14 @@ impl Module {
         }
     }
 
-    fn validate_code(parsed: &naga::Module) -> ModuleInfo {
+    fn validate_code(parsed: &naga::Module, files: &[Arc<File>]) -> Result<ModuleInfo, Error> {
         match Validator::new(ValidationFlags::all(), Capabilities::all())
             .subgroup_stages(naga::valid::ShaderStages::all())
             .subgroup_operations(naga::valid::SubgroupOperationSet::all())
             .validate(parsed)
         {
-            Ok(module_info) => module_info,
-            Err(err) => unreachable!("internal error: WGSL parsed module should be valid: {err}"),
+            Ok(module_info) => Ok(module_info),
+            Err(error) => Err(Error::WgslValidation(files.to_vec(), error)),
         }
     }
 

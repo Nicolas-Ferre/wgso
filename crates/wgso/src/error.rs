@@ -3,6 +3,8 @@ use crate::file::File;
 use crate::Program;
 use annotate_snippets::{Level, Renderer, Snippet};
 use logos::Span;
+use naga::valid::ValidationError;
+use naga::WithSpan;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -19,6 +21,8 @@ pub enum Error {
     WgpuValidation(String),
     /// A Naga parsing error.
     WgslParsing(Vec<Arc<File>>, ParseError),
+    /// A Naga validation error.
+    WgslValidation(Vec<Arc<File>>, WithSpan<ValidationError>),
     /// A directive parsing error.
     DirectiveParsing(PathBuf, Span, String),
     /// Two shaders have been found with the same name.
@@ -36,6 +40,9 @@ impl Error {
             Self::Io(path, error) => Self::io_message(path, error),
             Self::WgpuValidation(error) => Self::wgpu_validation_message(error),
             Self::WgslParsing(files, error) => Self::wgsl_parsing_message(program, files, error),
+            Self::WgslValidation(files, error) => {
+                Self::wgsl_validation_message(program, files, error)
+            }
             Self::DirectiveParsing(path, span, error) => {
                 Self::directive_parsing_message(program, path, span.clone(), error)
             }
@@ -58,6 +65,7 @@ impl Error {
             | Self::StorageConflict(path, _, _)
             | Self::UnsupportedWgslFeature(path, _) => Some(path),
             Self::WgslParsing(module, error) => Some(Self::wgsl_parsing_error_path(module, error)),
+            Self::WgslValidation(module, error) => Some(Self::wgsl_validation_error_path(module, error)),
             Self::ShaderConflict(first, _) => Some(&first.path),
             Self::WgpuValidation(_) => None, // no-coverage (never called in practice)
         }
@@ -68,6 +76,20 @@ impl Error {
             files,
             error
                 .labels()
+                .next()
+                .map_or(0, |(span, _)| span.to_range().unwrap_or(0..0).start),
+        )
+        .0
+    }
+
+    fn wgsl_validation_error_path<'a>(
+        files: &'a [Arc<File>],
+        error: &'a WithSpan<ValidationError>,
+    ) -> &'a Path {
+        Self::merged_file(
+            files,
+            error
+                .spans()
                 .next()
                 .map_or(0, |(span, _)| span.to_range().unwrap_or(0..0).start),
         )
@@ -96,14 +118,46 @@ impl Error {
         let mut message = Level::Error.title(error.message());
         let paths: Vec<_> = error
             .labels()
-            .map(|(span, _)| {
-                let span = span.to_range().unwrap_or(0..0);
+            .map(|(naga_span, _)| {
+                let span = naga_span.to_range().unwrap_or(0..0);
                 let (path, offset) = Self::merged_file(files, span.start);
                 let path_str = path.display().to_string();
                 (span.start - offset..span.end - offset, path, path_str)
             })
             .collect();
         for ((_, label), (span, path, path_str)) in error.labels().zip(&paths) {
+            message = message.snippet(
+                Snippet::source(&program.files.get(path).code)
+                    .fold(true)
+                    .origin(path_str)
+                    .annotation(Level::Error.span(span.clone()).label(label)),
+            );
+        }
+        format!("{}", Renderer::styled().render(message))
+    }
+
+    fn wgsl_validation_message(
+        program: &Program,
+        files: &[Arc<File>],
+        error: &WithSpan<ValidationError>,
+    ) -> String {
+        let error_message = error.to_string();
+        let mut message = Level::Error.title(&error_message);
+        let paths: Vec<_> = error
+            .spans()
+            .map(|(naga_span, label)| {
+                let span = naga_span.to_range().unwrap_or(0..0);
+                let (path, offset) = Self::merged_file(files, span.start);
+                let path_str = path.display().to_string();
+                (
+                    label,
+                    span.start - offset..span.end - offset,
+                    path,
+                    path_str,
+                )
+            })
+            .collect();
+        for (label, span, path, path_str) in &paths {
             message = message.snippet(
                 Snippet::source(&program.files.get(path).code)
                     .fold(true)
