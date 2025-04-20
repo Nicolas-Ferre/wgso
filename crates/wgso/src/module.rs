@@ -139,7 +139,7 @@ impl Module {
         while last_path_count < paths.len() {
             last_path_count = paths.len();
             for path in paths.clone() {
-                for directive in files.imports(&path) {
+                for directive in files.get(&path).directives.imports() {
                     let path = directive.file_path(root_path);
                     if files.exists(&path) {
                         paths.insert(path);

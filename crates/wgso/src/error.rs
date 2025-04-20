@@ -105,7 +105,7 @@ impl Error {
             .collect();
         for ((_, label), (span, path, path_str)) in error.labels().zip(&paths) {
             message = message.snippet(
-                Snippet::source(program.files.code(path))
+                Snippet::source(&program.files.get(path).code)
                     .fold(true)
                     .origin(path_str)
                     .annotation(Level::Error.span(span.clone()).label(label)),
@@ -128,7 +128,7 @@ impl Error {
             "{}",
             Renderer::styled().render(
                 Level::Error.title(error).snippet(
-                    Snippet::source(program.files.code(path))
+                    Snippet::source(&program.files.get(path).code)
                         .fold(true)
                         .origin(&path.display().to_string())
                         .annotation(Level::Error.span(span))
@@ -144,7 +144,7 @@ impl Error {
                 Level::Error
                     .title(&format!("same name `{}` used for two shaders", first.label))
                     .snippet(
-                        Snippet::source(program.files.code(&first.path))
+                        Snippet::source(&program.files.get(&first.path).code)
                             .fold(true)
                             .origin(&first.path.display().to_string())
                             .annotation(
@@ -154,7 +154,7 @@ impl Error {
                             )
                     )
                     .snippet(
-                        Snippet::source(program.files.code(&second.path))
+                        Snippet::source(&program.files.get(&second.path).code)
                             .fold(true)
                             .origin(&second.path.display().to_string())
                             .annotation(
@@ -181,12 +181,12 @@ impl Error {
                         "same name `{name}` used for two storage variables"
                     ))
                     .snippet(
-                        Snippet::source(program.files.code(first))
+                        Snippet::source(&program.files.get(first).code)
                             .fold(true)
                             .origin(&first.display().to_string())
                     )
                     .snippet(
-                        Snippet::source(program.files.code(second))
+                        Snippet::source(&program.files.get(second).code)
                             .fold(true)
                             .origin(&second.display().to_string())
                     )
@@ -199,7 +199,7 @@ impl Error {
             "{}",
             Renderer::styled().render(
                 Level::Error.title(message).snippet(
-                    Snippet::source(program.files.code(path))
+                    Snippet::source(&program.files.get(path).code)
                         .fold(true)
                         .origin(&path.display().to_string())
                 )

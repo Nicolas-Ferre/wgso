@@ -1,4 +1,3 @@
-use crate::directive::import::ImportDirective;
 use crate::directive::Directives;
 use crate::Error;
 use fxhash::FxHashMap;
@@ -32,14 +31,6 @@ impl Files {
 
     pub(crate) fn get(&self, path: &Path) -> &Arc<File> {
         &self.files[path]
-    }
-
-    pub(crate) fn code(&self, path: &Path) -> &str {
-        &self.files[path].code
-    }
-
-    pub(crate) fn imports(&self, path: &Path) -> impl Iterator<Item = &ImportDirective> + '_ {
-        self.files[path].directives.imports()
     }
 
     pub(crate) fn exists(&self, path: &Path) -> bool {

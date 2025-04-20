@@ -8,8 +8,11 @@ error: same name `duplicated` used for two storage variables
 error: redefinition of `duplicated`
  --> ./tests/cases_invalid/duplicated_buffers/inside_same_file.wgsl:2:26
   |
-1 | var<storage, read_write> duplicated: u32;
-  |                          ^^^^^^^^^^ previous definition of `duplicated`
 2 | var<storage, read_write> duplicated: i32;
   |                          ^^^^^^^^^^ redefinition of `duplicated`
+  |
+ ::: ./tests/cases_invalid/duplicated_buffers/inside_same_file.wgsl:1:26
+  |
+1 | var<storage, read_write> duplicated: u32;
+  |                          ^^^^^^^^^^ previous definition of `duplicated`
   |
