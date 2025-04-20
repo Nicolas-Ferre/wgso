@@ -110,6 +110,9 @@ impl Module {
         let files: Vec<_> = Self::extract_file_paths(root_path, file, files)?
             .into_iter()
             .map(|path| files.get(&path).clone())
+            .sorted_unstable_by_key(|current_file| {
+                (current_file.path != file.path, file.path.clone())
+            })
             .collect();
         let code = files
             .iter()

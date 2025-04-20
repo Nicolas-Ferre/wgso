@@ -73,11 +73,7 @@ impl Resources {
     ) -> FxHashMap<String, (ShaderDirective, Arc<Module>)> {
         let mut shaders = FxHashMap::default();
         for module in modules.iter() {
-            let compute_shader_directives = module
-                .files
-                .iter()
-                .flat_map(|file| file.directives.compute_shaders());
-            for directive in compute_shader_directives {
+            for directive in module.files[0].directives.compute_shaders() {
                 match shaders.entry(directive.name.label.clone()) {
                     Entry::Vacant(entry) => {
                         entry.insert((directive.clone(), module.clone()));
