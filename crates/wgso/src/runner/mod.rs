@@ -145,7 +145,11 @@ impl Runner {
                 if let Some(bind_group) = &run.bind_group {
                     pass.set_bind_group(0, bind_group, &[]);
                 }
-                pass.dispatch_workgroups(1, 1, 1);
+                pass.dispatch_workgroups(
+                    shader.directive.workgroup_count_x,
+                    shader.directive.workgroup_count_y,
+                    shader.directive.workgroup_count_z,
+                );
             }
         }
         self.is_initialized = true;

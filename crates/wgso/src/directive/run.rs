@@ -10,7 +10,7 @@ pub(crate) struct RunDirective {
     pub(crate) args: FxHashMap<String, RunArg>,
     pub(crate) code: String,
     pub(crate) is_init: bool,
-    pub(crate) priority: Option<i32>,
+    pub(crate) priority: i32,
 }
 
 impl RunDirective {
@@ -54,7 +54,7 @@ impl RunDirective {
         })
     }
 
-    fn parse_priority(lexer: &mut Lexer<'_>) -> Result<Option<i32>, Error> {
+    fn parse_priority(lexer: &mut Lexer<'_>) -> Result<i32, Error> {
         let open_bracket = &[TokenKind::OpenAngleBracket];
         if lexer.clone().next_expected(open_bracket).is_ok() {
             lexer.next_expected(open_bracket)?;
@@ -68,9 +68,9 @@ impl RunDirective {
                 )
             })?;
             lexer.next_expected(&[TokenKind::CloseAngleBracket])?;
-            Ok(Some(priority_value))
+            Ok(priority_value)
         } else {
-            Ok(None)
+            Ok(0)
         }
     }
 }

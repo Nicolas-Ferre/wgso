@@ -13,6 +13,7 @@ use wgpu::{
 pub(crate) struct ComputeShaderResources {
     pub(crate) pipeline: ComputePipeline,
     pub(crate) layout: BindGroupLayout,
+    pub(crate) directive: ShaderDirective,
 }
 
 impl ComputeShaderResources {
@@ -24,7 +25,11 @@ impl ComputeShaderResources {
     ) -> Self {
         let layout = Self::create_bind_group_layout(directive, module, device);
         let pipeline = Self::create_pipeline(name, module, device, &layout);
-        Self { pipeline, layout }
+        Self {
+            pipeline,
+            layout,
+            directive: directive.clone(),
+        }
     }
 
     #[allow(clippy::cast_possible_truncation)]
