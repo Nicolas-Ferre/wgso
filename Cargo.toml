@@ -11,6 +11,8 @@ repository = "https://github.com/Nicolas-Ferre/wgso"
 rust-version = "1.84.1"
 
 [workspace.dependencies]
+android-activity = { version = "0.6", features = ["native-activity"] }
+android_logger = "0.15"
 annotate-snippets = "0.11"
 cargo-run-wasm = "0.4"
 clap = { version = "4", features = ["derive"] }
@@ -22,6 +24,7 @@ logos = "0.15"
 pico-args = "0.5"
 rstest = "0.25"
 strip-ansi-escapes = "0.2"
+winit = "0.30"
 
 naga = { version = "25.0", features = ["wgsl-in", "wgsl-out"] }
 wgpu = "25.0"
