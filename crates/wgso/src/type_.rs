@@ -1,4 +1,4 @@
-use crate::directive::tokens::Ident;
+use crate::directive::token::Ident;
 use crate::Error;
 use fxhash::FxHashMap;
 use naga::common::wgsl::{ToWgsl, TryToWgsl};
@@ -11,6 +11,7 @@ pub(crate) struct Type {
     pub(crate) label: String,
     pub(crate) fields: FxHashMap<String, Arc<Type>>,
     pub(crate) offset: u32, // relative to root parent type
+    pub(crate) array_params: Option<(Box<Type>, u32)>,
 }
 
 impl PartialEq for Type {
@@ -31,6 +32,14 @@ impl Type {
             label: Self::label(parsed_module, parsed_type),
             fields: Self::fields(parsed_module, parsed_type, global_offset),
             offset: global_offset,
+            array_params: if let TypeInner::Array { base, size, .. } = parsed_type.inner {
+                Some((
+                    Box::new(Self::new(parsed_module, &parsed_module.types[base], 0)),
+                    Self::array_size_value(size).unwrap_or(1),
+                ))
+            } else {
+                None
+            },
         }
     }
 
@@ -92,12 +101,12 @@ impl Type {
             TypeInner::Array { base, size, .. } => format!(
                 "array<{}{}>",
                 Self::label(parsed_module, &parsed_module.types[base]),
-                Self::array_size_value(size),
+                Self::array_size_param(size),
             ),
             TypeInner::BindingArray { size, base } => format!(
                 "binding_array<{}{}>",
                 Self::label(parsed_module, &parsed_module.types[base]),
-                Self::array_size_value(size),
+                Self::array_size_param(size),
             ),
             TypeInner::Image {
                 dim,
@@ -183,13 +192,21 @@ impl Type {
         }
     }
 
-    fn array_size_value(size: ArraySize) -> String {
+    fn array_size_value(size: ArraySize) -> Option<u32> {
         match size {
-            ArraySize::Constant(value) => format!(", {value}"),
-            ArraySize::Dynamic => String::new(),
+            ArraySize::Constant(value) => Some(value.into()),
+            ArraySize::Dynamic => None,
             ArraySize::Pending(_) => {
                 unreachable!("internal error: WGSL override should not be accepted")
             }
+        }
+    }
+
+    fn array_size_param(size: ArraySize) -> String {
+        if let Some(value) = Self::array_size_value(size) {
+            format!(", {value}")
+        } else {
+            String::new()
         }
     }
 

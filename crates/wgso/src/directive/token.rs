@@ -121,11 +121,17 @@ pub(crate) enum TokenKind {
     #[token("compute")]
     Compute,
 
+    #[token("render")]
+    Render,
+
     #[token("init")]
     Init,
 
     #[token("run")]
     Run,
+
+    #[token("draw")]
+    Draw,
 
     #[token("#")]
     Hashtag,
@@ -168,8 +174,10 @@ impl TokenKind {
             Self::Import => "`import`",
             Self::Shader => "`shader`",
             Self::Compute => "`compute`",
+            Self::Render => "`render`",
             Self::Init => "`init`",
             Self::Run => "`run`",
+            Self::Draw => "`draw`",
             Self::Hashtag => "`#`",
             Self::Comma => "`,`",
             Self::Dot => "`.`",

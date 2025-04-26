@@ -1,4 +1,4 @@
-use crate::directive::tokens::{Ident, Lexer, Token, TokenKind};
+use crate::directive::token::{Ident, Lexer, Token, TokenKind};
 use crate::Error;
 use std::ops::Range;
 use std::path::{Path, PathBuf};

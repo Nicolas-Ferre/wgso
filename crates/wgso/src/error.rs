@@ -1,4 +1,4 @@
-use crate::directive::tokens::Ident;
+use crate::directive::token::Ident;
 use crate::file::File;
 use crate::Program;
 use annotate_snippets::{Level, Renderer, Snippet};
@@ -26,7 +26,9 @@ pub enum Error {
     /// A directive parsing error.
     DirectiveParsing(PathBuf, Span, String),
     /// Two shaders have been found with the same name.
-    ShaderConflict(Ident, Ident),
+    ///
+    /// Last value is the type of shader.
+    ShaderConflict(Ident, Ident, &'static str),
     /// Two storages have been found with the same name.
     StorageConflict(PathBuf, PathBuf, String),
     /// WGSL code contains a feature unsupported by WGSO.
@@ -46,8 +48,8 @@ impl Error {
             Self::DirectiveParsing(path, span, error) => {
                 Self::directive_parsing_message(program, path, span.clone(), error)
             }
-            Self::ShaderConflict(first, second) => {
-                Self::shader_conflict_message(program, first, second)
+            Self::ShaderConflict(first, second, type_) => {
+                Self::shader_conflict_message(program, first, second, type_)
             }
             Self::StorageConflict(first, second, name) => {
                 Self::storage_conflict_message(program, first, second, name)
@@ -66,7 +68,7 @@ impl Error {
             | Self::UnsupportedWgslFeature(path, _) => Some(path),
             Self::WgslParsing(module, error) => Some(Self::wgsl_parsing_error_path(module, error)),
             Self::WgslValidation(module, error) => Some(Self::wgsl_validation_error_path(module, error)),
-            Self::ShaderConflict(first, _) => Some(&first.path),
+            Self::ShaderConflict(first, _, _) => Some(&first.path),
             Self::WgpuValidation(_) => None, // no-coverage (never called in practice)
         }
     }
@@ -169,7 +171,13 @@ impl Error {
                     .annotation(Level::Error.span(span.clone()).label(label)),
             );
         }
-        format!("{}", Renderer::styled().render(message))
+        format!(
+            "{}",
+            Renderer::styled().render(message.footer(Level::Info.title(&format!(
+                "The error comes from file '{}'",
+                files[0].path.display()
+            ))))
+        )
     }
 
     fn wgpu_validation_message(error: &str) -> String {
@@ -195,12 +203,20 @@ impl Error {
         )
     }
 
-    fn shader_conflict_message(program: &Program, first: &Ident, second: &Ident) -> String {
+    fn shader_conflict_message(
+        program: &Program,
+        first: &Ident,
+        second: &Ident,
+        type_: &str,
+    ) -> String {
         format!(
             "{}",
             Renderer::styled().render(
                 Level::Error
-                    .title(&format!("same name `{}` used for two shaders", first.label))
+                    .title(&format!(
+                        "same name `{}` used for two {type_} shaders",
+                        first.label
+                    ))
                     .snippet(
                         Snippet::source(&program.files.get(&first.path).code)
                             .fold(true)

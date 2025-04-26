@@ -1,34 +1,33 @@
 use crate::directive::common;
-use crate::directive::common::ShaderArg;
-use crate::directive::token::{Ident, Lexer, Token};
+use crate::directive::common::{ShaderArg, ShaderArgValue};
+use crate::directive::token::{Ident, Lexer, Token, TokenKind};
 use crate::Error;
 use fxhash::FxHashMap;
 
 #[derive(Debug, Clone)]
-pub(crate) struct RunDirective {
+pub(crate) struct DrawDirective {
     pub(crate) shader_name: Ident,
+    pub(crate) vertex_buffer: ShaderArgValue,
     pub(crate) args: FxHashMap<String, ShaderArg>,
     pub(crate) code: String,
-    pub(crate) is_init: bool,
     pub(crate) priority: i32,
 }
 
-impl RunDirective {
-    pub(crate) fn parse(
-        lexer: &mut Lexer<'_>,
-        hashtag: &Token<'_>,
-        is_init: bool,
-    ) -> Result<Self, Error> {
+impl DrawDirective {
+    pub(crate) fn parse(lexer: &mut Lexer<'_>, hashtag: &Token<'_>) -> Result<Self, Error> {
         let priority = common::parse_priority(lexer)?;
         let shader_name = Ident::parse(lexer)?;
+        lexer.next_expected(&[TokenKind::OpenAngleBracket])?;
+        let vertex_buffer = ShaderArgValue::parse(lexer)?;
+        lexer.next_expected(&[TokenKind::CloseAngleBracket])?;
         let args = common::parse_shader_args(lexer)?;
         Ok(Self {
             shader_name,
+            vertex_buffer,
             args,
             code: lexer
                 .source_slice(hashtag.span.start..lexer.offset())
                 .into(),
-            is_init,
             priority,
         })
     }

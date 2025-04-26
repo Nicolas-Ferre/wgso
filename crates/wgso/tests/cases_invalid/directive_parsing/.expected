@@ -10,7 +10,7 @@ error: expected `import`, `shader`, `init` or `run`
 2 | #invalid
   |  ^^^^^^^
   |
-error: expected `compute`
+error: expected `compute` or `render`
  --> ./tests/cases_invalid/directive_parsing/single_expected_token.wgsl:2:9
   |
 2 | #shader<invalid> test

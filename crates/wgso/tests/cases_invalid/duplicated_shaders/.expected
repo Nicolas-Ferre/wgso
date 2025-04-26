@@ -1,4 +1,4 @@
-error: same name `duplicated` used for two shaders
+error: same name `duplicated` used for two compute shaders
  --> ./tests/cases_invalid/duplicated_shaders/in_different_file.wgsl:1:18
   |
 1 | #shader<compute> duplicated
@@ -9,7 +9,7 @@ error: same name `duplicated` used for two shaders
 1 | #shader<compute> duplicated
   |                  ^^^^^^^^^^ second definition
   |
-error: same name `duplicated` used for two shaders
+error: same name `duplicated` used for two compute shaders
  --> ./tests/cases_invalid/duplicated_shaders/in_different_file.wgsl:1:18
   |
 1 | #shader<compute> duplicated

@@ -1,9 +1,10 @@
 use crate::fields::StorageField;
+use crate::runner::render_shader::{RenderShaderDraw, RenderShaderResources};
 use crate::runner::target::{Target, TargetConfig, TargetSpecialized, TextureTarget, WindowTarget};
 use crate::{Error, Program};
+use compute_shader::{ComputeShaderResources, ComputeShaderRun};
 use futures::executor;
 use fxhash::FxHashMap;
-use shader::{ComputeShaderResources, ComputeShaderRun};
 use std::path::Path;
 use std::sync::Arc;
 use wgpu::{
@@ -20,7 +21,8 @@ use winit::dpi::PhysicalSize;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
 
-mod shader;
+mod compute_shader;
+mod render_shader;
 mod target;
 
 /// A runner to execute a WGSO program.
@@ -33,7 +35,9 @@ pub struct Runner {
     queue: Queue,
     program: Program,
     compute_shaders: FxHashMap<String, ComputeShaderResources>,
+    render_shaders: FxHashMap<String, RenderShaderResources>,
     compute_shader_runs: Vec<ComputeShaderRun>,
+    render_shader_draws: Vec<RenderShaderDraw>,
     buffers: FxHashMap<String, Buffer>,
     is_initialized: bool,
 }
@@ -69,10 +73,16 @@ impl Runner {
         let mut program = Program::parse(folder_path);
         if program.errors.is_empty() {
             device.push_error_scope(ErrorFilter::Validation);
+            let texture_format = surface_config
+                .as_ref()
+                .map_or(TextureFormat::Rgba8UnormSrgb, |config| config.format);
             let buffers = Self::create_buffers(&device, &program);
             let compute_shaders = Self::create_compute_shaders(&device, &program);
+            let render_shaders = Self::create_render_shaders(&device, &program, texture_format);
             let compute_shader_runs =
                 Self::create_compute_shader_runs(&device, &program, &buffers, &compute_shaders);
+            let render_shader_draws =
+                Self::create_render_shader_draws(&device, &program, &buffers, &render_shaders);
             if let Some(error) = executor::block_on(device.pop_error_scope()) {
                 program.errors.push(Self::convert_wgpu_error(error));
                 Err(program.with_sorted_errors())
@@ -107,7 +117,9 @@ impl Runner {
                     adapter,
                     queue,
                     compute_shaders,
+                    render_shaders,
                     compute_shader_runs,
+                    render_shader_draws,
                     buffers,
                     is_initialized: false,
                     instance,
@@ -240,7 +252,6 @@ impl Runner {
                 self.queue.submit(Some(encoder.finish()));
             }
         }
-        self.is_initialized = true;
         if let Some(error) = executor::block_on(self.device.pop_error_scope()) {
             self.program.errors.push(Self::convert_wgpu_error(error));
             Err(&self.program)
@@ -402,7 +413,23 @@ impl Runner {
             .compute_shaders
             .iter()
             .map(|(name, (directive, module))| {
-                let shader = ComputeShaderResources::new(name, directive, module, device);
+                let shader = ComputeShaderResources::new(directive, module, device);
+                (name.clone(), shader)
+            })
+            .collect()
+    }
+
+    fn create_render_shaders(
+        device: &Device,
+        program: &Program,
+        texture_format: TextureFormat,
+    ) -> FxHashMap<String, RenderShaderResources> {
+        program
+            .resources
+            .render_shaders
+            .iter()
+            .map(|(name, (directive, module))| {
+                let shader = RenderShaderResources::new(directive, module, texture_format, device);
                 (name.clone(), shader)
             })
             .collect()
@@ -424,7 +451,31 @@ impl Runner {
                     directive,
                     buffers,
                     device,
-                    compute_shaders[&directive.name.label].layout.as_ref(),
+                    compute_shaders[&directive.shader_name.label]
+                        .layout
+                        .as_ref(),
+                )
+            })
+            .collect()
+    }
+
+    fn create_render_shader_draws(
+        device: &Device,
+        program: &Program,
+        buffers: &FxHashMap<String, Buffer>,
+        render_shaders: &FxHashMap<String, RenderShaderResources>,
+    ) -> Vec<RenderShaderDraw> {
+        program
+            .resources
+            .draws
+            .iter()
+            .map(|directive| {
+                RenderShaderDraw::new(
+                    program,
+                    directive,
+                    buffers,
+                    device,
+                    render_shaders[&directive.shader_name.label].layout.as_ref(),
                 )
             })
             .collect()
@@ -443,7 +494,7 @@ impl Runner {
         width * bytes_per_pixel
     }
 
-    pub(crate) fn run_compute_step(&self, mut pass: ComputePass<'_>) {
+    pub(crate) fn run_compute_step(&mut self, mut pass: ComputePass<'_>) {
         for run in &self.compute_shader_runs {
             if !run.is_init || !self.is_initialized {
                 let shader = &self.compute_shaders[&run.shader_name];
@@ -458,11 +509,35 @@ impl Runner {
                 );
             }
         }
+        self.is_initialized = true;
     }
 
-    #[allow(clippy::unused_self)]
-    pub(crate) fn run_draw_step(&self, _pass: RenderPass<'_>) {
-        // do nothing for the moment
+    #[allow(clippy::cast_lossless)]
+    pub(crate) fn run_draw_step(&self, mut pass: RenderPass<'_>) {
+        for draw in &self.render_shader_draws {
+            let shader = &self.render_shaders[&draw.shader_name];
+            pass.set_pipeline(&shader.pipeline);
+            if let Some(bind_group) = &draw.bind_group {
+                pass.set_bind_group(0, bind_group, &[]);
+            }
+            let buffer_name = &draw.directive.vertex_buffer.buffer_name.label;
+            let storage = &self.program.resources.storages[buffer_name];
+            let buffer = &self.buffers[buffer_name];
+            let field_type = storage
+                .field_ident_type(&draw.directive.vertex_buffer.fields)
+                .expect("internal error: vertex buffer field should be validated");
+            let buffer_length = field_type
+                .array_params
+                .as_ref()
+                .expect("internal error: vertex buffer field should be validated")
+                .1;
+            pass.set_vertex_buffer(
+                0,
+                buffer
+                    .slice(field_type.offset as u64..(field_type.offset + field_type.size) as u64),
+            );
+            pass.draw(0..buffer_length, 0..1);
+        }
     }
 
     // coverage: off (window cannot be tested)

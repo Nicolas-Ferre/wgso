@@ -1,10 +1,10 @@
-error: found buffer with type `i32`, expected uniform type `u32`
+error: found argument with type `i32`, expected uniform type `u32`
  --> ./tests/cases_invalid/invalid_run_arg_type/compute_shader.wgsl:2:17
   |
 2 | #run test(value=buffer)
   |                 ^^^^^^
   |
-error: found buffer with type `MyStruct`, expected uniform type `MyStruct`
+error: found argument with type `MyStruct`, expected uniform type `MyStruct`
  --> ./tests/cases_invalid/invalid_run_arg_type/same_type_name1.wgsl:7:32
   |
 7 | #run test_same_type_name(param=arg)

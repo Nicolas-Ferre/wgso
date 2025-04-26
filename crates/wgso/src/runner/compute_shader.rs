@@ -1,5 +1,5 @@
+use crate::directive::compute_shader::ComputeShaderDirective;
 use crate::directive::run::RunDirective;
-use crate::directive::shader::ShaderDirective;
 use crate::module::Module;
 use crate::Program;
 use fxhash::FxHashMap;
@@ -13,19 +13,18 @@ use wgpu::{
 pub(crate) struct ComputeShaderResources {
     pub(crate) pipeline: ComputePipeline,
     pub(crate) layout: Option<BindGroupLayout>,
-    pub(crate) directive: ShaderDirective,
+    pub(crate) directive: ComputeShaderDirective,
 }
 
 impl ComputeShaderResources {
     pub(crate) fn new(
-        name: &str,
-        directive: &ShaderDirective,
+        directive: &ComputeShaderDirective,
         module: &Module,
         device: &Device,
     ) -> Self {
         let layout = (module.binding_count() > 0)
             .then(|| Self::create_bind_group_layout(directive, module, device));
-        let pipeline = Self::create_pipeline(name, module, device, layout.as_ref());
+        let pipeline = Self::create_pipeline(module, directive, device, layout.as_ref());
         Self {
             pipeline,
             layout,
@@ -35,7 +34,7 @@ impl ComputeShaderResources {
 
     #[allow(clippy::cast_possible_truncation)]
     fn create_bind_group_layout(
-        directive: &ShaderDirective,
+        directive: &ComputeShaderDirective,
         module: &Module,
         device: &Device,
     ) -> BindGroupLayout {
@@ -45,7 +44,9 @@ impl ComputeShaderResources {
                 binding: binding.index,
                 visibility: ShaderStages::COMPUTE,
                 ty: BindingType::Buffer {
-                    ty: BufferBindingType::Storage { read_only: false },
+                    ty: BufferBindingType::Storage {
+                        read_only: binding.is_read_only,
+                    },
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 },
@@ -70,20 +71,19 @@ impl ComputeShaderResources {
     }
 
     fn create_pipeline(
-        name: &str,
         module: &Module,
+        directive: &ComputeShaderDirective,
         device: &Device,
         layout: Option<&BindGroupLayout>,
     ) -> ComputePipeline {
-        let label = format!("#shader<compute> {name}");
         let module = device.create_shader_module(ShaderModuleDescriptor {
-            label: Some(&label),
+            label: Some(&directive.code),
             source: wgpu::ShaderSource::Wgsl(module.code.as_str().into()),
         });
         device.create_compute_pipeline(&ComputePipelineDescriptor {
-            label: Some(&label),
+            label: Some(&directive.code),
             layout: Some(&device.create_pipeline_layout(&PipelineLayoutDescriptor {
-                label: Some(&label),
+                label: Some(&directive.code),
                 bind_group_layouts: &layout.map_or(vec![], |layout| vec![layout]),
                 push_constant_ranges: &[],
             })),
@@ -110,7 +110,7 @@ impl ComputeShaderRun {
         device: &Device,
         layout: Option<&BindGroupLayout>,
     ) -> Self {
-        let shader_module = &program.resources.compute_shaders[&run_directive.name.label].1;
+        let shader_module = &program.resources.compute_shaders[&run_directive.shader_name.label].1;
         let bind_group = layout.as_ref().map(|layout| {
             Self::create_bind_group(
                 program,
@@ -122,7 +122,7 @@ impl ComputeShaderRun {
             )
         });
         Self {
-            shader_name: run_directive.name.label.clone(),
+            shader_name: run_directive.shader_name.label.clone(),
             bind_group,
             is_init: run_directive.is_init,
         }

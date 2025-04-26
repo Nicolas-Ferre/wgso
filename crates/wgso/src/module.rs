@@ -5,6 +5,7 @@ use fxhash::{FxHashMap, FxHashSet};
 use itertools::Itertools;
 use naga::back::wgsl::{Writer, WriterFlags};
 use naga::valid::{Capabilities, ModuleInfo, ValidationFlags, Validator};
+use naga::{StorageAccess, TypeInner};
 use std::iter;
 use std::path::{Path, PathBuf};
 use std::slice::Iter;
@@ -42,22 +43,32 @@ impl Modules {
 
 #[derive(Debug)]
 pub(crate) struct Module {
-    pub(crate) files: Vec<Arc<File>>,
     pub(crate) bindings: FxHashMap<String, Binding>,
     pub(crate) code: String,
+    pub(crate) files: Vec<Arc<File>>,
+    types: FxHashMap<String, Type>,
 }
 
 impl Module {
     pub(crate) fn new(root_path: &Path, file: &Arc<File>, files: &Files) -> Result<Self, Error> {
-        let (code, files) = Self::extract_code(root_path, file, files)?;
+        let (code, module_files) = Self::extract_code(root_path, file, files)?;
         let mut parsed = naga::front::wgsl::parse_str(&code)
-            .map_err(|error| Error::WgslParsing(files.clone(), error))?;
+            .map_err(|error| Error::WgslParsing(module_files.clone(), error))?;
         Self::check_unsupported_features(&file.path, &parsed)?;
         let bindings = Self::configure_bindings(&mut parsed);
+        Self::configure_vertex_buffer(&mut parsed, &module_files);
         Ok(Self {
-            code: Self::write_code(&parsed, &files)?,
-            files,
             bindings,
+            code: Self::write_code(&parsed, &module_files)?,
+            files: module_files,
+            types: parsed
+                .types
+                .iter()
+                .map(|(_, parsed_type)| {
+                    let type_ = Type::new(&parsed, parsed_type, 0);
+                    (type_.label.clone(), type_)
+                })
+                .collect(),
         })
     }
 
@@ -91,6 +102,11 @@ impl Module {
                 binding.kind == BindingKind::Uniform && binding_name == &name
             })
             .map(|(_, binding)| binding)
+    }
+
+    pub(crate) fn type_(&self, name: &str) -> Option<&Type> {
+        let type_name = Self::normalize_type_name(name)?;
+        self.types.get(&type_name)
     }
 
     fn write_code(parsed: &naga::Module, files: &[Arc<File>]) -> Result<String, Error> {
@@ -142,7 +158,7 @@ impl Module {
         while last_path_count < paths.len() {
             last_path_count = paths.len();
             for path in paths.clone() {
-                for directive in files.get(&path).directives.imports() {
+                for directive in &files.get(&path).directives.imports {
                     let path = directive.file_path(root_path);
                     if files.exists(&path) {
                         paths.insert(path);
@@ -197,9 +213,15 @@ impl Module {
         parsed
             .global_variables
             .iter_mut()
-            .filter(|(_, var)| matches!(var.space, AddressSpace::Storage { .. }))
+            .filter_map(|(_, var)| {
+                if let AddressSpace::Storage { access } = var.space {
+                    Some((var, access))
+                } else {
+                    None
+                }
+            })
             .enumerate()
-            .filter_map(move |(index, (_, var))| {
+            .filter_map(move |(index, (var, access))| {
                 var.name.as_ref().map(|name| {
                     let binding_index = index as u32;
                     var.binding = Some(ResourceBinding {
@@ -212,6 +234,7 @@ impl Module {
                             kind: BindingKind::Storage,
                             type_: Arc::new(Type::new(&parsed_clone, &types[var.ty], 0)),
                             index: binding_index,
+                            is_read_only: !access.contains(StorageAccess::STORE),
                         },
                     )
                 })
@@ -243,10 +266,62 @@ impl Module {
                             kind: BindingKind::Uniform,
                             type_: Arc::new(Type::new(&parsed_clone, &types[var.ty], 0)),
                             index: binding_index,
+                            is_read_only: true,
                         },
                     )
                 })
             })
+    }
+
+    #[allow(clippy::cast_possible_truncation)]
+    fn configure_vertex_buffer(parsed: &mut naga::Module, files: &[Arc<File>]) {
+        for file in files {
+            for directive in &file.directives.render_shaders {
+                let Some(vertex_type) =
+                    Self::normalize_type_name(&directive.vertex_type_name.label)
+                else {
+                    continue;
+                };
+                for (type_handle, type_) in parsed.types.clone().iter() {
+                    if vertex_type != Type::new(parsed, type_, 0).label {
+                        continue;
+                    }
+                    let mut type_ = type_.clone();
+                    let TypeInner::Struct { members, .. } = &mut type_.inner else {
+                        continue;
+                    };
+                    for (index, member) in members.iter_mut().enumerate() {
+                        let naga::Binding::Location { location, .. } =
+                            member.binding.get_or_insert(naga::Binding::Location {
+                                location: index as u32,
+                                interpolation: None,
+                                sampling: None,
+                                blend_src: None,
+                            })
+                        else {
+                            unreachable!("internal error: vertex location should be valid ")
+                        };
+                        *location = index as u32;
+                    }
+                    parsed.types.replace(type_handle, type_);
+                    break;
+                }
+            }
+        }
+    }
+
+    fn normalize_type_name(name: &str) -> Option<String> {
+        let code = format!("var v: {name};");
+        let type_name = if let Ok(module) = naga::front::wgsl::parse_str(&code) {
+            module
+                .types
+                .iter()
+                .next()
+                .map(|(_, type_)| Type::new(&module, type_, 0).label)?
+        } else {
+            name.into()
+        };
+        Some(type_name)
     }
 }
 
@@ -255,6 +330,7 @@ pub(crate) struct Binding {
     pub(crate) kind: BindingKind,
     pub(crate) type_: Arc<Type>,
     pub(crate) index: u32,
+    pub(crate) is_read_only: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
