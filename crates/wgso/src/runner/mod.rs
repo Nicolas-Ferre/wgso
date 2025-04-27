@@ -5,6 +5,7 @@ use crate::{Error, Program};
 use compute_shader::ComputeShaderResources;
 use futures::executor;
 use fxhash::FxHashMap;
+use shader_execution::ShaderExecution;
 use std::path::Path;
 use std::sync::Arc;
 use wgpu::{
@@ -20,12 +21,11 @@ use wgpu::{
 use winit::dpi::PhysicalSize;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
-use shader_execution::ShaderExecution;
 
 mod compute_shader;
 mod render_shader;
-mod target;
 mod shader_execution;
+mod target;
 
 /// A runner to execute a WGSO program.
 #[derive(Debug)]
@@ -453,7 +453,7 @@ impl Runner {
                     directive,
                     buffers,
                     device,
-                    compute_shaders[&crate::directive::shader_name(directive).slice]
+                    compute_shaders[&directive.shader_name().slice]
                         .layout
                         .as_ref(),
                 )
@@ -477,7 +477,7 @@ impl Runner {
                     directive,
                     buffers,
                     device,
-                    render_shaders[&crate::directive::shader_name(directive).slice]
+                    render_shaders[&directive.shader_name().slice]
                         .layout
                         .as_ref(),
                 )
@@ -506,7 +506,7 @@ impl Runner {
                 if let Some(bind_group) = &run.bind_group {
                     pass.set_bind_group(0, bind_group, &[]);
                 }
-                let workgroup_count = crate::directive::workgroup_count(&shader.directive);
+                let workgroup_count = shader.directive.workgroup_count();
                 pass.dispatch_workgroups(
                     workgroup_count.0.into(),
                     workgroup_count.1.into(),
@@ -525,7 +525,7 @@ impl Runner {
             if let Some(bind_group) = &draw.bind_group {
                 pass.set_bind_group(0, bind_group, &[]);
             }
-            let vertex_buffer_arg = crate::directive::vertex_buffer(&draw.directive);
+            let vertex_buffer_arg = draw.directive.vertex_buffer();
             let buffer_name = &vertex_buffer_arg.var.slice;
             let storage = &self.program.resources.storages[buffer_name];
             let buffer = &self.buffers[buffer_name];

@@ -1,3 +1,4 @@
+use crate::directive::Directive;
 use crate::module::Module;
 use crate::type_::Type;
 use wgpu::{
@@ -8,7 +9,6 @@ use wgpu::{
     ShaderStages, StencilState, TextureFormat, VertexAttribute, VertexBufferLayout, VertexFormat,
     VertexState, VertexStepMode,
 };
-use wgso_parser::Token;
 
 #[derive(Debug)]
 pub(crate) struct RenderShaderResources {
@@ -18,7 +18,7 @@ pub(crate) struct RenderShaderResources {
 
 impl RenderShaderResources {
     pub(crate) fn new(
-        directive: &[Token],
+        directive: &Directive,
         module: &Module,
         texture_format: TextureFormat,
         device: &Device,
@@ -32,7 +32,7 @@ impl RenderShaderResources {
 
     #[allow(clippy::cast_possible_truncation)]
     fn create_bind_group_layout(
-        directive: &[Token],
+        directive: &Directive,
         module: &Module,
         device: &Device,
     ) -> BindGroupLayout {
@@ -63,25 +63,25 @@ impl RenderShaderResources {
                 count: None,
             });
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some(&crate::directive::code(directive)),
+            label: Some(&directive.code()),
             entries: &storage_entries.chain(uniform_entries).collect::<Vec<_>>(),
         })
     }
 
     fn create_pipeline(
         directive_module: &Module,
-        directive: &[Token],
+        directive: &Directive,
         texture_format: TextureFormat,
         device: &Device,
         layout: Option<&BindGroupLayout>,
     ) -> RenderPipeline {
-        let directive_code = crate::directive::code(directive);
+        let directive_code = directive.code();
         let module = device.create_shader_module(ShaderModuleDescriptor {
             label: Some(&directive_code),
             source: wgpu::ShaderSource::Wgsl(directive_module.code.as_str().into()),
         });
         let vertex_type = &directive_module
-            .type_(&crate::directive::vertex_type(directive).slice)
+            .type_(&directive.vertex_type().slice)
             .expect("internal error: vertex type should be validated");
         device.create_render_pipeline(&RenderPipelineDescriptor {
             label: Some(&directive_code),

@@ -165,13 +165,13 @@ impl Module {
                     DirectiveKind::Import,
                 );
                 for directive in import_directives {
-                    let path = root_path.join(crate::directive::import_path(directive));
+                    let path = root_path.join(directive.import_path());
                     if files.exists(&path) {
                         paths.insert(path);
                     } else {
                         return Err(Error::DirectiveParsing(ParsingError {
-                            path: crate::directive::path(directive).into(),
-                            span: crate::directive::span(directive),
+                            path: directive.path().into(),
+                            span: directive.span(),
                             message: format!("file at '{}' does not exist", path.display()),
                         }));
                     }
@@ -285,7 +285,7 @@ impl Module {
             let render_shader_directives =
                 crate::directive::find_all_by_kind(&file.directives, DirectiveKind::RenderShader);
             for directive in render_shader_directives {
-                let vertex_type = crate::directive::vertex_type(directive);
+                let vertex_type = directive.vertex_type();
                 let Some(vertex_type) = Self::normalize_type_name(&vertex_type.slice) else {
                     continue;
                 };

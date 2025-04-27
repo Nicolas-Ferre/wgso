@@ -1,3 +1,4 @@
+use crate::directive::Directive;
 use crate::Error;
 use fxhash::FxHashMap;
 use itertools::Itertools;
@@ -6,7 +7,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::vec::IntoIter;
-use wgso_parser::{Rule, Token};
+use wgso_parser::Rule;
+
 // TODO: flatten logic with a lib
 
 #[derive(Debug)]
@@ -75,7 +77,7 @@ impl Files {
 pub(crate) struct File {
     pub(crate) path: PathBuf,
     pub(crate) code: String,
-    pub(crate) directives: Vec<Vec<Token>>,
+    pub(crate) directives: Vec<Directive>,
 }
 
 impl File {

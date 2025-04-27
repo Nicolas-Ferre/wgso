@@ -1,29 +1,28 @@
-use crate::directive::DirectiveKind;
+use crate::directive::{Directive, DirectiveKind};
 use crate::module::Module;
 use crate::Program;
 use fxhash::FxHashMap;
 use wgpu::{BindGroup, BindGroupLayout, BindingResource, Buffer, BufferBinding, Device};
-use wgso_parser::Token;
 
 #[derive(Debug)]
 pub(crate) struct ShaderExecution {
     pub(crate) shader_name: String,
     pub(crate) bind_group: Option<BindGroup>,
     pub(crate) is_init: bool,
-    pub(crate) directive: Vec<Token>,
+    pub(crate) directive: Directive,
 }
 
 impl ShaderExecution {
     pub(crate) fn new(
         program: &Program,
-        run_directive: &[Token],
+        run_directive: &Directive,
         buffers: &FxHashMap<String, Buffer>,
         device: &Device,
         layout: Option<&BindGroupLayout>,
     ) -> Self {
-        let directive_kind = crate::directive::kind(run_directive);
-        let shader_name = crate::directive::shader_name(run_directive);
-        let shader_module = if crate::directive::kind(run_directive) == DirectiveKind::Draw {
+        let directive_kind = run_directive.kind();
+        let shader_name = run_directive.shader_name();
+        let shader_module = if run_directive.kind() == DirectiveKind::Draw {
             &program.resources.render_shaders[&shader_name.slice].1
         } else {
             &program.resources.compute_shaders[&shader_name.slice].1
@@ -31,7 +30,7 @@ impl ShaderExecution {
         let bind_group = layout.as_ref().map(|layout| {
             Self::create_bind_group(
                 program,
-                run_directive,
+                &run_directive,
                 shader_module,
                 buffers,
                 device,
@@ -42,14 +41,14 @@ impl ShaderExecution {
             shader_name: shader_name.slice.clone(),
             bind_group,
             is_init: directive_kind == DirectiveKind::Init,
-            directive: run_directive.to_vec(),
+            directive: run_directive.clone(),
         }
     }
 
     #[allow(clippy::cast_possible_truncation)]
     fn create_bind_group(
         program: &Program,
-        run_directive: &[Token],
+        run_directive: &Directive,
         shader_module: &Module,
         buffers: &FxHashMap<String, Buffer>,
         device: &Device,
@@ -63,7 +62,7 @@ impl ShaderExecution {
                     resource: buffers[name].as_entire_binding(),
                 });
         let uniform_entries = shader_module.uniform_bindings().map(|(name, binding)| {
-            let arg = crate::directive::arg(run_directive, name);
+            let arg = run_directive.arg(name);
             let type_ = program.resources.storages[&arg.value.var.slice]
                 .field_ident_type(&arg.value.fields)
                 .expect("internal error: type field should be validated");
@@ -81,7 +80,7 @@ impl ShaderExecution {
             }
         });
         device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some(&crate::directive::code(run_directive)),
+            label: Some(&run_directive.code()),
             layout,
             entries: &storage_entries.chain(uniform_entries).collect::<Vec<_>>(),
         })

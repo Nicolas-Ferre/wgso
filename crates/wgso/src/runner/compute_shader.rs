@@ -1,33 +1,33 @@
+use crate::directive::Directive;
 use crate::module::Module;
 use wgpu::{
     BindGroupLayout, BindGroupLayoutEntry, BindingType, BufferBindingType, ComputePipeline,
     ComputePipelineDescriptor, Device, PipelineLayoutDescriptor, ShaderModuleDescriptor,
     ShaderStages,
 };
-use wgso_parser::Token;
 
 #[derive(Debug)]
 pub(crate) struct ComputeShaderResources {
     pub(crate) pipeline: ComputePipeline,
     pub(crate) layout: Option<BindGroupLayout>,
-    pub(crate) directive: Vec<Token>,
+    pub(crate) directive: Directive,
 }
 
 impl ComputeShaderResources {
-    pub(crate) fn new(directive: &[Token], module: &Module, device: &Device) -> Self {
+    pub(crate) fn new(directive: &Directive, module: &Module, device: &Device) -> Self {
         let layout = (module.binding_count() > 0)
             .then(|| Self::create_bind_group_layout(directive, module, device));
         let pipeline = Self::create_pipeline(module, directive, device, layout.as_ref());
         Self {
             pipeline,
             layout,
-            directive: directive.to_vec(),
+            directive: directive.clone(),
         }
     }
 
     #[allow(clippy::cast_possible_truncation)]
     fn create_bind_group_layout(
-        directive: &[Token],
+        directive: &Directive,
         module: &Module,
         device: &Device,
     ) -> BindGroupLayout {
@@ -58,18 +58,18 @@ impl ComputeShaderResources {
                 count: None,
             });
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some(&crate::directive::code(directive)),
+            label: Some(&directive.code()),
             entries: &storage_entries.chain(uniform_entries).collect::<Vec<_>>(),
         })
     }
 
     fn create_pipeline(
         module: &Module,
-        directive: &[Token],
+        directive: &Directive,
         device: &Device,
         layout: Option<&BindGroupLayout>,
     ) -> ComputePipeline {
-        let directive_code = crate::directive::code(directive);
+        let directive_code = directive.code();
         let module = device.create_shader_module(ShaderModuleDescriptor {
             label: Some(&directive_code),
             source: wgpu::ShaderSource::Wgsl(module.code.as_str().into()),
