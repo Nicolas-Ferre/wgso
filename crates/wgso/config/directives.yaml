@@ -2,6 +2,7 @@ patterns:
   ident: &ident
     label: identifier
     is_digit_prefix_allowed: false
+    is_underscore_allowed: true
   i32: &i32
     label: '`i32` value'
     min: -2147483648
@@ -19,6 +20,20 @@ priority: &priority !repeat
       label: priority
       config: *i32
     - !token '>'
+
+vertex_buffer: &vertex_buffer !repeat
+  min: 1
+  max: 1
+  group:
+    - !pattern
+      label: vertex_buffer_var
+      config: *ident
+    - !repeat
+      group:
+        - !token '.'
+        - !pattern
+          label: vertex_buffer_field
+          config: *ident
 
 arg_value: &arg_value !repeat
   min: 1
@@ -95,17 +110,26 @@ run: &run
 
 draw: &draw
   - *priority
-  - !token '<'
-  - !pattern
-    label: vertex_buffer
-    config: *ident
-  - !token '>'
   - !pattern
     label: shader_name
     config: *ident
+  - !token '<'
+  - *vertex_buffer
+  - !token '>'
   - !token '('
   - *args
   - !token ')'
+
+import: &import
+  - !pattern
+    label: import_segment
+    config: *ident
+  - !repeat
+    group:
+      - !token '.'
+      - !pattern
+        label: import_segment
+        config: *ident
 
 main:
   - !choice
@@ -117,3 +141,5 @@ main:
       next: *run
     - token: 'draw'
       next: *draw
+    - token: 'import'
+      next: *import

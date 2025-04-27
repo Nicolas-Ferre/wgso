@@ -11,6 +11,7 @@ pub fn load_rules(yaml: &[u8]) -> Result<Vec<Rule>, RuleError> {
 #[derive(Debug, Deserialize, Validate)]
 struct MainRule {
     #[validate]
+    #[validate(min_items = 1)]
     main: Vec<Rule>,
 }
 
@@ -44,6 +45,7 @@ pub struct PatternConfig {
     pub min: Option<i128>,
     pub max: Option<i128>,
     pub is_digit_prefix_allowed: Option<bool>,
+    pub is_underscore_allowed: Option<bool>,
 }
 
 #[non_exhaustive]
@@ -63,5 +65,6 @@ pub struct RepeatRule {
 pub struct ChoiceRule {
     pub token: String,
     #[validate]
+    #[validate(min_items = 1)]
     pub next: Vec<Rule>,
 }

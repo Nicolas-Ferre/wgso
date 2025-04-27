@@ -2,7 +2,6 @@
 #![allow(clippy::result_large_err)]
 
 mod directive;
-mod directive_new;
 mod error;
 mod fields;
 mod file;

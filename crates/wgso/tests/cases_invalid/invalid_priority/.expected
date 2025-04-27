@@ -1,4 +1,4 @@
-error: priority is not a valid `i32` value
+error: expected `i32` value
  --> ./tests/cases_invalid/invalid_priority/root.wgsl:1:6
   |
 1 | #run<9999999999999> shader()

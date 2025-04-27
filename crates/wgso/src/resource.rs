@@ -1,9 +1,4 @@
-use crate::directive::common::ShaderArg;
-use crate::directive::compute_shader::ComputeShaderDirective;
-use crate::directive::draw::DrawDirective;
-use crate::directive::render_shader::RenderShaderDirective;
-use crate::directive::run::RunDirective;
-use crate::directive::token::Ident;
+use crate::directive::DirectiveKind;
 use crate::file::Files;
 use crate::module::{Module, Modules};
 use crate::type_::Type;
@@ -13,14 +8,15 @@ use itertools::Itertools;
 use std::collections::hash_map::Entry;
 use std::sync::Arc;
 use wgpu::Limits;
+use wgso_parser::{ParsingError, Token};
 
 #[derive(Debug)]
 pub(crate) struct Resources {
     pub(crate) storages: FxHashMap<String, Arc<Type>>,
-    pub(crate) compute_shaders: FxHashMap<String, (ComputeShaderDirective, Arc<Module>)>,
-    pub(crate) render_shaders: FxHashMap<String, (RenderShaderDirective, Arc<Module>)>,
-    pub(crate) runs: Vec<RunDirective>,
-    pub(crate) draws: Vec<DrawDirective>,
+    pub(crate) compute_shaders: FxHashMap<String, (Vec<Token>, Arc<Module>)>,
+    pub(crate) render_shaders: FxHashMap<String, (Vec<Token>, Arc<Module>)>,
+    pub(crate) runs: Vec<Vec<Token>>, // TODO: separate run and init
+    pub(crate) draws: Vec<Vec<Token>>,
 }
 
 impl Resources {
@@ -29,29 +25,15 @@ impl Resources {
             storages: Self::storages(modules, errors),
             compute_shaders: Self::compute_shaders(modules, errors),
             render_shaders: Self::render_shaders(modules, errors),
-            runs: files
-                .iter()
-                .flat_map(|file| file.directives.runs.iter().cloned())
-                .sorted_by_key(|directive| {
-                    (
-                        !directive.is_init,
-                        directive.priority,
-                        directive.shader_name.path.clone(),
-                    )
-                })
-                .collect(),
-            draws: files
-                .iter()
-                .flat_map(|file| file.directives.draws.iter().cloned())
-                .sorted_by_key(|directive| (directive.priority, directive.shader_name.path.clone()))
-                .collect(),
+            runs: Self::runs(files),
+            draws: Self::draws(files),
         };
         for directive in &resources.runs {
-            resources.validate_shader_call(true, &directive.shader_name, &directive.args, errors);
+            resources.validate_shader_call(directive, errors);
         }
         for directive in &resources.draws {
-            resources.validate_shader_call(false, &directive.shader_name, &directive.args, errors);
-            let shader_name = &directive.shader_name.label;
+            resources.validate_shader_call(directive, errors);
+            let shader_name = &crate::directive::shader_name(directive).slice;
             if let Some((shader_directive, module)) = resources.render_shaders.get(shader_name) {
                 resources.validate_vertex_buffer(directive, shader_directive, module, errors);
             }
@@ -89,18 +71,23 @@ impl Resources {
     fn compute_shaders(
         modules: &Modules,
         errors: &mut Vec<Error>,
-    ) -> FxHashMap<String, (ComputeShaderDirective, Arc<Module>)> {
+    ) -> FxHashMap<String, (Vec<Token>, Arc<Module>)> {
         let mut shaders = FxHashMap::default();
         for module in modules.iter() {
-            for directive in &module.files[0].directives.compute_shaders {
-                match shaders.entry(directive.shader_name.label.clone()) {
+            let compute_shader_directives = crate::directive::find_all_by_kind(
+                &module.files[0].directives,
+                DirectiveKind::ComputeShader,
+            );
+            for directive in compute_shader_directives {
+                let shader_name = crate::directive::shader_name(directive);
+                match shaders.entry(shader_name.slice.clone()) {
                     Entry::Vacant(entry) => {
-                        entry.insert((directive.clone(), module.clone()));
+                        entry.insert((directive.to_vec(), module.clone()));
                     }
                     Entry::Occupied(existing) => {
                         errors.push(Error::ShaderConflict(
-                            existing.get().0.shader_name.clone(),
-                            directive.shader_name.clone(),
+                            crate::directive::shader_name(&existing.get().0).clone(),
+                            shader_name.clone(),
                             "compute",
                         ));
                     }
@@ -113,18 +100,23 @@ impl Resources {
     fn render_shaders(
         modules: &Modules,
         errors: &mut Vec<Error>,
-    ) -> FxHashMap<String, (RenderShaderDirective, Arc<Module>)> {
+    ) -> FxHashMap<String, (Vec<Token>, Arc<Module>)> {
         let mut shaders = FxHashMap::default();
         for module in modules.iter() {
-            for directive in &module.files[0].directives.render_shaders {
-                match shaders.entry(directive.shader_name.label.clone()) {
+            let render_shader_directives = crate::directive::find_all_by_kind(
+                &module.files[0].directives,
+                DirectiveKind::RenderShader,
+            );
+            for directive in render_shader_directives {
+                let shader_name = crate::directive::shader_name(directive);
+                match shaders.entry(shader_name.slice.clone()) {
                     Entry::Vacant(entry) => {
-                        entry.insert((directive.clone(), module.clone()));
+                        entry.insert((directive.to_vec(), module.clone()));
                     }
                     Entry::Occupied(existing) => {
                         errors.push(Error::ShaderConflict(
-                            existing.get().0.shader_name.clone(),
-                            directive.shader_name.clone(),
+                            crate::directive::shader_name(&existing.get().0).clone(),
+                            shader_name.clone(),
                             "render",
                         ));
                     }
@@ -134,91 +126,126 @@ impl Resources {
         shaders
     }
 
-    fn validate_shader_call(
-        &self,
-        is_compute: bool,
-        shader_name: &Ident,
-        args: &FxHashMap<String, ShaderArg>,
-        errors: &mut Vec<Error>,
-    ) {
-        let Some(shader_module) = self.find_shader_module(is_compute, shader_name, errors) else {
-            return;
-        };
-        Self::validate_run_arg_names(shader_name, args, shader_module, errors);
-        self.validate_run_arg_value(shader_name, args, shader_module, errors);
+    fn runs(files: &Files) -> Vec<Vec<Token>> {
+        let init = files.iter().flat_map(|file| {
+            crate::directive::find_all_by_kind(&file.directives, DirectiveKind::Init)
+                .map(|directive| (directive.to_vec(), true))
+        });
+        let runs = files.iter().flat_map(|file| {
+            crate::directive::find_all_by_kind(&file.directives, DirectiveKind::Run)
+                .map(|directive| (directive.to_vec(), false))
+        });
+        init.chain(runs)
+            .sorted_by_key(|(directive, is_init)| {
+                (
+                    !is_init,
+                    crate::directive::priority(directive),
+                    crate::directive::shader_name(directive).slice.clone(),
+                )
+            })
+            .map(|(directive, _)| directive)
+            .collect()
     }
 
-    fn find_shader_module(
-        &self,
-        is_compute: bool,
-        shader_name: &Ident,
-        errors: &mut Vec<Error>,
-    ) -> Option<&Module> {
-        if is_compute {
-            if let Some((_, module)) = self.compute_shaders.get(&shader_name.label) {
-                Some(module)
-            } else {
-                errors.push(Error::DirectiveParsing(
-                    shader_name.path.clone(),
-                    shader_name.span.clone(),
-                    "compute shader not found".into(),
-                ));
-                None
-            }
-        } else if let Some((_, module)) = self.render_shaders.get(&shader_name.label) {
+    fn draws(files: &Files) -> Vec<Vec<Token>> {
+        files
+            .iter()
+            .flat_map(|file| {
+                crate::directive::find_all_by_kind(&file.directives, DirectiveKind::Draw)
+                    .map(<[Token]>::to_vec)
+            })
+            .sorted_by_key(|directive| {
+                (
+                    crate::directive::priority(directive),
+                    crate::directive::shader_name(directive).slice.clone(),
+                )
+            })
+            .collect()
+    }
+
+    fn validate_shader_call(&self, directive: &[Token], errors: &mut Vec<Error>) {
+        let Some(shader_module) = self.find_shader_module(directive, errors) else {
+            return;
+        };
+        Self::validate_run_arg_names(directive, shader_module, errors);
+        self.validate_run_arg_value(directive, shader_module, errors);
+    }
+
+    fn find_shader_module(&self, directive: &[Token], errors: &mut Vec<Error>) -> Option<&Module> {
+        let shader_name = crate::directive::shader_name(directive);
+        let shader = if crate::directive::kind(directive) == DirectiveKind::Draw {
+            self.render_shaders.get(&shader_name.slice)
+        } else {
+            self.compute_shaders.get(&shader_name.slice)
+        };
+        if let Some((_, module)) = shader {
             Some(module)
         } else {
-            errors.push(Error::DirectiveParsing(
-                shader_name.path.clone(),
-                shader_name.span.clone(),
-                "render shader not found".into(),
-            ));
+            errors.push(Error::DirectiveParsing(ParsingError {
+                path: shader_name.path.clone(),
+                span: shader_name.span.clone(),
+                message: "shader not found".into(),
+            }));
             None
         }
     }
 
     fn validate_run_arg_names(
-        shader_name: &Ident,
-        args: &FxHashMap<String, ShaderArg>,
+        directive: &[Token],
         shader_module: &Module,
         errors: &mut Vec<Error>,
     ) {
+        let shader_name = crate::directive::shader_name(directive);
+        let args = crate::directive::args(directive);
         let shader_uniform_names: FxHashSet<_> = shader_module.uniform_names().collect();
-        let run_arg_names: FxHashSet<_> = args.keys().collect();
+        let run_arg_names: FxHashSet<_> = args.iter().map(|arg| &arg.name.slice).collect();
         for &missing_arg in shader_uniform_names.difference(&run_arg_names) {
-            errors.push(Error::DirectiveParsing(
-                shader_name.path.clone(),
-                shader_name.span.clone(),
-                format!("missing uniform argument `{missing_arg}`"),
-            ));
+            errors.push(Error::DirectiveParsing(ParsingError {
+                path: shader_name.path.clone(),
+                span: shader_name.span.clone(),
+                message: format!("missing uniform argument `{missing_arg}`"),
+            }));
         }
         for &unknown_arg in run_arg_names.difference(&shader_uniform_names) {
-            errors.push(Error::DirectiveParsing(
-                shader_name.path.clone(),
-                args[unknown_arg].name.span.clone(),
-                format!(
+            errors.push(Error::DirectiveParsing(ParsingError {
+                path: shader_name.path.clone(),
+                span: crate::directive::arg(directive, unknown_arg)
+                    .name
+                    .span
+                    .clone(),
+                message: format!(
                     "no uniform variable `{unknown_arg}` in shader `{}`",
-                    shader_name.label
+                    shader_name.slice
                 ),
-            ));
+            }));
+        }
+        let mut param_names = FxHashSet::default();
+        for arg in &args {
+            if !param_names.insert(&arg.name.slice) {
+                errors.push(Error::DirectiveParsing(ParsingError {
+                    path: arg.name.path.clone(),
+                    span: arg.name.span.clone(),
+                    message: "duplicated parameter".into(),
+                }));
+            }
         }
     }
 
     fn validate_run_arg_value(
         &self,
-        shader_name: &Ident,
-        args: &FxHashMap<String, ShaderArg>,
+        directive: &[Token],
         shader_module: &Module,
         errors: &mut Vec<Error>,
     ) {
         let offset_alignment = Limits::default().min_uniform_buffer_offset_alignment;
-        for (name, arg) in args {
-            let Some(storage_type) = self.storages.get(&arg.value.buffer_name.label) else {
-                errors.push(Error::DirectiveParsing(
-                    shader_name.path.clone(),
-                    arg.value.span(),
-                    format!("unknown storage variable `{}`", arg.value.buffer_name.label),
-                ));
+        let shader_name = crate::directive::shader_name(directive);
+        for arg in crate::directive::args(directive) {
+            let Some(storage_type) = self.storages.get(&arg.value.var.slice) else {
+                errors.push(Error::DirectiveParsing(ParsingError {
+                    path: shader_name.path.clone(),
+                    span: arg.value.span,
+                    message: format!("unknown storage variable `{}`", arg.value.var.slice),
+                }));
                 continue;
             };
             let arg_type = match storage_type.field_ident_type(&arg.value.fields) {
@@ -228,50 +255,46 @@ impl Resources {
                     continue;
                 }
             };
-            let Some(uniform) = shader_module.uniform_binding(name) else {
+            let Some(uniform) = shader_module.uniform_binding(&arg.name.slice) else {
                 continue;
             };
             if &*uniform.type_ != arg_type {
-                errors.push(Error::DirectiveParsing(
-                    shader_name.path.clone(),
-                    arg.value.span(),
-                    format!(
+                errors.push(Error::DirectiveParsing(ParsingError {
+                    path: shader_name.path.clone(),
+                    span: arg.value.span,
+                    message: format!(
                         "found argument with type `{}`, expected uniform type `{}`",
                         arg_type.label, uniform.type_.label
                     ),
-                ));
+                }));
             } else if arg_type.offset % offset_alignment != 0 {
-                errors.push(Error::DirectiveParsing(
-                    shader_name.path.clone(),
-                    arg.value.span(),
-                    format!(
+                errors.push(Error::DirectiveParsing(ParsingError {
+                    path: shader_name.path.clone(),
+                    span: arg.value.span,
+                    message: format!(
                         "value has an offset of {} bytes in `{}`, which is not a multiple of 256 bytes",
                         arg_type.offset,
-                        arg.value.buffer_name.label,
+                        arg.value.var.slice,
                     ),
-                ));
+                }));
             }
         }
     }
 
     fn validate_vertex_buffer(
         &self,
-        draw_directive: &DrawDirective,
-        shader_directive: &RenderShaderDirective,
+        draw_directive: &[Token],
+        shader_directive: &[Token],
         shader_module: &Module,
         errors: &mut Vec<Error>,
     ) {
-        let Some(expected_item_type) =
-            shader_module.type_(&shader_directive.vertex_type_name.label)
-        else {
-            errors.push(Error::DirectiveParsing(
-                shader_directive.vertex_type_name.path.clone(),
-                shader_directive.vertex_type_name.span.clone(),
-                format!(
-                    "type `{}` not found",
-                    shader_directive.vertex_type_name.label
-                ),
-            ));
+        let vertex_type_name = crate::directive::vertex_type(shader_directive);
+        let Some(expected_item_type) = shader_module.type_(&vertex_type_name.slice) else {
+            errors.push(Error::DirectiveParsing(ParsingError {
+                path: vertex_type_name.path.clone(),
+                span: vertex_type_name.span.clone(),
+                message: format!("type `{}` not found", vertex_type_name.slice),
+            }));
             return;
         };
         for (name, field) in &expected_item_type.fields {
@@ -282,26 +305,23 @@ impl Resources {
                 && !field.label.starts_with("vec3<")
                 && !field.label.starts_with("vec4<")
             {
-                errors.push(Error::DirectiveParsing(
-                    shader_directive.vertex_type_name.path.clone(),
-                    shader_directive.vertex_type_name.span.clone(),
-                    format!(
+                errors.push(Error::DirectiveParsing(ParsingError {
+                    path: vertex_type_name.path.clone(),
+                    span: vertex_type_name.span.clone(),
+                    message: format!(
                         "field `{name}` of type `{}` cannot be used as vertex data",
                         field.label
                     ),
-                ));
+                }));
             }
         }
-        let vertex_buffer = &draw_directive.vertex_buffer;
-        let Some(storage_type) = self.storages.get(&vertex_buffer.buffer_name.label) else {
-            errors.push(Error::DirectiveParsing(
-                draw_directive.shader_name.path.clone(),
-                vertex_buffer.span(),
-                format!(
-                    "unknown storage variable `{}`",
-                    vertex_buffer.buffer_name.label
-                ),
-            ));
+        let vertex_buffer = crate::directive::vertex_buffer(draw_directive);
+        let Some(storage_type) = self.storages.get(&vertex_buffer.var.slice) else {
+            errors.push(Error::DirectiveParsing(ParsingError {
+                path: vertex_buffer.var.path.clone(),
+                span: vertex_buffer.span,
+                message: format!("unknown storage variable `{}`", vertex_buffer.var.slice),
+            }));
             return;
         };
         let arg_type = match storage_type.field_ident_type(&vertex_buffer.fields) {
@@ -312,22 +332,22 @@ impl Resources {
             }
         };
         let Some((arg_item_type, _)) = arg_type.array_params.as_ref() else {
-            errors.push(Error::DirectiveParsing(
-                draw_directive.shader_name.path.clone(),
-                vertex_buffer.span(),
-                "found non-array argument".into(),
-            ));
+            errors.push(Error::DirectiveParsing(ParsingError {
+                path: crate::directive::shader_name(draw_directive).path.clone(),
+                span: vertex_buffer.span,
+                message: "found non-array argument".into(),
+            }));
             return;
         };
         if expected_item_type != &**arg_item_type {
-            errors.push(Error::DirectiveParsing(
-                draw_directive.shader_name.path.clone(),
-                vertex_buffer.span(),
-                format!(
+            errors.push(Error::DirectiveParsing(ParsingError {
+                path: crate::directive::shader_name(draw_directive).path.clone(),
+                span: vertex_buffer.span,
+                message: format!(
                     "found vertex type `{}`, expected `{}`",
                     arg_item_type.label, expected_item_type.label
                 ),
-            ));
+            }));
         }
     }
 }

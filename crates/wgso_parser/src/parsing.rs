@@ -16,14 +16,29 @@ pub fn parse(
         initial_len: source.len(),
         initial_offset: offset,
     };
-    parse_rules(&mut ctx, rules)
+    let rules = parse_rules(&mut ctx, rules).map_err(|(error, _)| error)?;
+    ctx.remaining_source = ctx.remaining_source.trim_start();
+    if ctx.remaining_source.is_empty() {
+        Ok(rules)
+    } else {
+        Err(ParsingError {
+            path: path.into(),
+            span: ctx.offset()..ctx.offset() + ctx.remaining_source.len(),
+            message: "unexpected tokens".into(),
+        })
+    }
 }
 
-fn parse_rules(ctx: &mut Context<'_>, rules: &[Rule]) -> Result<Vec<Token>, ParsingError> {
-    Ok(rules
+fn parse_rules(ctx: &mut Context<'_>, rules: &[Rule]) -> Result<Vec<Token>, (ParsingError, bool)> {
+    let rules = rules
         .iter()
         .map(|rule| parse_rule(ctx, rule))
-        .collect::<Result<Vec<Vec<Token>>, ParsingError>>()?
+        .collect::<Vec<_>>();
+    let first_token_parsed = rules[0].is_ok();
+    Ok(rules
+        .into_iter()
+        .collect::<Result<Vec<Vec<Token>>, ParsingError>>()
+        .map_err(|error| (error, first_token_parsed))?
         .into_iter()
         .flatten()
         .collect())
@@ -60,36 +75,60 @@ fn parse_token(ctx: &mut Context<'_>, token: &str) -> Result<Vec<Token>, Parsing
             }]);
         }
     }
-    Err(parsing_error(ctx, &format!("`{token}`")))
+    Err(parsing_error(
+        ctx,
+        &format!("`{token}`"),
+        ctx.offset()..ctx.offset(),
+    ))
 }
 
 fn parse_pattern(ctx: &mut Context<'_>, rule: &PatternRule) -> Result<Vec<Token>, ParsingError> {
     ctx.remaining_source = ctx.remaining_source.trim_start();
+    let initial_offset = ctx.offset();
     let is_integer = rule.config.min.is_some() || rule.config.max.is_some();
-    let token = parse_conditional(ctx, &rule.label, &rule.config.label, |char, char_index| {
+    let chat_condition = |char: char, char_index| {
         (is_integer && (char.is_ascii_digit() || (char_index == 0 && char == '-')))
             || (!is_integer
                 && char.is_ascii_alphanumeric()
                 && (rule.config.is_digit_prefix_allowed.unwrap_or(true)
                     || char_index > 0
                     || char.is_ascii_alphabetic()))
-    })?;
+            || (rule.config.is_underscore_allowed.unwrap_or(false) && char == '_')
+    };
+    let token = parse_conditional(
+        &mut ctx.clone(),
+        &rule.label,
+        &rule.config.label,
+        chat_condition,
+    )?;
     if is_integer {
         match token.slice.parse::<i128>() {
             Ok(value) => {
-                if rule.config.min.map_or(true, |min| value >= min)
-                    && rule.config.max.map_or(true, |max| value <= max)
+                if !(rule.config.min.map_or(true, |min| value >= min)
+                    && rule.config.max.map_or(true, |max| value <= max))
                 {
-                    Ok(vec![token])
-                } else {
-                    Err(parsing_error(ctx, &rule.config.label))
+                    return Err(parsing_error(
+                        ctx,
+                        &rule.config.label,
+                        initial_offset..initial_offset + token.slice.len(),
+                    ));
                 }
             }
-            Err(_) => Err(parsing_error(ctx, &rule.config.label)),
+            Err(_) => {
+                return Err(parsing_error(
+                    ctx,
+                    &rule.config.label,
+                    initial_offset..initial_offset + token.slice.len(),
+                ))
+            }
         }
-    } else {
-        Ok(vec![token])
     }
+    Ok(vec![parse_conditional(
+        ctx,
+        &rule.label,
+        &rule.config.label,
+        chat_condition,
+    )?])
 }
 
 fn parse_conditional(
@@ -107,7 +146,7 @@ fn parse_conditional(
         }
     }
     if ident_len == 0 {
-        Err(parsing_error(ctx, type_))
+        Err(parsing_error(ctx, type_, ctx.offset()..ctx.offset()))
     } else {
         let span_start = ctx.offset();
         let ident = &ctx.remaining_source[..ident_len];
@@ -129,9 +168,9 @@ fn parse_repeat(ctx: &mut Context<'_>, rule: &RepeatRule) -> Result<Vec<Token>, 
             break;
         }
         match parse_rules(&mut ctx.clone(), &rule.group) {
-            Ok(_) => all_tokens.extend(parse_rules(ctx, &rule.group)?),
-            Err(error) => {
-                if times < rule.min {
+            Ok(_) => all_tokens.extend(parse_rules(ctx, &rule.group).map_err(|(error, _)| error)?),
+            Err((error, first_token_parsed)) => {
+                if first_token_parsed || times < rule.min {
                     return Err(error);
                 }
                 break;
@@ -144,10 +183,9 @@ fn parse_repeat(ctx: &mut Context<'_>, rule: &RepeatRule) -> Result<Vec<Token>, 
 
 fn parse_choice(ctx: &mut Context<'_>, choices: &[ChoiceRule]) -> Result<Vec<Token>, ParsingError> {
     for choice in choices {
-        // TODO: parse only first token to check the choice
         if parse_token(&mut ctx.clone(), &choice.token).is_ok() {
             let mut token = parse_token(ctx, &choice.token)?;
-            token.extend(parse_rules(ctx, &choice.next)?);
+            token.extend(parse_rules(ctx, &choice.next).map_err(|(error, _)| error)?);
             return Ok(token);
         }
     }
@@ -162,13 +200,17 @@ fn parse_choice(ctx: &mut Context<'_>, choices: &[ChoiceRule]) -> Result<Vec<Tok
             .join(", "),
         last_choice.token
     );
-    Err(parsing_error(ctx, &expected_tokens))
+    Err(parsing_error(
+        ctx,
+        &expected_tokens,
+        ctx.offset()..ctx.offset(),
+    ))
 }
 
-fn parsing_error(ctx: &Context<'_>, token: &str) -> ParsingError {
+fn parsing_error(ctx: &Context<'_>, token: &str, span: Range<usize>) -> ParsingError {
     ParsingError {
         path: ctx.path.into(),
-        span: ctx.offset()..ctx.offset(),
+        span,
         message: format!("expected {token}"),
     }
 }

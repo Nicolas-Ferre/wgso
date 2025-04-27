@@ -1,9 +1,9 @@
-use crate::directive::token::Ident;
 use crate::Error;
 use fxhash::FxHashMap;
 use naga::common::wgsl::{ToWgsl, TryToWgsl};
 use naga::{AddressSpace, ArraySize, ImageClass, Scalar, ScalarKind, TypeInner, VectorSize};
 use std::sync::Arc;
+use wgso_parser::{ParsingError, Token};
 
 #[derive(Debug, Eq, Clone)]
 pub(crate) struct Type {
@@ -43,16 +43,16 @@ impl Type {
         }
     }
 
-    pub(crate) fn field_ident_type(&self, fields: &[Ident]) -> Result<&Self, Error> {
+    pub(crate) fn field_ident_type(&self, fields: &[Token]) -> Result<&Self, Error> {
         if let Some((field, other_fields)) = fields.split_first() {
-            if let Some(field_type) = self.fields.get(&field.label) {
+            if let Some(field_type) = self.fields.get(&field.slice) {
                 field_type.field_ident_type(other_fields)
             } else {
-                Err(Error::DirectiveParsing(
-                    field.path.clone(),
-                    field.span.clone(),
-                    format!("unknown field for type `{}`", self.label),
-                ))
+                Err(Error::DirectiveParsing(ParsingError {
+                    path: field.path.clone(),
+                    span: field.span.clone(),
+                    message: format!("unknown field for type `{}`", self.label),
+                }))
             }
         } else {
             Ok(self)

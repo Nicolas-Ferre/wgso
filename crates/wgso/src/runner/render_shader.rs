@@ -1,17 +1,14 @@
-use crate::directive::draw::DrawDirective;
-use crate::directive::render_shader::RenderShaderDirective;
 use crate::module::Module;
 use crate::type_::Type;
-use crate::Program;
-use fxhash::FxHashMap;
 use wgpu::{
-    BindGroup, BindGroupLayout, BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
-    BufferBinding, BufferBindingType, CompareFunction, DepthBiasState, DepthStencilState, Device,
-    FrontFace, MultisampleState, PipelineCompilationOptions, PipelineLayoutDescriptor, PolygonMode,
-    PrimitiveState, PrimitiveTopology, RenderPipeline, RenderPipelineDescriptor,
-    ShaderModuleDescriptor, ShaderStages, StencilState, TextureFormat, VertexAttribute,
-    VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+    BindGroupLayout, BindGroupLayoutEntry, BindingType, BufferBindingType, CompareFunction,
+    DepthBiasState, DepthStencilState, Device, FrontFace, MultisampleState,
+    PipelineCompilationOptions, PipelineLayoutDescriptor, PolygonMode, PrimitiveState,
+    PrimitiveTopology, RenderPipeline, RenderPipelineDescriptor, ShaderModuleDescriptor,
+    ShaderStages, StencilState, TextureFormat, VertexAttribute, VertexBufferLayout, VertexFormat,
+    VertexState, VertexStepMode,
 };
+use wgso_parser::Token;
 
 #[derive(Debug)]
 pub(crate) struct RenderShaderResources {
@@ -21,7 +18,7 @@ pub(crate) struct RenderShaderResources {
 
 impl RenderShaderResources {
     pub(crate) fn new(
-        directive: &RenderShaderDirective,
+        directive: &[Token],
         module: &Module,
         texture_format: TextureFormat,
         device: &Device,
@@ -35,7 +32,7 @@ impl RenderShaderResources {
 
     #[allow(clippy::cast_possible_truncation)]
     fn create_bind_group_layout(
-        directive: &RenderShaderDirective,
+        directive: &[Token],
         module: &Module,
         device: &Device,
     ) -> BindGroupLayout {
@@ -66,29 +63,30 @@ impl RenderShaderResources {
                 count: None,
             });
         device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some(&directive.code),
+            label: Some(&crate::directive::code(directive)),
             entries: &storage_entries.chain(uniform_entries).collect::<Vec<_>>(),
         })
     }
 
     fn create_pipeline(
         directive_module: &Module,
-        directive: &RenderShaderDirective,
+        directive: &[Token],
         texture_format: TextureFormat,
         device: &Device,
         layout: Option<&BindGroupLayout>,
     ) -> RenderPipeline {
+        let directive_code = crate::directive::code(directive);
         let module = device.create_shader_module(ShaderModuleDescriptor {
-            label: Some(&directive.code),
+            label: Some(&directive_code),
             source: wgpu::ShaderSource::Wgsl(directive_module.code.as_str().into()),
         });
         let vertex_type = &directive_module
-            .type_(&directive.vertex_type_name.label)
+            .type_(&crate::directive::vertex_type(directive).slice)
             .expect("internal error: vertex type should be validated");
         device.create_render_pipeline(&RenderPipelineDescriptor {
-            label: Some(&directive.code),
+            label: Some(&directive_code),
             layout: Some(&device.create_pipeline_layout(&PipelineLayoutDescriptor {
-                label: Some(&directive.code),
+                label: Some(&directive_code),
                 bind_group_layouts: &layout.map_or(vec![], |layout| vec![layout]),
                 push_constant_ranges: &[],
             })),
@@ -164,80 +162,5 @@ impl RenderShaderResources {
             offset: field_type.offset.into(),
             shader_location: location as u32,
         }
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct RenderShaderDraw {
-    pub(crate) directive: DrawDirective,
-    pub(crate) shader_name: String,
-    pub(crate) bind_group: Option<BindGroup>,
-}
-
-impl RenderShaderDraw {
-    pub(crate) fn new(
-        program: &Program,
-        run_directive: &DrawDirective,
-        buffers: &FxHashMap<String, Buffer>,
-        device: &Device,
-        layout: Option<&BindGroupLayout>,
-    ) -> Self {
-        let shader_module = &program.resources.render_shaders[&run_directive.shader_name.label].1;
-        let bind_group = layout.as_ref().map(|layout| {
-            Self::create_bind_group(
-                program,
-                run_directive,
-                shader_module,
-                buffers,
-                device,
-                layout,
-            )
-        });
-        Self {
-            directive: run_directive.clone(),
-            shader_name: run_directive.shader_name.label.clone(),
-            bind_group,
-        }
-    }
-
-    #[allow(clippy::cast_possible_truncation)]
-    fn create_bind_group(
-        program: &Program,
-        run_directive: &DrawDirective,
-        shader_module: &Module,
-        buffers: &FxHashMap<String, Buffer>,
-        device: &Device,
-        layout: &BindGroupLayout,
-    ) -> BindGroup {
-        let storage_entries =
-            shader_module
-                .storage_bindings()
-                .map(|(name, binding)| wgpu::BindGroupEntry {
-                    binding: binding.index,
-                    resource: buffers[name].as_entire_binding(),
-                });
-        let uniform_entries = shader_module.uniform_bindings().map(|(name, binding)| {
-            let type_ = program.resources.storages
-                [&run_directive.args[name].value.buffer_name.label]
-                .field_ident_type(&run_directive.args[name].value.fields)
-                .expect("internal error: type field should be validated");
-            wgpu::BindGroupEntry {
-                binding: binding.index,
-                resource: BindingResource::Buffer(BufferBinding {
-                    buffer: &buffers[&run_directive.args[name].value.buffer_name.label],
-                    offset: type_.offset.into(),
-                    size: Some(
-                        u64::from(type_.size)
-                            .try_into()
-                            .expect("internal error: type size should be validated"),
-                    ),
-                }),
-            }
-        });
-        device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some(&run_directive.code),
-            layout,
-            entries: &storage_entries.chain(uniform_entries).collect::<Vec<_>>(),
-        })
     }
 }

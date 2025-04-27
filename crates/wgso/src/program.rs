@@ -27,7 +27,8 @@ impl Program {
     pub(crate) fn parse(root_path: impl AsRef<Path>) -> Self {
         let root_path = root_path.as_ref();
         let mut errors = vec![];
-        let files = Files::new(root_path, &mut errors);
+        let directive_rules = crate::directive::load_rules();
+        let files = Files::new(root_path, &directive_rules, &mut errors);
         let modules = Modules::new(root_path, &files, &mut errors);
         let resources = Resources::new(&files, &modules, &mut errors);
         Self {

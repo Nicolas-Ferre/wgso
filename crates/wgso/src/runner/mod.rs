@@ -1,8 +1,8 @@
 use crate::fields::StorageField;
-use crate::runner::render_shader::{RenderShaderDraw, RenderShaderResources};
+use crate::runner::render_shader::RenderShaderResources;
 use crate::runner::target::{Target, TargetConfig, TargetSpecialized, TextureTarget, WindowTarget};
 use crate::{Error, Program};
-use compute_shader::{ComputeShaderResources, ComputeShaderRun};
+use compute_shader::ComputeShaderResources;
 use futures::executor;
 use fxhash::FxHashMap;
 use std::path::Path;
@@ -20,10 +20,12 @@ use wgpu::{
 use winit::dpi::PhysicalSize;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
+use shader_execution::ShaderExecution;
 
 mod compute_shader;
 mod render_shader;
 mod target;
+mod shader_execution;
 
 /// A runner to execute a WGSO program.
 #[derive(Debug)]
@@ -36,8 +38,8 @@ pub struct Runner {
     program: Program,
     compute_shaders: FxHashMap<String, ComputeShaderResources>,
     render_shaders: FxHashMap<String, RenderShaderResources>,
-    compute_shader_runs: Vec<ComputeShaderRun>,
-    render_shader_draws: Vec<RenderShaderDraw>,
+    compute_shader_executions: Vec<ShaderExecution>,
+    render_shader_executions: Vec<ShaderExecution>,
     buffers: FxHashMap<String, Buffer>,
     is_initialized: bool,
 }
@@ -118,8 +120,8 @@ impl Runner {
                     queue,
                     compute_shaders,
                     render_shaders,
-                    compute_shader_runs,
-                    render_shader_draws,
+                    compute_shader_executions: compute_shader_runs,
+                    render_shader_executions: render_shader_draws,
                     buffers,
                     is_initialized: false,
                     instance,
@@ -440,18 +442,18 @@ impl Runner {
         program: &Program,
         buffers: &FxHashMap<String, Buffer>,
         compute_shaders: &FxHashMap<String, ComputeShaderResources>,
-    ) -> Vec<ComputeShaderRun> {
+    ) -> Vec<ShaderExecution> {
         program
             .resources
             .runs
             .iter()
             .map(|directive| {
-                ComputeShaderRun::new(
+                ShaderExecution::new(
                     program,
                     directive,
                     buffers,
                     device,
-                    compute_shaders[&directive.shader_name.label]
+                    compute_shaders[&crate::directive::shader_name(directive).slice]
                         .layout
                         .as_ref(),
                 )
@@ -464,18 +466,20 @@ impl Runner {
         program: &Program,
         buffers: &FxHashMap<String, Buffer>,
         render_shaders: &FxHashMap<String, RenderShaderResources>,
-    ) -> Vec<RenderShaderDraw> {
+    ) -> Vec<ShaderExecution> {
         program
             .resources
             .draws
             .iter()
             .map(|directive| {
-                RenderShaderDraw::new(
+                ShaderExecution::new(
                     program,
                     directive,
                     buffers,
                     device,
-                    render_shaders[&directive.shader_name.label].layout.as_ref(),
+                    render_shaders[&crate::directive::shader_name(directive).slice]
+                        .layout
+                        .as_ref(),
                 )
             })
             .collect()
@@ -495,17 +499,18 @@ impl Runner {
     }
 
     pub(crate) fn run_compute_step(&mut self, mut pass: ComputePass<'_>) {
-        for run in &self.compute_shader_runs {
+        for run in &self.compute_shader_executions {
             if !run.is_init || !self.is_initialized {
                 let shader = &self.compute_shaders[&run.shader_name];
                 pass.set_pipeline(&shader.pipeline);
                 if let Some(bind_group) = &run.bind_group {
                     pass.set_bind_group(0, bind_group, &[]);
                 }
+                let workgroup_count = crate::directive::workgroup_count(&shader.directive);
                 pass.dispatch_workgroups(
-                    shader.directive.workgroup_count_x.into(),
-                    shader.directive.workgroup_count_y.into(),
-                    shader.directive.workgroup_count_z.into(),
+                    workgroup_count.0.into(),
+                    workgroup_count.1.into(),
+                    workgroup_count.2.into(),
                 );
             }
         }
@@ -514,17 +519,18 @@ impl Runner {
 
     #[allow(clippy::cast_lossless)]
     pub(crate) fn run_draw_step(&self, mut pass: RenderPass<'_>) {
-        for draw in &self.render_shader_draws {
+        for draw in &self.render_shader_executions {
             let shader = &self.render_shaders[&draw.shader_name];
             pass.set_pipeline(&shader.pipeline);
             if let Some(bind_group) = &draw.bind_group {
                 pass.set_bind_group(0, bind_group, &[]);
             }
-            let buffer_name = &draw.directive.vertex_buffer.buffer_name.label;
+            let vertex_buffer_arg = crate::directive::vertex_buffer(&draw.directive);
+            let buffer_name = &vertex_buffer_arg.var.slice;
             let storage = &self.program.resources.storages[buffer_name];
             let buffer = &self.buffers[buffer_name];
             let field_type = storage
-                .field_ident_type(&draw.directive.vertex_buffer.fields)
+                .field_ident_type(&vertex_buffer_arg.fields)
                 .expect("internal error: vertex buffer field should be validated");
             let buffer_length = field_type
                 .array_params

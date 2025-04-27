@@ -1,3 +1,4 @@
+use crate::directive::DirectiveKind;
 use crate::file::{File, Files};
 use crate::type_::Type;
 use crate::Error;
@@ -12,6 +13,7 @@ use std::slice::Iter;
 use std::sync::Arc;
 use wgpu::naga;
 use wgpu::naga::{AddressSpace, ResourceBinding};
+use wgso_parser::ParsingError;
 
 pub(crate) const BINDING_GROUP: u32 = 0;
 
@@ -158,16 +160,20 @@ impl Module {
         while last_path_count < paths.len() {
             last_path_count = paths.len();
             for path in paths.clone() {
-                for directive in &files.get(&path).directives.imports {
-                    let path = directive.file_path(root_path);
+                let import_directives = crate::directive::find_all_by_kind(
+                    &files.get(&path).directives,
+                    DirectiveKind::Import,
+                );
+                for directive in import_directives {
+                    let path = root_path.join(crate::directive::import_path(directive));
                     if files.exists(&path) {
                         paths.insert(path);
                     } else {
-                        return Err(Error::DirectiveParsing(
-                            directive.path[0].path.clone(),
-                            directive.span.clone(),
-                            format!("file at '{}' does not exist", path.display()),
-                        ));
+                        return Err(Error::DirectiveParsing(ParsingError {
+                            path: crate::directive::path(directive).into(),
+                            span: crate::directive::span(directive),
+                            message: format!("file at '{}' does not exist", path.display()),
+                        }));
                     }
                 }
             }
@@ -276,10 +282,11 @@ impl Module {
     #[allow(clippy::cast_possible_truncation)]
     fn configure_vertex_buffer(parsed: &mut naga::Module, files: &[Arc<File>]) {
         for file in files {
-            for directive in &file.directives.render_shaders {
-                let Some(vertex_type) =
-                    Self::normalize_type_name(&directive.vertex_type_name.label)
-                else {
+            let render_shader_directives =
+                crate::directive::find_all_by_kind(&file.directives, DirectiveKind::RenderShader);
+            for directive in render_shader_directives {
+                let vertex_type = crate::directive::vertex_type(directive);
+                let Some(vertex_type) = Self::normalize_type_name(&vertex_type.slice) else {
                     continue;
                 };
                 for (type_handle, type_) in parsed.types.clone().iter() {

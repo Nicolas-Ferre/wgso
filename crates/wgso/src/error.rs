@@ -1,14 +1,13 @@
-use crate::directive::token::Ident;
 use crate::file::File;
 use crate::Program;
 use annotate_snippets::{Level, Renderer, Snippet};
-use logos::Span;
 use naga::valid::ValidationError;
 use naga::WithSpan;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::{error, io};
 use wgpu::naga::front::wgsl::ParseError;
+use wgso_parser::{ParsingError, Token};
 
 /// A WGSO error.
 #[derive(Debug)]
@@ -24,11 +23,11 @@ pub enum Error {
     /// A Naga validation error.
     WgslValidation(Vec<Arc<File>>, WithSpan<ValidationError>),
     /// A directive parsing error.
-    DirectiveParsing(PathBuf, Span, String),
+    DirectiveParsing(ParsingError),
     /// Two shaders have been found with the same name.
     ///
     /// Last value is the type of shader.
-    ShaderConflict(Ident, Ident, &'static str),
+    ShaderConflict(Token, Token, &'static str),
     /// Two storages have been found with the same name.
     StorageConflict(PathBuf, PathBuf, String),
     /// WGSL code contains a feature unsupported by WGSO.
@@ -45,9 +44,7 @@ impl Error {
             Self::WgslValidation(files, error) => {
                 Self::wgsl_validation_message(program, files, error)
             }
-            Self::DirectiveParsing(path, span, error) => {
-                Self::directive_parsing_message(program, path, span.clone(), error)
-            }
+            Self::DirectiveParsing(error) => Self::directive_parsing_message(program, error),
             Self::ShaderConflict(first, second, type_) => {
                 Self::shader_conflict_message(program, first, second, type_)
             }
@@ -63,9 +60,9 @@ impl Error {
     pub(crate) fn path(&self) -> Option<&Path> {
         match self {
             Self::Io(path, _) // no-coverage (not easy to test)
-            | Self::DirectiveParsing(path, _, _)
             | Self::StorageConflict(path, _, _)
             | Self::UnsupportedWgslFeature(path, _) => Some(path),
+            Self::DirectiveParsing(error) => Some(&error.path),
             Self::WgslParsing(module, error) => Some(Self::wgsl_parsing_error_path(module, error)),
             Self::WgslValidation(module, error) => Some(Self::wgsl_validation_error_path(module, error)),
             Self::ShaderConflict(first, _, _) => Some(&first.path),
@@ -184,20 +181,15 @@ impl Error {
         format!("{}", Renderer::styled().render(Level::Error.title(error)))
     }
 
-    fn directive_parsing_message(
-        program: &Program,
-        path: &Path,
-        span: Span,
-        error: &str,
-    ) -> String {
+    fn directive_parsing_message(program: &Program, error: &ParsingError) -> String {
         format!(
             "{}",
             Renderer::styled().render(
-                Level::Error.title(error).snippet(
-                    Snippet::source(&program.files.get(path).code)
+                Level::Error.title(&error.message).snippet(
+                    Snippet::source(&program.files.get(&error.path).code)
                         .fold(true)
-                        .origin(&path.display().to_string())
-                        .annotation(Level::Error.span(span))
+                        .origin(&error.path.display().to_string())
+                        .annotation(Level::Error.span(error.span.clone()))
                 )
             )
         )
@@ -205,8 +197,8 @@ impl Error {
 
     fn shader_conflict_message(
         program: &Program,
-        first: &Ident,
-        second: &Ident,
+        first: &Token,
+        second: &Token,
         type_: &str,
     ) -> String {
         format!(
@@ -215,7 +207,7 @@ impl Error {
                 Level::Error
                     .title(&format!(
                         "same name `{}` used for two {type_} shaders",
-                        first.label
+                        first.slice
                     ))
                     .snippet(
                         Snippet::source(&program.files.get(&first.path).code)
