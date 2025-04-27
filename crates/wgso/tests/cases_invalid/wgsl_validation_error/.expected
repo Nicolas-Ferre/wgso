@@ -1,4 +1,4 @@
-error: expected `import`, `shader`, `init` or `run`
+error: expected `import`, `shader`, `init`, `run` or `draw`
  --> ./tests/cases_invalid/wgsl_validation_error/other_error.wgsl:1:2
   |
 1 | #invalid
@@ -12,3 +12,4 @@ error: Function [0] 'increment' is invalid
   | |________________^ naga::ir::Function [0]
   |
   = info: Argument 'value' at index 0 is a pointer of space Storage { access: StorageAccess(LOAD) }, which can't be passed into functions.
+  = info: The error comes from file './tests/cases_invalid/wgsl_validation_error/root.wgsl'

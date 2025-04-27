@@ -1,0 +1,24 @@
+[package]
+name = "wgso_parser"
+description = "Simple parsing library used for `wgso` crate"
+readme = "../../README.md" # TODO: add dedicated readme ?
+keywords = ["wgso", "parser", "simple"]
+categories = ["parsing"]
+exclude = [".github", "README.md"]
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+annotate-snippets.workspace = true
+itertools.workspace = true
+serde.workspace = true
+serde_valid.workspace = true
+serde_yml.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

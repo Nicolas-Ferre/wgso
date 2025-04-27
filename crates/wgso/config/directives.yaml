@@ -1,0 +1,119 @@
+patterns:
+  ident: &ident
+    label: identifier
+    is_digit_prefix_allowed: false
+  i32: &i32
+    label: '`i32` value'
+    min: -2147483648
+    max: 2147483647
+  u16: &u16
+    label: '`u16` value'
+    min: 0
+    max: 65535
+
+priority: &priority !repeat
+  max: 1
+  group:
+    - !token '<'
+    - !pattern
+      label: priority
+      config: *i32
+    - !token '>'
+
+arg_value: &arg_value !repeat
+  min: 1
+  max: 1
+  group:
+    - !pattern
+      label: arg_var
+      config: *ident
+    - !repeat
+      group:
+        - !token '.'
+        - !pattern
+          label: arg_field
+          config: *ident
+
+arg_pair: &arg_pair !repeat
+  min: 1
+  max: 1
+  group:
+    - !pattern
+      label: arg_name
+      config: *ident
+    - !token '='
+    - *arg_value
+
+args: &args !repeat
+  max: 1
+  group:
+    - *arg_pair
+    - !repeat
+      group:
+        - !token ','
+        - *arg_pair
+
+compute_shader: &compute_shader
+  - !repeat
+    max: 3
+    group:
+      - !token ','
+      - !pattern
+        label: workgroup_count
+        config: *u16
+  - !token '>'
+  - !pattern
+    label: shader_name
+    config: *ident
+
+render_shader: &render_shader
+  - !token ','
+  - !pattern
+    label: vertex_type
+    config: *ident
+  - !token '>'
+  - !pattern
+    label: shader_name
+    config: *ident
+
+shader: &shader
+  - !token '<'
+  - !choice
+    - token: 'compute'
+      next: *compute_shader
+    - token: 'render'
+      next: *render_shader
+
+run: &run
+  - *priority
+  - !pattern
+    label: shader_name
+    config: *ident
+  - !token '('
+  - *args
+  - !token ')'
+
+draw: &draw
+  - *priority
+  - !token '<'
+  - !pattern
+    label: vertex_buffer
+    config: *ident
+  - !token '>'
+  - !pattern
+    label: shader_name
+    config: *ident
+  - !token '('
+  - *args
+  - !token ')'
+
+main:
+  - !choice
+    - token: 'shader'
+      next: *shader
+    - token: 'init'
+      next: *run
+    - token: 'run'
+      next: *run
+    - token: 'draw'
+      next: *draw

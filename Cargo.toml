@@ -23,11 +23,17 @@ itertools = "0.14"
 logos = "0.15"
 pico-args = "0.5"
 rstest = "0.25"
+serde = { version = "1.0", features = ["derive"] }
+serde_valid = "1.0"
+serde_yml = "0.0.12"
 strip-ansi-escapes = "0.2"
+thiserror = "2"
 winit = "0.30"
 
 naga = { version = "25.0", features = ["wgsl-in", "wgsl-out"] }
 wgpu = "25.0"
+
+wgso_parser = { version = "0.1.0", path = "crates/wgso_parser" }
 
 [workspace.lints.rust]
 anonymous_parameters = "warn"

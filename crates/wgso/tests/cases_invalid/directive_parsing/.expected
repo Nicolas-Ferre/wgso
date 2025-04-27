@@ -4,7 +4,7 @@ error: expected line break
 1 | #shader<compute> test invalidtoken
   |                       ^^^^^^^^^^^^
   |
-error: expected `import`, `shader`, `init` or `run`
+error: expected `import`, `shader`, `init`, `run` or `draw`
  --> ./tests/cases_invalid/directive_parsing/multiple_expected_token.wgsl:2:2
   |
 2 | #invalid
