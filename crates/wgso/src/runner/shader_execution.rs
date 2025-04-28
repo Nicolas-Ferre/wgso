@@ -30,7 +30,7 @@ impl ShaderExecution {
         let bind_group = layout.as_ref().map(|layout| {
             Self::create_bind_group(
                 program,
-                &run_directive,
+                run_directive,
                 shader_module,
                 buffers,
                 device,

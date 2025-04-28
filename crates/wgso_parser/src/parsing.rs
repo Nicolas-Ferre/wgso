@@ -4,6 +4,11 @@ use itertools::Itertools;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
+/// Parse a source string located in a given file path and starting at a given offset.
+///
+/// # Errors
+///
+/// An error is returned if the source cannot be parsed with using rules.
 pub fn parse(
     source: &str,
     offset: usize,
@@ -215,11 +220,16 @@ fn parsing_error(ctx: &Context<'_>, token: &str, span: Range<usize>) -> ParsingE
     }
 }
 
+/// A parsed token.
 #[derive(Debug, Clone)]
 pub struct Token {
+    /// The text corresponding to the token.
     pub slice: String,
+    /// The label to identity the token more easily.
     pub label: Option<String>,
+    /// The span of the token.
     pub span: Range<usize>,
+    /// The file path of the token.
     pub path: PathBuf,
 }
 
