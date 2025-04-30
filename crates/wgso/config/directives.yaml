@@ -1,14 +1,15 @@
 patterns:
   ident: &ident
     label: identifier
-    is_digit_prefix_allowed: false
-    is_underscore_allowed: true
+    regex: '[a-zA-Z_][a-zA-Z0-9_]*'
   i32: &i32
     label: '`i32` value'
+    regex: '-?[0-9]+'
     min: -2147483648
     max: 2147483647
   u16: &u16
     label: '`u16` value'
+    regex: '[0-9]+'
     min: 0
     max: 65535
 

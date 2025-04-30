@@ -90,78 +90,56 @@ fn parse_token(ctx: &mut Context<'_>, token: &str) -> Result<Vec<Token>, Parsing
 fn parse_pattern(ctx: &mut Context<'_>, rule: &PatternRule) -> Result<Vec<Token>, ParsingError> {
     ctx.remaining_source = ctx.remaining_source.trim_start();
     let initial_offset = ctx.offset();
-    let is_integer = rule.config.min.is_some() || rule.config.max.is_some();
-    let chat_condition = |char: char, char_index| {
-        (is_integer && (char.is_ascii_digit() || (char_index == 0 && char == '-')))
-            || (!is_integer
-                && char.is_ascii_alphanumeric()
-                && (rule.config.is_digit_prefix_allowed.unwrap_or(true)
-                    || char_index > 0
-                    || char.is_ascii_alphabetic()))
-            || (rule.config.is_underscore_allowed.unwrap_or(false) && char == '_')
+    let token = extract_pattern_token(ctx, rule);
+    let Some(token) = token else {
+        return Err(parsing_error(
+            ctx,
+            &rule.config.label,
+            ctx.offset()..ctx.offset(),
+        ));
     };
-    let token = parse_conditional(
-        &mut ctx.clone(),
-        &rule.label,
-        &rule.config.label,
-        chat_condition,
-    )?;
-    if is_integer {
-        match token.slice.parse::<i128>() {
-            Ok(value) => {
-                if !(rule.config.min.map_or(true, |min| value >= min)
-                    && rule.config.max.map_or(true, |max| value <= max))
-                {
-                    return Err(parsing_error(
-                        ctx,
-                        &rule.config.label,
-                        initial_offset..initial_offset + token.slice.len(),
-                    ));
-                }
-            }
-            Err(_) => {
-                return Err(parsing_error(
-                    ctx,
-                    &rule.config.label,
-                    initial_offset..initial_offset + token.slice.len(),
-                ))
-            }
-        }
+    let is_valid = is_valid_pattern(rule, &token);
+    if is_valid {
+        ctx.remaining_source = &ctx.remaining_source[token.slice.len()..];
+        Ok(vec![token])
+    } else {
+        Err(parsing_error(
+            ctx,
+            &rule.config.label,
+            initial_offset..initial_offset + token.slice.len(),
+        ))
     }
-    Ok(vec![parse_conditional(
-        ctx,
-        &rule.label,
-        &rule.config.label,
-        chat_condition,
-    )?])
 }
 
-fn parse_conditional(
-    ctx: &mut Context<'_>,
-    label: &str,
-    type_: &str,
-    is_valid_char: impl Fn(char, usize) -> bool,
-) -> Result<Token, ParsingError> {
-    let mut ident_len = 0;
-    for char in ctx.remaining_source.chars() {
-        if is_valid_char(char, ident_len) {
-            ident_len += 1;
-        } else {
-            break;
+fn is_valid_pattern(rule: &PatternRule, token: &Token) -> bool {
+    if rule.config.min.is_some() || rule.config.max.is_some() {
+        match token.slice.parse::<i128>() {
+            Ok(value) => {
+                rule.config.min.map_or(true, |min| value >= min)
+                    && rule.config.max.map_or(true, |max| value <= max)
+            }
+            Err(_) => false,
         }
-    }
-    if ident_len == 0 {
-        Err(parsing_error(ctx, type_, ctx.offset()..ctx.offset()))
     } else {
-        let span_start = ctx.offset();
-        let ident = &ctx.remaining_source[..ident_len];
-        ctx.remaining_source = &ctx.remaining_source[ident_len..];
-        Ok(Token {
-            slice: ident.into(),
-            label: Some(label.into()),
-            span: span_start..ctx.offset(),
-            path: ctx.path.into(),
-        })
+        true
+    }
+}
+
+fn extract_pattern_token(ctx: &Context<'_>, rule: &PatternRule) -> Option<Token> {
+    if let Some(match_) = rule.config.regex.find(ctx.remaining_source) {
+        if match_.start() == 0 {
+            let ident = &ctx.remaining_source[..match_.end()];
+            Some(Token {
+                slice: ident.into(),
+                label: Some(rule.label.clone()),
+                span: ctx.offset()..ctx.offset() + ident.len(),
+                path: ctx.path.into(),
+            })
+        } else {
+            None
+        }
+    } else {
+        None
     }
 }
 

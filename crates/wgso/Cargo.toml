@@ -18,11 +18,7 @@ clap.workspace = true
 fxhash.workspace = true
 futures.workspace = true
 itertools.workspace = true
-logos.workspace = true
 naga.workspace = true
-serde.workspace = true
-serde_valid.workspace = true
-serde_yml.workspace = true
 strip-ansi-escapes.workspace = true
 
 wgso_parser.workspace = true

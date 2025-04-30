@@ -1,5 +1,6 @@
 #shader<render, Vertex> background
 
+#import vertices.types
 #import background.types
 
 struct Fragment {

@@ -1,5 +1,6 @@
 #shader<render, Vertex> triangle
 
+#import vertices.types
 #import triangles.types
 
 struct Fragment {

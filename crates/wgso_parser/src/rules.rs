@@ -1,4 +1,5 @@
 use crate::RuleError;
+use regex::Regex;
 use serde::Deserialize;
 use serde_valid::Validate;
 
@@ -17,10 +18,10 @@ use serde_valid::Validate;
 /// patterns:
 ///   ident: &ident
 ///     label: identifier
-///     is_digit_prefix_allowed: false
-///     is_underscore_allowed: true
+///     regex: '[a-zA-Z_][a-zA-Z0-9_]*'
 ///   number: &number
 ///     label: 'integer value'
+///     regex: '-?[0-9]+'
 ///     min: -2147483648
 ///     max: 2147483647
 ///
@@ -91,7 +92,7 @@ struct MainRule {
 pub enum Rule {
     /// A single fixed token.
     Token(String),
-    /// A single token following specific constraints.
+    /// A single token based on a pattern.
     Pattern(PatternRule),
     /// A repeated group of tokens.
     Repeat(RepeatRule),
@@ -103,39 +104,35 @@ pub enum Rule {
     ),
 }
 
-/// A parsing rule representing a single token following specific constraints.
+/// A parsing rule representing a single token based on a pattern.
 #[non_exhaustive]
 #[derive(Debug, Deserialize, Validate)]
 pub struct PatternRule {
     /// A label attached to the extracted token for easier identification.
     #[serde(default)]
     pub label: String,
-    /// The token constraints.
+    /// The token pattern configuration.
     #[validate]
     pub config: PatternConfig,
 }
 
-/// A set of token constraints.
-///
-/// If `min` or `max` fields are specified, the token should be an integer.
-/// Else, the token can only contain alphanumeric characters (and `_` when configured).
+/// A token pattern configuration.
 #[non_exhaustive]
 #[derive(Debug, Deserialize, Validate)]
 pub struct PatternConfig {
     /// A label used for error messages.
     pub label: String,
-    /// If specified, the minimum value of the parsed integer.
+    /// The regex describing the token.
+    #[serde(with = "serde_regex")]
+    pub regex: Regex,
+    /// The minimum value of the parsed integer.
+    ///
+    /// If this field is specified, the token must be a valid `i128` value.
     pub min: Option<i128>,
     /// If specified, the maximum value of the parsed integer.
+    ///
+    /// If this field is specified, the token must be a valid `i128` value.
     pub max: Option<i128>,
-    /// Whether the token can start with a digit.
-    ///
-    /// `true` by default.
-    pub is_digit_prefix_allowed: Option<bool>,
-    /// Whether the token can start with a digit.
-    ///
-    /// `false` by default.
-    pub is_underscore_allowed: Option<bool>,
 }
 
 /// A parsing rule representing a repeated sequence of tokens.
