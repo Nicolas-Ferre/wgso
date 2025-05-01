@@ -95,11 +95,11 @@ impl Error {
         .0
     }
 
-    fn merged_file(files: &[Arc<File>], offset: usize) -> (&Path, usize) {
+    fn merged_file(files: &[Arc<File>], offset: usize) -> (&Path, usize, usize) {
         let mut current_offset = 0;
-        for file in files {
-            if offset < current_offset + file.code.len() {
-                return (&file.path, current_offset);
+        for (index, file) in files.iter().enumerate() {
+            if offset < current_offset + file.code.len() || index == files.len() - 1 {
+                return (&file.path, current_offset, file.code.len());
             }
             current_offset += file.code.len();
         }
@@ -119,9 +119,13 @@ impl Error {
             .labels()
             .map(|(naga_span, _)| {
                 let span = naga_span.to_range().unwrap_or(0..0);
-                let (path, offset) = Self::merged_file(files, span.start);
+                let (path, offset, max_len) = Self::merged_file(files, span.start);
                 let path_str = path.display().to_string();
-                (span.start - offset..span.end - offset, path, path_str)
+                (
+                    (span.start - offset).min(max_len)..(span.end - offset).min(max_len),
+                    path,
+                    path_str,
+                )
             })
             .collect();
         for ((_, label), (span, path, path_str)) in error.labels().zip(&paths) {
@@ -144,11 +148,11 @@ impl Error {
             .spans()
             .map(|(naga_span, label)| {
                 let span = naga_span.to_range().unwrap_or(0..0);
-                let (path, offset) = Self::merged_file(files, span.start);
+                let (path, offset, max_len) = Self::merged_file(files, span.start);
                 let path_str = path.display().to_string();
                 (
                     label,
-                    span.start - offset..span.end - offset,
+                    (span.start - offset).min(max_len)..(span.end - offset).min(max_len),
                     path,
                     path_str,
                 )

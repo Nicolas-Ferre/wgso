@@ -10,7 +10,7 @@ use std::sync::Arc;
 use wgpu::Limits;
 use wgso_parser::ParsingError;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct Resources {
     pub(crate) storages: FxHashMap<String, Arc<Type>>,
     pub(crate) compute_shaders: FxHashMap<String, (Directive, Arc<Module>)>,
@@ -23,8 +23,8 @@ impl Resources {
     pub(crate) fn new(files: &Files, modules: &Modules, errors: &mut Vec<Error>) -> Self {
         let resources = Self {
             storages: Self::storages(modules, errors),
-            compute_shaders: Self::compute_shaders(modules, errors),
-            render_shaders: Self::render_shaders(modules, errors),
+            compute_shaders: Self::shaders(DirectiveKind::ComputeShader, modules),
+            render_shaders: Self::shaders(DirectiveKind::RenderShader, modules),
             runs: Self::runs(files),
             draws: Self::draws(files),
         };
@@ -68,62 +68,18 @@ impl Resources {
             .collect()
     }
 
-    fn compute_shaders(
+    fn shaders(
+        kind: DirectiveKind,
         modules: &Modules,
-        errors: &mut Vec<Error>,
     ) -> FxHashMap<String, (Directive, Arc<Module>)> {
-        let mut shaders = FxHashMap::default();
-        for module in modules.iter() {
-            let compute_shader_directives = crate::directive::find_all_by_kind(
-                &module.files[0].directives,
-                DirectiveKind::ComputeShader,
-            );
-            for directive in compute_shader_directives {
-                let shader_name = directive.shader_name();
-                match shaders.entry(shader_name.slice.clone()) {
-                    Entry::Vacant(entry) => {
-                        entry.insert((directive.clone(), module.clone()));
-                    }
-                    Entry::Occupied(existing) => {
-                        errors.push(Error::ShaderConflict(
-                            existing.get().0.shader_name().clone(),
-                            shader_name.clone(),
-                            "compute",
-                        ));
-                    }
-                }
-            }
-        }
-        shaders
-    }
-
-    fn render_shaders(
-        modules: &Modules,
-        errors: &mut Vec<Error>,
-    ) -> FxHashMap<String, (Directive, Arc<Module>)> {
-        let mut shaders = FxHashMap::default();
-        for module in modules.iter() {
-            let render_shader_directives = crate::directive::find_all_by_kind(
-                &module.files[0].directives,
-                DirectiveKind::RenderShader,
-            );
-            for directive in render_shader_directives {
-                let shader_name = directive.shader_name();
-                match shaders.entry(shader_name.slice.clone()) {
-                    Entry::Vacant(entry) => {
-                        entry.insert((directive.clone(), module.clone()));
-                    }
-                    Entry::Occupied(existing) => {
-                        errors.push(Error::ShaderConflict(
-                            existing.get().0.shader_name().clone(),
-                            shader_name.clone(),
-                            "render",
-                        ));
-                    }
-                }
-            }
-        }
-        shaders
+        modules
+            .iter()
+            .flat_map(|module| {
+                crate::directive::find_all_by_kind(&module.files[0].directives, kind)
+                    .map(|directive| (directive.clone(), module.clone()))
+            })
+            .map(|(directive, module)| (directive.shader_name().slice.clone(), (directive, module)))
+            .collect()
     }
 
     fn runs(files: &Files) -> Vec<Directive> {
@@ -160,34 +116,13 @@ impl Resources {
     }
 
     fn validate_shader_call(&self, directive: &Directive, errors: &mut Vec<Error>) {
-        let Some(shader_module) = self.find_shader_module(directive, errors) else {
-            return;
+        let shader_module = if directive.kind() == DirectiveKind::Draw {
+            &self.render_shaders[&directive.shader_name().slice].1
+        } else {
+            &self.compute_shaders[&directive.shader_name().slice].1
         };
         Self::validate_run_arg_names(directive, shader_module, errors);
         self.validate_run_arg_value(directive, shader_module, errors);
-    }
-
-    fn find_shader_module(
-        &self,
-        directive: &Directive,
-        errors: &mut Vec<Error>,
-    ) -> Option<&Module> {
-        let shader_name = directive.shader_name();
-        let shader = if directive.kind() == DirectiveKind::Draw {
-            self.render_shaders.get(&shader_name.slice)
-        } else {
-            self.compute_shaders.get(&shader_name.slice)
-        };
-        if let Some((_, module)) = shader {
-            Some(module)
-        } else {
-            errors.push(Error::DirectiveParsing(ParsingError {
-                path: shader_name.path.clone(),
-                span: shader_name.span.clone(),
-                message: "shader not found".into(),
-            }));
-            None
-        }
     }
 
     fn validate_run_arg_names(

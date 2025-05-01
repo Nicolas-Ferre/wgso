@@ -13,7 +13,6 @@ use std::slice::Iter;
 use std::sync::Arc;
 use wgpu::naga;
 use wgpu::naga::{AddressSpace, ResourceBinding};
-use wgso_parser::ParsingError;
 
 pub(crate) const BINDING_GROUP: u32 = 0;
 
@@ -53,7 +52,7 @@ pub(crate) struct Module {
 
 impl Module {
     pub(crate) fn new(root_path: &Path, file: &Arc<File>, files: &Files) -> Result<Self, Error> {
-        let (code, module_files) = Self::extract_code(root_path, file, files)?;
+        let (code, module_files) = Self::extract_code(root_path, file, files);
         let mut parsed = naga::front::wgsl::parse_str(&code)
             .map_err(|error| Error::WgslParsing(module_files.clone(), error))?;
         Self::check_unsupported_features(&file.path, &parsed)?;
@@ -120,12 +119,8 @@ impl Module {
         Ok(code)
     }
 
-    fn extract_code(
-        root_path: &Path,
-        file: &Arc<File>,
-        files: &Files,
-    ) -> Result<(String, Vec<Arc<File>>), Error> {
-        let files: Vec<_> = Self::extract_file_paths(root_path, file, files)?
+    fn extract_code(root_path: &Path, file: &Arc<File>, files: &Files) -> (String, Vec<Arc<File>>) {
+        let files: Vec<_> = Self::extract_file_paths(root_path, file, files)
             .into_iter()
             .map(|path| files.get(&path).clone())
             .sorted_unstable_by_key(|current_file| {
@@ -147,14 +142,10 @@ impl Module {
                     .join("")
             })
             .join("");
-        Ok((code, files))
+        (code, files)
     }
 
-    fn extract_file_paths(
-        root_path: &Path,
-        file: &Arc<File>,
-        files: &Files,
-    ) -> Result<Vec<PathBuf>, Error> {
+    fn extract_file_paths(root_path: &Path, file: &Arc<File>, files: &Files) -> Vec<PathBuf> {
         let mut paths: FxHashSet<_> = iter::once(file.path.clone()).collect();
         let mut last_path_count = 0;
         while last_path_count < paths.len() {
@@ -165,20 +156,11 @@ impl Module {
                     DirectiveKind::Import,
                 );
                 for directive in import_directives {
-                    let path = root_path.join(directive.import_path());
-                    if files.exists(&path) {
-                        paths.insert(path);
-                    } else {
-                        return Err(Error::DirectiveParsing(ParsingError {
-                            path: directive.path().into(),
-                            span: directive.span(),
-                            message: format!("file at '{}' does not exist", path.display()),
-                        }));
-                    }
+                    paths.insert(root_path.join(directive.import_path()));
                 }
             }
         }
-        Ok(paths.into_iter().collect())
+        paths.into_iter().collect()
     }
 
     fn check_unsupported_features(path: &Path, parsed: &naga::Module) -> Result<(), Error> {

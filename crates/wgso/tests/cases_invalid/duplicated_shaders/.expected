@@ -10,7 +10,7 @@ error: same name `duplicated` used for two compute shaders
   |                  ^^^^^^^^^^ second definition
   |
 error: same name `duplicated` used for two compute shaders
- --> ./tests/cases_invalid/duplicated_shaders/in_different_file.wgsl:1:18
+ --> ./tests/cases_invalid/duplicated_shaders/inside_same_file.wgsl:1:18
   |
 1 | #shader<compute> duplicated
   |                  ^^^^^^^^^^ first definition
