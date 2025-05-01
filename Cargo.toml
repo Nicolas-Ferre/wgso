@@ -29,6 +29,7 @@ serde_valid = "1.0"
 serde_yml = "0.0.12"
 strip-ansi-escapes = "0.2"
 thiserror = "2"
+walkdir = "2"
 winit = "0.30"
 
 naga = { version = "25.0", features = ["wgsl-in", "wgsl-out"] }

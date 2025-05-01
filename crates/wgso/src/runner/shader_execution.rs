@@ -1,5 +1,5 @@
-use crate::directive::{Directive, DirectiveKind};
-use crate::module::Module;
+use crate::directives::{Directive, DirectiveKind};
+use crate::program::module::Module;
 use crate::Program;
 use fxhash::FxHashMap;
 use wgpu::{BindGroup, BindGroupLayout, BindingResource, Buffer, BufferBinding, Device};
@@ -23,9 +23,9 @@ impl ShaderExecution {
         let directive_kind = run_directive.kind();
         let shader_name = run_directive.shader_name();
         let shader_module = if run_directive.kind() == DirectiveKind::Draw {
-            &program.resources.render_shaders[&shader_name.slice].1
+            &program.modules.render_shaders[&shader_name.slice].1
         } else {
-            &program.resources.compute_shaders[&shader_name.slice].1
+            &program.modules.compute_shaders[&shader_name.slice].1
         };
         let bind_group = layout.as_ref().map(|layout| {
             Self::create_bind_group(
@@ -63,7 +63,7 @@ impl ShaderExecution {
                 });
         let uniform_entries = shader_module.uniform_bindings().map(|(name, binding)| {
             let arg = run_directive.arg(name);
-            let type_ = program.resources.storages[&arg.value.var.slice]
+            let type_ = program.modules.storages[&arg.value.var.slice]
                 .field_ident_type(&arg.value.fields)
                 .expect("internal error: type field should be validated");
             wgpu::BindGroupEntry {

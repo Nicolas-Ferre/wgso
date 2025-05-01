@@ -1,5 +1,5 @@
-use crate::directive::{Directive, DirectiveKind};
-use crate::file::Files;
+use crate::directives::{Directive, DirectiveKind};
+use crate::program::file::Files;
 use crate::Error;
 use std::path::{Path, PathBuf};
 use wgso_parser::ParsingError;

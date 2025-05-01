@@ -1,4 +1,4 @@
-use crate::directive::{Directive, DirectiveKind};
+use crate::directives::{Directive, DirectiveKind};
 use crate::Error;
 use wgso_parser::Token;
 

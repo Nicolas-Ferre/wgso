@@ -1,14 +1,56 @@
-use crate::directive::Directive;
-use crate::module::Module;
-use crate::type_::Type;
+use crate::directives::Directive;
+use crate::program::module::Module;
+use crate::program::type_::Type;
+use crate::runner::gpu;
 use wgpu::{
     BindGroupLayout, BindGroupLayoutEntry, BindingType, BufferBindingType, CompareFunction,
-    DepthBiasState, DepthStencilState, Device, FrontFace, MultisampleState,
-    PipelineCompilationOptions, PipelineLayoutDescriptor, PolygonMode, PrimitiveState,
+    ComputePipeline, ComputePipelineDescriptor, DepthBiasState, DepthStencilState, Device,
+    FrontFace, MultisampleState, PipelineCompilationOptions, PolygonMode, PrimitiveState,
     PrimitiveTopology, RenderPipeline, RenderPipelineDescriptor, ShaderModuleDescriptor,
     ShaderStages, StencilState, TextureFormat, VertexAttribute, VertexBufferLayout, VertexFormat,
     VertexState, VertexStepMode,
 };
+
+#[derive(Debug)]
+pub(crate) struct ComputeShaderResources {
+    pub(crate) pipeline: ComputePipeline,
+    pub(crate) layout: Option<BindGroupLayout>,
+    pub(crate) directive: Directive,
+}
+
+impl ComputeShaderResources {
+    pub(crate) fn new(directive: &Directive, module: &Module, device: &Device) -> Self {
+        let layout = (module.binding_count() > 0)
+            .then(|| create_bind_group_layout(directive, module, device, ShaderStages::COMPUTE));
+        let pipeline = Self::create_pipeline(module, directive, device, layout.as_ref());
+        Self {
+            pipeline,
+            layout,
+            directive: directive.clone(),
+        }
+    }
+
+    fn create_pipeline(
+        module: &Module,
+        directive: &Directive,
+        device: &Device,
+        layout: Option<&BindGroupLayout>,
+    ) -> ComputePipeline {
+        let directive_code = directive.code();
+        let module = device.create_shader_module(ShaderModuleDescriptor {
+            label: Some(&directive_code),
+            source: wgpu::ShaderSource::Wgsl(module.code.as_str().into()),
+        });
+        device.create_compute_pipeline(&ComputePipelineDescriptor {
+            label: Some(&directive_code),
+            layout: Some(&gpu::pipeline_layout(device, layout, &directive_code)),
+            module: &module,
+            entry_point: None,
+            compilation_options: PipelineCompilationOptions::default(),
+            cache: None,
+        })
+    }
+}
 
 #[derive(Debug)]
 pub(crate) struct RenderShaderResources {
@@ -23,49 +65,12 @@ impl RenderShaderResources {
         texture_format: TextureFormat,
         device: &Device,
     ) -> Self {
-        let layout = (module.binding_count() > 0)
-            .then(|| Self::create_bind_group_layout(directive, module, device));
+        let layout = (module.binding_count() > 0).then(|| {
+            create_bind_group_layout(directive, module, device, ShaderStages::VERTEX_FRAGMENT)
+        });
         let pipeline =
             Self::create_pipeline(module, directive, texture_format, device, layout.as_ref());
         Self { pipeline, layout }
-    }
-
-    #[allow(clippy::cast_possible_truncation)]
-    fn create_bind_group_layout(
-        directive: &Directive,
-        module: &Module,
-        device: &Device,
-    ) -> BindGroupLayout {
-        let storage_entries = module
-            .storage_bindings()
-            .map(|(_, binding)| BindGroupLayoutEntry {
-                binding: binding.index,
-                visibility: ShaderStages::VERTEX_FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Storage {
-                        read_only: binding.is_read_only,
-                    },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            });
-        let uniform_entries = module
-            .uniform_bindings()
-            .map(|(_, binding)| BindGroupLayoutEntry {
-                binding: binding.index,
-                visibility: ShaderStages::VERTEX_FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            });
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some(&directive.code()),
-            entries: &storage_entries.chain(uniform_entries).collect::<Vec<_>>(),
-        })
     }
 
     fn create_pipeline(
@@ -85,11 +90,7 @@ impl RenderShaderResources {
             .expect("internal error: vertex type should be validated");
         device.create_render_pipeline(&RenderPipelineDescriptor {
             label: Some(&directive_code),
-            layout: Some(&device.create_pipeline_layout(&PipelineLayoutDescriptor {
-                label: Some(&directive_code),
-                bind_group_layouts: &layout.map_or(vec![], |layout| vec![layout]),
-                push_constant_ranges: &[],
-            })),
+            layout: Some(&gpu::pipeline_layout(device, layout, &directive_code)),
             vertex: VertexState {
                 module: &module,
                 entry_point: None,
@@ -163,4 +164,43 @@ impl RenderShaderResources {
             shader_location: location as u32,
         }
     }
+}
+
+#[allow(clippy::cast_possible_truncation)]
+fn create_bind_group_layout(
+    directive: &Directive,
+    module: &Module,
+    device: &Device,
+    stages: ShaderStages,
+) -> BindGroupLayout {
+    let storage_entries = module
+        .storage_bindings()
+        .map(|(_, binding)| BindGroupLayoutEntry {
+            binding: binding.index,
+            visibility: stages,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage {
+                    read_only: binding.is_read_only,
+                },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        });
+    let uniform_entries = module
+        .uniform_bindings()
+        .map(|(_, binding)| BindGroupLayoutEntry {
+            binding: binding.index,
+            visibility: stages,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        });
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some(&directive.code()),
+        entries: &storage_entries.chain(uniform_entries).collect::<Vec<_>>(),
+    })
 }

@@ -1,4 +1,4 @@
-use crate::file::File;
+use crate::program::file::File;
 use crate::Program;
 use annotate_snippets::{Level, Renderer, Snippet};
 use naga::valid::ValidationError;

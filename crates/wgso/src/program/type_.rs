@@ -71,6 +71,15 @@ impl Type {
         }
     }
 
+    pub(crate) fn is_vertex_compatible(&self) -> bool {
+        self.label == "i32"
+            || self.label == "u32"
+            || self.label == "f32"
+            || self.label.starts_with("vec2<")
+            || self.label.starts_with("vec3<")
+            || self.label.starts_with("vec4<")
+    }
+
     fn label(parsed_module: &naga::Module, parsed_type: &naga::Type) -> String {
         if let Some(name) = &parsed_type.name {
             return name.clone();
@@ -239,10 +248,24 @@ impl Type {
     }
 }
 
+pub(crate) fn normalize_type_name(name: &str) -> Option<String> {
+    let code = format!("var v: {name};");
+    let type_name = if let Ok(module) = naga::front::wgsl::parse_str(&code) {
+        module
+            .types
+            .iter()
+            .next()
+            .map(|(_, type_)| Type::new(&module, type_, 0).label)?
+    } else {
+        name.into()
+    };
+    Some(type_name)
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
-    use crate::type_::Type;
+    use crate::program::type_::Type;
     use naga::front::wgsl;
 
     #[test]
