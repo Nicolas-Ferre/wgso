@@ -1,0 +1,6 @@
+main:
+  - !repeat
+    min: 2
+    group:
+      - !token 'keyword1'
+      - !token 'keyword2'

@@ -21,5 +21,8 @@ serde_valid.workspace = true
 serde_yml.workspace = true
 thiserror.workspace = true
 
+[dev-dependencies]
+rstest.workspace = true
+
 [lints]
 workspace = true

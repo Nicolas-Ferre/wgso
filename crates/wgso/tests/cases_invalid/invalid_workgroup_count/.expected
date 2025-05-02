@@ -1,6 +1,0 @@
-error: expected `u16` value
- --> ./tests/cases_invalid/invalid_workgroup_count/root.wgsl:1:18
-  |
-1 | #shader<compute, 99999> test
-  |                  ^^^^^
-  |

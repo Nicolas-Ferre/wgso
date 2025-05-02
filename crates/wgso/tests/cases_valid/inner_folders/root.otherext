@@ -1,1 +1,0 @@
-var<storage, read_write> ignored: u32;

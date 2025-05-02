@@ -1,0 +1,6 @@
+main:
+  - !pattern
+    label: number
+    config:
+      label: 'integer value'
+      regex: '-?[0-9]+'

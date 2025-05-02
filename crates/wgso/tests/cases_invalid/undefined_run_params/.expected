@@ -1,6 +1,0 @@
-error: no uniform variable `undefined` in shader `test`
- --> ./tests/cases_invalid/undefined_run_params/compute_shader.wgsl:2:25
-  |
-2 | #run test(value=buffer, undefined=buffer)
-  |                         ^^^^^^^^^
-  |

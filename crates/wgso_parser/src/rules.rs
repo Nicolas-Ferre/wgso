@@ -15,62 +15,12 @@ use serde_valid::Validate;
 /// # Examples
 ///
 /// ```yaml
-/// patterns:
-///   ident: &ident
-///     label: identifier
-///     regex: '[a-zA-Z_][a-zA-Z0-9_]*'
-///   number: &number
-///     label: 'integer value'
-///     regex: '-?[0-9]+'
-///     min: -2147483648
-///     max: 2147483647
-///
-/// var: &var
-///   - !pattern
-///     label: identifier
-///     config: *ident
-///   - !token '='
-///   - !pattern
-///     label: number
-///     config: *number
-///   - !token ';'
-///
-/// call: &call
-///   - !pattern
-///     label: identifier
-///     config: *ident
-///   - !token '('
-///   - !repeat
-///     min: 0
-///     max: 1
-///     group:
-///       - !pattern
-///         label: argument
-///         config: *ident
-///       - !repeat
-///         group:
-///           - !token ','
-///           - !pattern
-///             label: argument
-///             config: *ident
-///   - !token ')'
-///   - !token ';'
-///
-/// main:
-///   - !repeat
-///     group:
-///       - !choice
-///         - token: 'var'
-///           next: *var
-///         - token: 'call'
-///           next: *call
+#[doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/cases_valid/complex/rules.yaml"))]
 /// ```
 ///
 /// The previous configuration can be used to parse the following code:
-/// ```custom
-/// var arg_1 = 0;
-/// var arg_2 = 0;
-/// call my_func(arg_1, arg_2);
+/// ```text
+#[doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/cases_valid/complex/code"))]
 /// ```
 pub fn load_rules(yaml: &[u8]) -> Result<Vec<Rule>, RuleError> {
     let rules: MainRule = serde_yml::from_slice(yaml).map_err(RuleError::Deserialization)?;

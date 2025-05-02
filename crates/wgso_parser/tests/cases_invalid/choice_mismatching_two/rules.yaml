@@ -1,0 +1,8 @@
+main:
+  - !choice
+    - token: 'choice1'
+      next:
+        - !token next1
+    - token: 'choice2'
+      next:
+        - !token next2

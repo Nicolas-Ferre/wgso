@@ -1,0 +1,126 @@
+Ok(
+    [
+        Token {
+            slice: "var",
+            label: None,
+            span: 0..3,
+            path: "path",
+        },
+        Token {
+            slice: "arg_1",
+            label: Some(
+                "identifier",
+            ),
+            span: 4..9,
+            path: "path",
+        },
+        Token {
+            slice: "=",
+            label: None,
+            span: 10..11,
+            path: "path",
+        },
+        Token {
+            slice: "0",
+            label: Some(
+                "number",
+            ),
+            span: 12..13,
+            path: "path",
+        },
+        Token {
+            slice: ";",
+            label: None,
+            span: 13..14,
+            path: "path",
+        },
+        Token {
+            slice: "var",
+            label: None,
+            span: 15..18,
+            path: "path",
+        },
+        Token {
+            slice: "arg_2",
+            label: Some(
+                "identifier",
+            ),
+            span: 19..24,
+            path: "path",
+        },
+        Token {
+            slice: "=",
+            label: None,
+            span: 25..26,
+            path: "path",
+        },
+        Token {
+            slice: "0",
+            label: Some(
+                "number",
+            ),
+            span: 27..28,
+            path: "path",
+        },
+        Token {
+            slice: ";",
+            label: None,
+            span: 28..29,
+            path: "path",
+        },
+        Token {
+            slice: "call",
+            label: None,
+            span: 30..34,
+            path: "path",
+        },
+        Token {
+            slice: "my_func",
+            label: Some(
+                "identifier",
+            ),
+            span: 35..42,
+            path: "path",
+        },
+        Token {
+            slice: "(",
+            label: None,
+            span: 42..43,
+            path: "path",
+        },
+        Token {
+            slice: "arg_1",
+            label: Some(
+                "argument",
+            ),
+            span: 43..48,
+            path: "path",
+        },
+        Token {
+            slice: ",",
+            label: None,
+            span: 48..49,
+            path: "path",
+        },
+        Token {
+            slice: "arg_2",
+            label: Some(
+                "argument",
+            ),
+            span: 50..55,
+            path: "path",
+        },
+        Token {
+            slice: ")",
+            label: None,
+            span: 55..56,
+            path: "path",
+        },
+        Token {
+            slice: ";",
+            label: None,
+            span: 56..57,
+            path: "path",
+        },
+    ],
+)

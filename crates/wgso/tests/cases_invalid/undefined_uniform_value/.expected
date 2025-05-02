@@ -1,6 +1,0 @@
-error: unknown storage variable `invalid`
- --> ./tests/cases_invalid/undefined_uniform_value/compute_shader.wgsl:2:17
-  |
-2 | #run test(value=invalid)
-  |                 ^^^^^^^
-  |
