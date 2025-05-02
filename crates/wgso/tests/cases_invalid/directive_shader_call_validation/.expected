@@ -142,3 +142,27 @@ error: unknown field for type `u32`
 6 | #draw arg_unknown_storage_field<vertices>(param=buffer.field)
   |                                                        ^^^^^
   |
+error: found vertex type `u32`, expected `i32`
+ --> ./tests/cases_invalid/directive_shader_call_validation/vertex_buffer_invalid_type.wgsl:3:34
+  |
+3 | #draw vertex_buffer_invalid_type<vertices>()
+  |                                  ^^^^^^^^
+  |
+error: found non-array argument
+ --> ./tests/cases_invalid/directive_shader_call_validation/vertex_buffer_non_array.wgsl:3:31
+  |
+3 | #draw vertex_buffer_non_array<invalid_vertices>()
+  |                               ^^^^^^^^^^^^^^^^
+  |
+error: unknown storage variable `unknown`
+ --> ./tests/cases_invalid/directive_shader_call_validation/vertex_buffer_unknown_storage.wgsl:3:37
+  |
+3 | #draw vertex_buffer_unknown_storage<unknown>()
+  |                                     ^^^^^^^
+  |
+error: unknown field for type `array<u32>`
+ --> ./tests/cases_invalid/directive_shader_call_validation/vertex_buffer_unknown_storage_field.wgsl:3:52
+  |
+3 | #draw vertex_buffer_unknown_storage_field<vertices.field>()
+  |                                                    ^^^^^
+  |
