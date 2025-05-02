@@ -1,6 +1,8 @@
 use crate::directives::{Directive, DirectiveKind};
+use crate::program::module::{Module, Modules};
 use crate::Error;
-use wgso_parser::Token;
+use std::sync::Arc;
+use wgso_parser::{ParsingError, Token};
 
 const DEF_DIRECTIVE_KINDS: &[DirectiveKind] =
     &[DirectiveKind::ComputeShader, DirectiveKind::RenderShader];
@@ -30,6 +32,12 @@ pub(crate) fn check(directives: &[Directive], errors: &mut Vec<Error>) {
     }
 }
 
+pub(crate) fn check_params(modules: &Modules, errors: &mut Vec<Error>) {
+    for (directive, module) in modules.render_shaders.values() {
+        check_vertex_type(errors, directive, module);
+    }
+}
+
 fn check_duplicated(
     kind: DirectiveKind,
     directive: &Directive,
@@ -51,6 +59,30 @@ fn check_duplicated(
                 )
             }),
     );
+}
+
+fn check_vertex_type(errors: &mut Vec<Error>, directive: &Directive, module: &Arc<Module>) {
+    let vertex_type_name = directive.vertex_type();
+    if let Some(vertex_type) = module.type_(&vertex_type_name.slice) {
+        for (name, field_type) in &vertex_type.fields {
+            if !field_type.is_vertex_compatible() {
+                errors.push(Error::DirectiveParsing(ParsingError {
+                    path: vertex_type_name.path.clone(),
+                    span: vertex_type_name.span.clone(),
+                    message: format!(
+                        "field `{name}` of type `{}` cannot be used as vertex data",
+                        field_type.label
+                    ),
+                }));
+            }
+        }
+    } else {
+        errors.push(Error::DirectiveParsing(ParsingError {
+            path: vertex_type_name.path.clone(),
+            span: vertex_type_name.span.clone(),
+            message: format!("type `{}` not found", vertex_type_name.slice),
+        }));
+    }
 }
 
 fn shader_kind_name(kind: DirectiveKind) -> &'static str {

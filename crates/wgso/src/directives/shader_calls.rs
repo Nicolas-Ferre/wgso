@@ -225,25 +225,8 @@ fn check_vertex_buffer(
 ) {
     let vertex_type_name = shader_directive.vertex_type();
     let Some(expected_item_type) = shader_module.type_(&vertex_type_name.slice) else {
-        errors.push(Error::DirectiveParsing(ParsingError {
-            path: vertex_type_name.path.clone(),
-            span: vertex_type_name.span.clone(),
-            message: format!("type `{}` not found", vertex_type_name.slice),
-        }));
         return;
     };
-    for (name, field_type) in &expected_item_type.fields {
-        if !field_type.is_vertex_compatible() {
-            errors.push(Error::DirectiveParsing(ParsingError {
-                path: vertex_type_name.path.clone(),
-                span: vertex_type_name.span.clone(),
-                message: format!(
-                    "field `{name}` of type `{}` cannot be used as vertex data",
-                    field_type.label
-                ),
-            }));
-        }
-    }
     let vertex_buffer = draw_directive.vertex_buffer();
     let Some(storage_type) = modules.storages.get(&vertex_buffer.var.slice) else {
         errors.push(Error::DirectiveParsing(ParsingError {

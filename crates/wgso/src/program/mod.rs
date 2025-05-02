@@ -53,6 +53,14 @@ impl Program {
             };
         }
         let modules = Modules::new(root_path, &files, &mut errors);
+        if !errors.is_empty() {
+            return Self {
+                errors,
+                files,
+                modules,
+            };
+        }
+        shader_defs::check_params(&modules, &mut errors);
         shader_calls::check_args(&files, &modules, &mut errors);
         Self {
             errors,
