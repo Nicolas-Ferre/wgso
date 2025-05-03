@@ -1,14 +1,13 @@
-use crate::directive::tokens::Ident;
-use crate::file::File;
+use crate::program::file::File;
 use crate::Program;
 use annotate_snippets::{Level, Renderer, Snippet};
-use logos::Span;
 use naga::valid::ValidationError;
 use naga::WithSpan;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::{error, io};
 use wgpu::naga::front::wgsl::ParseError;
+use wgso_parser::{ParsingError, Token};
 
 /// A WGSO error.
 #[derive(Debug)]
@@ -24,9 +23,11 @@ pub enum Error {
     /// A Naga validation error.
     WgslValidation(Vec<Arc<File>>, WithSpan<ValidationError>),
     /// A directive parsing error.
-    DirectiveParsing(PathBuf, Span, String),
+    DirectiveParsing(ParsingError),
     /// Two shaders have been found with the same name.
-    ShaderConflict(Ident, Ident),
+    ///
+    /// Last value is the type of shader.
+    ShaderConflict(Token, Token, &'static str),
     /// Two storages have been found with the same name.
     StorageConflict(PathBuf, PathBuf, String),
     /// WGSL code contains a feature unsupported by WGSO.
@@ -43,11 +44,9 @@ impl Error {
             Self::WgslValidation(files, error) => {
                 Self::wgsl_validation_message(program, files, error)
             }
-            Self::DirectiveParsing(path, span, error) => {
-                Self::directive_parsing_message(program, path, span.clone(), error)
-            }
-            Self::ShaderConflict(first, second) => {
-                Self::shader_conflict_message(program, first, second)
+            Self::DirectiveParsing(error) => Self::directive_parsing_message(program, error),
+            Self::ShaderConflict(first, second, type_) => {
+                Self::shader_conflict_message(program, first, second, type_)
             }
             Self::StorageConflict(first, second, name) => {
                 Self::storage_conflict_message(program, first, second, name)
@@ -61,12 +60,12 @@ impl Error {
     pub(crate) fn path(&self) -> Option<&Path> {
         match self {
             Self::Io(path, _) // no-coverage (not easy to test)
-            | Self::DirectiveParsing(path, _, _)
             | Self::StorageConflict(path, _, _)
             | Self::UnsupportedWgslFeature(path, _) => Some(path),
+            Self::DirectiveParsing(error) => Some(&error.path),
             Self::WgslParsing(module, error) => Some(Self::wgsl_parsing_error_path(module, error)),
             Self::WgslValidation(module, error) => Some(Self::wgsl_validation_error_path(module, error)),
-            Self::ShaderConflict(first, _) => Some(&first.path),
+            Self::ShaderConflict(first, _, _) => Some(&first.path),
             Self::WgpuValidation(_) => None, // no-coverage (never called in practice)
         }
     }
@@ -96,11 +95,11 @@ impl Error {
         .0
     }
 
-    fn merged_file(files: &[Arc<File>], offset: usize) -> (&Path, usize) {
+    fn merged_file(files: &[Arc<File>], offset: usize) -> (&Path, usize, usize) {
         let mut current_offset = 0;
-        for file in files {
-            if offset < current_offset + file.code.len() {
-                return (&file.path, current_offset);
+        for (index, file) in files.iter().enumerate() {
+            if offset < current_offset + file.code.len() || index == files.len() - 1 {
+                return (&file.path, current_offset, file.code.len());
             }
             current_offset += file.code.len();
         }
@@ -120,9 +119,13 @@ impl Error {
             .labels()
             .map(|(naga_span, _)| {
                 let span = naga_span.to_range().unwrap_or(0..0);
-                let (path, offset) = Self::merged_file(files, span.start);
+                let (path, offset, max_len) = Self::merged_file(files, span.start);
                 let path_str = path.display().to_string();
-                (span.start - offset..span.end - offset, path, path_str)
+                (
+                    (span.start - offset).min(max_len)..(span.end - offset).min(max_len),
+                    path,
+                    path_str,
+                )
             })
             .collect();
         for ((_, label), (span, path, path_str)) in error.labels().zip(&paths) {
@@ -145,11 +148,11 @@ impl Error {
             .spans()
             .map(|(naga_span, label)| {
                 let span = naga_span.to_range().unwrap_or(0..0);
-                let (path, offset) = Self::merged_file(files, span.start);
+                let (path, offset, max_len) = Self::merged_file(files, span.start);
                 let path_str = path.display().to_string();
                 (
                     label,
-                    span.start - offset..span.end - offset,
+                    (span.start - offset).min(max_len)..(span.end - offset).min(max_len),
                     path,
                     path_str,
                 )
@@ -169,38 +172,47 @@ impl Error {
                     .annotation(Level::Error.span(span.clone()).label(label)),
             );
         }
-        format!("{}", Renderer::styled().render(message))
+        format!(
+            "{}",
+            Renderer::styled().render(message.footer(Level::Info.title(&format!(
+                "The error comes from file '{}'",
+                files[0].path.display()
+            ))))
+        )
     }
 
     fn wgpu_validation_message(error: &str) -> String {
         format!("{}", Renderer::styled().render(Level::Error.title(error)))
     }
 
-    fn directive_parsing_message(
-        program: &Program,
-        path: &Path,
-        span: Span,
-        error: &str,
-    ) -> String {
+    fn directive_parsing_message(program: &Program, error: &ParsingError) -> String {
         format!(
             "{}",
             Renderer::styled().render(
-                Level::Error.title(error).snippet(
-                    Snippet::source(&program.files.get(path).code)
+                Level::Error.title(&error.message).snippet(
+                    Snippet::source(&program.files.get(&error.path).code)
                         .fold(true)
-                        .origin(&path.display().to_string())
-                        .annotation(Level::Error.span(span))
+                        .origin(&error.path.display().to_string())
+                        .annotation(Level::Error.span(error.span.clone()))
                 )
             )
         )
     }
 
-    fn shader_conflict_message(program: &Program, first: &Ident, second: &Ident) -> String {
+    fn shader_conflict_message(
+        program: &Program,
+        first: &Token,
+        second: &Token,
+        type_: &str,
+    ) -> String {
         format!(
             "{}",
             Renderer::styled().render(
                 Level::Error
-                    .title(&format!("same name `{}` used for two shaders", first.label))
+                    .title(&format!(
+                        "same name `{}` used for two {type_} shaders",
+                        first.slice
+                    ))
                     .snippet(
                         Snippet::source(&program.files.get(&first.path).code)
                             .fold(true)

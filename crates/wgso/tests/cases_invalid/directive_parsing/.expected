@@ -1,24 +1,12 @@
-error: expected line break
- --> ./tests/cases_invalid/directive_parsing/invalid_next_token.wgsl:1:23
+error: expected `compute` or `render`
+ --> ./tests/cases_invalid/directive_parsing/main.wgsl:1:9
   |
-1 | #shader<compute> test invalidtoken
-  |                       ^^^^^^^^^^^^
+1 | #shader<invalid> test
+  |         ^
   |
-error: expected `import`, `shader`, `init` or `run`
- --> ./tests/cases_invalid/directive_parsing/multiple_expected_token.wgsl:2:2
+error: unexpected tokens
+ --> ./tests/cases_invalid/directive_parsing/main.wgsl:2:23
   |
-2 | #invalid
-  |  ^^^^^^^
-  |
-error: expected `compute`
- --> ./tests/cases_invalid/directive_parsing/single_expected_token.wgsl:2:9
-  |
-2 | #shader<invalid> test
-  |         ^^^^^^^
-  |
-error: unexpected end of file
- --> ./tests/cases_invalid/directive_parsing/unexpected_end_of_file.wgsl:1:17
-  |
-1 | #shader<compute>
-  |                 ^
+2 | #shader<compute> test invalid
+  |                       ^^^^^^^
   |

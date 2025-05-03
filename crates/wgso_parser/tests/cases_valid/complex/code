@@ -1,0 +1,3 @@
+var arg_1 = 0;
+var arg_2 = 0;
+call my_func(arg_1, arg_2);

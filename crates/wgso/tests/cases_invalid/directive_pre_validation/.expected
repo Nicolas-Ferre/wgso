@@ -1,0 +1,46 @@
+error: same name `duplicated1` used for two compute shaders
+ --> ./tests/cases_invalid/directive_pre_validation/duplicated_shader_name.wgsl:1:18
+  |
+1 | #shader<compute> duplicated1
+  |                  ^^^^^^^^^^^ first definition
+  |
+ ::: ./tests/cases_invalid/directive_pre_validation/duplicated_shader_name.wgsl:2:18
+  |
+2 | #shader<compute> duplicated1
+  |                  ^^^^^^^^^^^ second definition
+  |
+error: same name `duplicated2` used for two render shaders
+ --> ./tests/cases_invalid/directive_pre_validation/duplicated_shader_name.wgsl:3:25
+  |
+3 | #shader<render, Vertex> duplicated2
+  |                         ^^^^^^^^^^^ first definition
+  |
+ ::: ./tests/cases_invalid/directive_pre_validation/duplicated_shader_name.wgsl:4:25
+  |
+4 | #shader<render, Vertex> duplicated2
+  |                         ^^^^^^^^^^^ second definition
+  |
+error: file at './tests/cases_invalid/directive_pre_validation/invalid/module.wgsl' does not exist
+ --> ./tests/cases_invalid/directive_pre_validation/import.wgsl:1:2
+  |
+1 | #import invalid.module
+  |  ^^^^^^^^^^^^^^^^^^^^^
+  |
+error: shader not found
+ --> ./tests/cases_invalid/directive_pre_validation/unknown_shader_name.wgsl:1:7
+  |
+1 | #init duplicated2()
+  |       ^^^^^^^^^^^
+  |
+error: shader not found
+ --> ./tests/cases_invalid/directive_pre_validation/unknown_shader_name.wgsl:2:6
+  |
+2 | #run duplicated2()
+  |      ^^^^^^^^^^^
+  |
+error: shader not found
+ --> ./tests/cases_invalid/directive_pre_validation/unknown_shader_name.wgsl:3:7
+  |
+3 | #draw duplicated1<vertex_buffer>()
+  |       ^^^^^^^^^^^
+  |

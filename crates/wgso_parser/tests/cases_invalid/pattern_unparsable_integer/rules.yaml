@@ -1,0 +1,8 @@
+main:
+  - !pattern
+    label: number
+    config:
+      label: 'integer value'
+      regex: '[a-z]+'
+      min: -500
+      max: 500

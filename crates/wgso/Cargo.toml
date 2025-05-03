@@ -18,9 +18,11 @@ clap.workspace = true
 fxhash.workspace = true
 futures.workspace = true
 itertools.workspace = true
-logos.workspace = true
 naga.workspace = true
 strip-ansi-escapes.workspace = true
+walkdir.workspace = true
+
+wgso_parser.workspace = true
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 winit = { workspace = true, features = ["rwh_05"] }
