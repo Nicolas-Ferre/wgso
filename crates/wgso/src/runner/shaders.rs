@@ -87,6 +87,10 @@ impl RenderShaderResources {
         let vertex_type = &directive_module
             .type_(&directive.vertex_type().slice)
             .expect("internal error: vertex type should be validated");
+        let instance_type = &directive_module
+            .type_(&directive.instance_type().slice)
+            .expect("internal error: instance type should be validated");
+        let first_instance_location = vertex_type.fields.len();
         device.create_render_pipeline(&RenderPipelineDescriptor {
             label: Some(&directive_code),
             layout: Some(&gpu::pipeline_layout(device, layout, &directive_code)),
@@ -94,18 +98,36 @@ impl RenderShaderResources {
                 module: &module,
                 entry_point: None,
                 compilation_options: PipelineCompilationOptions::default(),
-                buffers: &[VertexBufferLayout {
-                    array_stride: vertex_type.size.into(),
-                    step_mode: VertexStepMode::Vertex,
-                    attributes: &vertex_type
-                        .fields
-                        .values()
-                        .enumerate()
-                        .map(|(location, field_type)| {
-                            Self::attribute(&field_type.label, field_type.offset, location)
-                        })
-                        .collect::<Vec<_>>(),
-                }],
+                buffers: &[
+                    VertexBufferLayout {
+                        array_stride: vertex_type.size.into(),
+                        step_mode: VertexStepMode::Vertex,
+                        attributes: &vertex_type
+                            .fields
+                            .values()
+                            .enumerate()
+                            .map(|(location, field_type)| {
+                                Self::attribute(&field_type.label, field_type.offset, location)
+                            })
+                            .collect::<Vec<_>>(),
+                    },
+                    VertexBufferLayout {
+                        array_stride: instance_type.size.into(),
+                        step_mode: VertexStepMode::Instance,
+                        attributes: &instance_type
+                            .fields
+                            .values()
+                            .enumerate()
+                            .map(|(location, field_type)| {
+                                Self::attribute(
+                                    &field_type.label,
+                                    field_type.offset,
+                                    location + first_instance_location,
+                                )
+                            })
+                            .collect::<Vec<_>>(),
+                    },
+                ],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &module,

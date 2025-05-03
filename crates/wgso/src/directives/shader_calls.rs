@@ -22,21 +22,11 @@ impl Directive {
     }
 
     pub(crate) fn vertex_buffer(&self) -> DirectiveArgValue {
-        assert_eq!(self.kind(), DirectiveKind::Draw);
-        let mut current_var = None;
-        let mut current_fields = vec![];
-        for token in &self.tokens {
-            match token.label.as_deref() {
-                Some("vertex_buffer_var") => current_var = Some(token.clone()),
-                Some("vertex_buffer_field") => current_fields.push(token.clone()),
-                _ => {}
-            }
-        }
-        if let Some(var) = current_var.take() {
-            DirectiveArgValue::new(var, mem::take(&mut current_fields))
-        } else {
-            unreachable!("internal error: directive arguments should be validated");
-        }
+        self.buffer("vertex_buffer_var", "vertex_buffer_field")
+    }
+
+    pub(crate) fn instance_buffer(&self) -> DirectiveArgValue {
+        self.buffer("instance_buffer_var", "instance_buffer_field")
     }
 
     pub(crate) fn args(&self) -> Vec<DirectiveArg> {
@@ -90,6 +80,24 @@ impl Directive {
             ),
         }
     }
+
+    fn buffer(&self, var_label: &str, field_label: &str) -> DirectiveArgValue {
+        assert_eq!(self.kind(), DirectiveKind::Draw);
+        let mut current_var = None;
+        let mut current_fields = vec![];
+        for token in &self.tokens {
+            if token.label.as_deref() == Some(var_label) {
+                current_var = Some(token.clone());
+            } else if token.label.as_deref() == Some(field_label) {
+                current_fields.push(token.clone());
+            }
+        }
+        if let Some(var) = current_var.take() {
+            DirectiveArgValue::new(var, mem::take(&mut current_fields))
+        } else {
+            unreachable!("internal error: directive arguments should be validated");
+        }
+    }
 }
 
 pub(crate) fn check(directives: &[Directive], errors: &mut Vec<Error>) {
@@ -112,7 +120,8 @@ pub(crate) fn check_args(files: &Files, modules: &Modules, errors: &mut Vec<Erro
         check_arg_value(modules, directive, shader_module, errors);
         let shader_name = &directive.shader_name().slice;
         if let Some((shader_directive, module)) = modules.render_shaders.get(shader_name) {
-            check_vertex_buffer(modules, directive, shader_directive, module, errors);
+            check_buffer(true, modules, directive, shader_directive, module, errors);
+            check_buffer(false, modules, directive, shader_directive, module, errors);
         }
     }
 }
@@ -219,47 +228,60 @@ fn check_arg_value(
     }
 }
 
-fn check_vertex_buffer(
+fn check_buffer(
+    is_vertex: bool,
     modules: &Modules,
     draw_directive: &Directive,
     shader_directive: &Directive,
     shader_module: &Module,
     errors: &mut Vec<Error>,
 ) {
-    let vertex_type_name = shader_directive.vertex_type();
-    let Some(expected_item_type) = shader_module.type_(&vertex_type_name.slice) else {
+    let type_name = if is_vertex {
+        shader_directive.vertex_type()
+    } else {
+        shader_directive.instance_type()
+    };
+    let Some(expected_item_type) = shader_module.type_(&type_name.slice) else {
         return;
     };
-    let vertex_buffer = draw_directive.vertex_buffer();
-    let Some(storage_type) = modules.storages.get(&vertex_buffer.var.slice) else {
+    let buffer = if is_vertex {
+        draw_directive.vertex_buffer()
+    } else {
+        draw_directive.instance_buffer()
+    };
+    let Some(storage_type) = modules.storages.get(&buffer.var.slice) else {
         errors.push(Error::DirectiveParsing(ParsingError {
-            path: vertex_buffer.var.path.clone(),
-            span: vertex_buffer.span,
-            message: format!("unknown storage variable `{}`", vertex_buffer.var.slice),
+            path: buffer.var.path.clone(),
+            span: buffer.span,
+            message: format!("unknown storage variable `{}`", buffer.var.slice),
         }));
         return;
     };
-    let arg_type = match storage_type.field_ident_type(&vertex_buffer.fields) {
+    let arg_type = match storage_type.field_ident_type(&buffer.fields) {
         Ok(arg_type) => arg_type,
         Err(error) => {
             errors.push(error);
             return;
         }
     };
-    let Some((arg_item_type, _)) = arg_type.array_params.as_ref() else {
-        errors.push(Error::DirectiveParsing(ParsingError {
-            path: draw_directive.shader_name().path.clone(),
-            span: vertex_buffer.span,
-            message: "found non-array argument".into(),
-        }));
-        return;
+    let arg_item_type = match (arg_type.array_params.as_ref(), is_vertex) {
+        (Some((arg_item_type, _)), _) => arg_item_type,
+        (None, false) => arg_type,
+        (None, true) => {
+            errors.push(Error::DirectiveParsing(ParsingError {
+                path: draw_directive.shader_name().path.clone(),
+                span: buffer.span,
+                message: "found non-array argument".into(),
+            }));
+            return;
+        }
     };
-    if expected_item_type != &**arg_item_type {
+    if expected_item_type != arg_item_type {
         errors.push(Error::DirectiveParsing(ParsingError {
             path: draw_directive.shader_name().path.clone(),
-            span: vertex_buffer.span,
+            span: buffer.span,
             message: format!(
-                "found vertex type `{}`, expected `{}`",
+                "found item type `{}`, expected `{}`",
                 arg_item_type.label, expected_item_type.label
             ),
         }));

@@ -4,9 +4,7 @@
 #import triangles.storages
 
 @compute
-@workgroup_size(1, 1, 1)
-fn main() {
-    triangles.instance1.brightness_param += TRIANGLE_BRIGHTNESS_INCREMENT;
-    triangles.instance2.brightness_param += TRIANGLE_BRIGHTNESS_INCREMENT;
-    triangles.instance3.brightness_param += TRIANGLE_BRIGHTNESS_INCREMENT;
+@workgroup_size(TRIANGLE_COUNT, 1, 1)
+fn main(@builtin(local_invocation_id) local_id: vec3<u32>,) {
+    triangles.instances[local_id.x].brightness_param += TRIANGLE_BRIGHTNESS_INCREMENT;
 }

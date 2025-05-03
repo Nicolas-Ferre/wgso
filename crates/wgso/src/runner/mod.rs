@@ -345,7 +345,7 @@ impl Runner {
             .collect()
     }
 
-    pub(crate) fn run_compute_step(&mut self, mut pass: ComputePass<'_>) {
+    fn run_compute_step(&mut self, mut pass: ComputePass<'_>) {
         for run in &self.compute_shader_executions {
             if !run.is_init || !self.is_initialized {
                 let shader = &self.compute_shaders[&run.shader_name];
@@ -364,33 +364,43 @@ impl Runner {
         self.is_initialized = true;
     }
 
-    #[allow(clippy::cast_lossless)]
-    pub(crate) fn run_draw_step(&self, mut pass: RenderPass<'_>) {
+    fn run_draw_step(&self, mut pass: RenderPass<'_>) {
         for draw in &self.render_shader_executions {
             let shader = &self.render_shaders[&draw.shader_name];
             pass.set_pipeline(&shader.pipeline);
             if let Some(bind_group) = &draw.bind_group {
                 pass.set_bind_group(0, bind_group, &[]);
             }
-            let vertex_buffer_arg = draw.directive.vertex_buffer();
-            let buffer_name = &vertex_buffer_arg.var.slice;
-            let storage = &self.program.modules.storages[buffer_name];
-            let buffer = &self.buffers[buffer_name];
-            let field_type = storage
-                .field_ident_type(&vertex_buffer_arg.fields)
-                .expect("internal error: vertex buffer field should be validated");
-            let buffer_length = field_type
-                .array_params
-                .as_ref()
-                .expect("internal error: vertex buffer field should be validated")
-                .1;
-            pass.set_vertex_buffer(
-                0,
-                buffer
-                    .slice(field_type.offset as u64..(field_type.offset + field_type.size) as u64),
-            );
-            pass.draw(0..buffer_length, 0..1);
+            let vertex_count = self.bind_buffer(&mut pass, draw, 0, true);
+            let instance_count = self.bind_buffer(&mut pass, draw, 1, false);
+            pass.draw(0..vertex_count, 0..instance_count);
         }
+    }
+
+    #[allow(clippy::cast_lossless)]
+    fn bind_buffer(
+        &self,
+        pass: &mut RenderPass<'_>,
+        draw: &ShaderExecution,
+        slot: u32,
+        is_vertex: bool,
+    ) -> u32 {
+        let buffer_arg = if is_vertex {
+            draw.directive.vertex_buffer()
+        } else {
+            draw.directive.instance_buffer()
+        };
+        let buffer_name = &buffer_arg.var.slice;
+        let storage = &self.program.modules.storages[buffer_name];
+        let buffer = &self.buffers[buffer_name];
+        let field_type = storage
+            .field_ident_type(&buffer_arg.fields)
+            .expect("internal error: buffer fields should be validated");
+        pass.set_vertex_buffer(
+            slot,
+            buffer.slice(field_type.offset as u64..(field_type.offset + field_type.size) as u64),
+        );
+        field_type.array_params.as_ref().map_or(1, |(_, len)| *len)
     }
 
     // coverage: off (window cannot be tested)

@@ -1,5 +1,3 @@
 #init init_triangles()
 #run update_triangles()
-#draw triangle<vertices.triangle>(instance=triangles.instance1)
-#draw triangle<vertices.triangle>(instance=triangles.instance2)
-#draw triangle<vertices.triangle>(instance=triangles.instance3)
+#draw triangle<vertices.triangle, triangles.instances>()
