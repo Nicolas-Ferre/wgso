@@ -1,5 +1,6 @@
 use crate::directives::DirectiveKind;
 use crate::program::file::File;
+use crate::program::type_;
 use crate::program::type_::Type;
 use crate::Error;
 use fxhash::FxHashMap;
@@ -7,7 +8,6 @@ use naga::back::wgsl::{Writer, WriterFlags};
 use naga::valid::{Capabilities, ModuleInfo, ValidationFlags, Validator};
 use naga::{AddressSpace, Module, ResourceBinding, StorageAccess, TypeInner};
 use std::sync::Arc;
-use crate::program::type_;
 
 pub(crate) const BINDING_GROUP: u32 = 0;
 

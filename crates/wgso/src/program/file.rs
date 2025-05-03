@@ -67,7 +67,7 @@ impl Files {
             })
             .sorted_by_key(|directive| {
                 (
-                   directive.kind() != DirectiveKind::Init,
+                    directive.kind() != DirectiveKind::Init,
                     directive.priority(),
                     directive.shader_name().slice.clone(),
                 )
