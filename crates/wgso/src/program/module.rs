@@ -92,7 +92,7 @@ impl Module {
         let (code, module_files) = Self::extract_code(root_path, file, files);
         let mut wgsl = WgslModule::new(&code, module_files)?;
         let bindings = wgsl.configure_bindings();
-        wgsl.configure_vertex_buffer();
+        wgsl.configure_buffer_types();
         Ok(Self {
             code: wgsl.to_code()?,
             types: wgsl.extract_types(),

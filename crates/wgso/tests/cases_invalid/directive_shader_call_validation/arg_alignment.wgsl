@@ -1,9 +1,9 @@
 #shader<compute> arg_alignment
-#shader<render, u32> arg_alignment
+#shader<render, u32, u32> arg_alignment
 
 #init arg_alignment(param=buffer_arg_alignment.field2)
 #run arg_alignment(param=buffer_arg_alignment.field2)
-#draw arg_alignment<vertices>(param=buffer_arg_alignment.field2)
+#draw arg_alignment<vertices, instances>(param=buffer_arg_alignment.field2)
 
 var<storage> buffer_arg_alignment: TestStruct;
 

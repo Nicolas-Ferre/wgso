@@ -21,6 +21,11 @@ impl Directive {
         assert_eq!(self.kind(), DirectiveKind::RenderShader);
         self.find_one_by_label("vertex_type")
     }
+
+    pub(crate) fn instance_type(&self) -> &Token {
+        assert_eq!(self.kind(), DirectiveKind::RenderShader);
+        self.find_one_by_label("instance_type")
+    }
 }
 
 pub(crate) fn check(directives: &[Directive], errors: &mut Vec<Error>) {
@@ -34,7 +39,8 @@ pub(crate) fn check(directives: &[Directive], errors: &mut Vec<Error>) {
 
 pub(crate) fn check_params(modules: &Modules, errors: &mut Vec<Error>) {
     for (directive, module) in modules.render_shaders.values() {
-        check_vertex_type(errors, directive, module);
+        check_buffer_type(directive.vertex_type(), module, errors);
+        check_buffer_type(directive.instance_type(), module, errors);
     }
 }
 
@@ -61,14 +67,13 @@ fn check_duplicated(
     );
 }
 
-fn check_vertex_type(errors: &mut Vec<Error>, directive: &Directive, module: &Arc<Module>) {
-    let vertex_type_name = directive.vertex_type();
-    if let Some(vertex_type) = module.type_(&vertex_type_name.slice) {
+fn check_buffer_type(type_: &Token, module: &Arc<Module>, errors: &mut Vec<Error>) {
+    if let Some(vertex_type) = module.type_(&type_.slice) {
         for (name, field_type) in &vertex_type.fields {
             if !field_type.is_vertex_compatible() {
                 errors.push(Error::DirectiveParsing(ParsingError {
-                    path: vertex_type_name.path.clone(),
-                    span: vertex_type_name.span.clone(),
+                    path: type_.path.clone(),
+                    span: type_.span.clone(),
                     message: format!(
                         "field `{name}` of type `{}` cannot be used as vertex data",
                         field_type.label
@@ -78,9 +83,9 @@ fn check_vertex_type(errors: &mut Vec<Error>, directive: &Directive, module: &Ar
         }
     } else {
         errors.push(Error::DirectiveParsing(ParsingError {
-            path: vertex_type_name.path.clone(),
-            span: vertex_type_name.span.clone(),
-            message: format!("type `{}` not found", vertex_type_name.slice),
+            path: type_.path.clone(),
+            span: type_.span.clone(),
+            message: format!("type `{}` not found", type_.slice),
         }));
     }
 }

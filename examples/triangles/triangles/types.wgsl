@@ -1,9 +1,7 @@
+const TRIANGLE_COUNT = 3;
+
 struct TriangleState {
-     instance1: Triangle,
-     _padding1: array<u32, 60>,
-     instance2: Triangle,
-     _padding2: array<u32, 60>,
-     instance3: Triangle,
+    instances: array<Triangle, TRIANGLE_COUNT>,
 }
 
 struct Triangle {

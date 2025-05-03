@@ -33,39 +33,57 @@ impl WgslModule {
         bindings
     }
 
-    pub(crate) fn configure_vertex_buffer(&mut self) {
+    pub(crate) fn configure_buffer_types(&mut self) {
         for file in &self.files {
-            let render_shader_directives =
-                crate::directives::find_all_by_kind(&file.directives, DirectiveKind::RenderShader);
-            for directive in render_shader_directives {
-                let vertex_type = directive.vertex_type();
-                let vertex_type = type_::normalize_type_name(&vertex_type.slice);
-                for (type_handle, type_) in self.module.types.clone().iter() {
-                    if vertex_type != Type::new(&self.module, type_, 0).label {
-                        continue;
-                    }
-                    let mut type_ = type_.clone();
-                    let TypeInner::Struct { members, .. } = &mut type_.inner else {
-                        continue;
-                    };
-                    for (index, member) in members.iter_mut().enumerate() {
-                        let naga::Binding::Location { location, .. } =
-                            member.binding.get_or_insert(naga::Binding::Location {
-                                location: index as u32,
-                                interpolation: None,
-                                sampling: None,
-                                blend_src: None,
-                            })
-                        else {
-                            unreachable!("internal error: vertex location should be valid ")
-                        };
-                        *location = index as u32;
-                    }
-                    self.module.types.replace(type_handle, type_);
-                    break;
+            let location_offset = Self::configure_buffer_type(&mut self.module, file, true, 0);
+            Self::configure_buffer_type(&mut self.module, file, false, location_offset);
+        }
+    }
+
+    fn configure_buffer_type(
+        module: &mut Module,
+        file: &File,
+        is_vertex: bool,
+        location_offset: usize,
+    ) -> usize {
+        let mut max_location_count = 0;
+        let render_shader_directives =
+            crate::directives::find_all_by_kind(&file.directives, DirectiveKind::RenderShader);
+        for directive in render_shader_directives {
+            let type_token = if is_vertex {
+                directive.vertex_type()
+            } else {
+                directive.instance_type()
+            };
+            let type_name = type_::normalize_type_name(&type_token.slice);
+            for (type_handle, type_) in module.types.clone().iter() {
+                if type_name != Type::new(module, type_, 0).label {
+                    continue;
                 }
+                let mut type_ = type_.clone();
+                let TypeInner::Struct { members, .. } = &mut type_.inner else {
+                    continue;
+                };
+                let location_count = members.len();
+                for (index, member) in members.iter_mut().enumerate() {
+                    let naga::Binding::Location { location, .. } =
+                        member.binding.get_or_insert(naga::Binding::Location {
+                            location: (index + location_offset) as u32,
+                            interpolation: None,
+                            sampling: None,
+                            blend_src: None,
+                        })
+                    else {
+                        unreachable!("internal error: vertex location should be valid ")
+                    };
+                    *location = (index + location_offset) as u32;
+                }
+                module.types.replace(type_handle, type_);
+                max_location_count = max_location_count.max(location_count);
+                break;
             }
         }
+        max_location_count
     }
 
     pub(crate) fn to_code(&self) -> Result<String, Error> {
