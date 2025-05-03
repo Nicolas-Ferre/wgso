@@ -54,12 +54,15 @@ impl Directive {
     pub(crate) fn arg(&self, arg_name: &str) -> DirectiveArg {
         assert!(CALL_DIRECTIVE_KINDS.contains(&self.kind()));
         let tokens = self.arg_tokens();
-        for (index, token) in tokens.iter().enumerate() {
-            if token.label.as_deref() == Some("arg_name") && token.slice == arg_name {
-                return Self::extract_arg(&tokens, index, token);
-            }
-        }
-        unreachable!("internal error: directive arguments should be validated");
+        tokens
+            .iter()
+            .enumerate()
+            .filter(|(_, token)| {
+                token.label.as_deref() == Some("arg_name") && token.slice == arg_name
+            })
+            .map(|(index, token)| Self::extract_arg(&tokens, index, token))
+            .next()
+            .expect("internal error: directive arguments should be validated")
     }
 
     fn arg_tokens(&self) -> Vec<&Token> {

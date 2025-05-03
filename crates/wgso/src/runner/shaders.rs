@@ -1,6 +1,5 @@
 use crate::directives::Directive;
 use crate::program::module::Module;
-use crate::program::type_::Type;
 use crate::runner::gpu;
 use wgpu::{
     BindGroupLayout, BindGroupLayoutEntry, BindingType, BufferBindingType, CompareFunction,
@@ -102,7 +101,9 @@ impl RenderShaderResources {
                         .fields
                         .values()
                         .enumerate()
-                        .map(|(location, field_type)| Self::attribute(field_type, location))
+                        .map(|(location, field_type)| {
+                            Self::attribute(&field_type.label, field_type.offset, location)
+                        })
                         .collect::<Vec<_>>(),
                 }],
             },
@@ -143,9 +144,9 @@ impl RenderShaderResources {
     }
 
     #[allow(clippy::cast_possible_truncation)]
-    fn attribute(field_type: &Type, location: usize) -> VertexAttribute {
+    fn attribute(type_name: &str, offset: u32, location: usize) -> VertexAttribute {
         VertexAttribute {
-            format: match field_type.label.as_str() {
+            format: match type_name {
                 "i32" => VertexFormat::Sint32,
                 "u32" => VertexFormat::Uint32,
                 "f32" => VertexFormat::Float32,
@@ -160,7 +161,7 @@ impl RenderShaderResources {
                 "vec4<f32>" => VertexFormat::Float32x4,
                 _ => unreachable!("internal error: vertex field type should be validated"),
             },
-            offset: field_type.offset.into(),
+            offset: offset.into(),
             shader_location: location as u32,
         }
     }
@@ -203,4 +204,34 @@ fn create_bind_group_layout(
         label: Some(&directive.code()),
         entries: &storage_entries.chain(uniform_entries).collect::<Vec<_>>(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::runner::shaders::RenderShaderResources;
+    use wgpu::VertexFormat;
+
+    #[test]
+    fn find_attribute() {
+        assert_attribute_format("i32", VertexFormat::Sint32);
+        assert_attribute_format("i32", VertexFormat::Sint32);
+        assert_attribute_format("u32", VertexFormat::Uint32);
+        assert_attribute_format("f32", VertexFormat::Float32);
+        assert_attribute_format("vec2<i32>", VertexFormat::Sint32x2);
+        assert_attribute_format("vec2<u32>", VertexFormat::Uint32x2);
+        assert_attribute_format("vec2<f32>", VertexFormat::Float32x2);
+        assert_attribute_format("vec3<i32>", VertexFormat::Sint32x3);
+        assert_attribute_format("vec3<u32>", VertexFormat::Uint32x3);
+        assert_attribute_format("vec3<f32>", VertexFormat::Float32x3);
+        assert_attribute_format("vec4<i32>", VertexFormat::Sint32x4);
+        assert_attribute_format("vec4<u32>", VertexFormat::Uint32x4);
+        assert_attribute_format("vec4<f32>", VertexFormat::Float32x4);
+    }
+
+    fn assert_attribute_format(type_name: &str, expected_format: VertexFormat) {
+        assert_eq!(
+            RenderShaderResources::attribute(type_name, 0, 0).format,
+            expected_format
+        );
+    }
 }
