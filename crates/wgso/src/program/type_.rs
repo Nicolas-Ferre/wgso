@@ -248,18 +248,18 @@ impl Type {
     }
 }
 
-pub(crate) fn normalize_type_name(name: &str) -> Option<String> {
+pub(crate) fn normalize_type_name(name: &str) -> String {
     let code = format!("var v: {name};");
-    let type_name = if let Ok(module) = naga::front::wgsl::parse_str(&code) {
-        module
+    if let Ok(module) = naga::front::wgsl::parse_str(&code) {
+        let (_, type_) = module
             .types
             .iter()
             .next()
-            .map(|(_, type_)| Type::new(&module, type_, 0).label)?
+            .expect("internal error: primitive type should have been parsed");
+        Type::new(&module, type_, 0).label
     } else {
         name.into()
-    };
-    Some(type_name)
+    }
 }
 
 #[cfg(test)]

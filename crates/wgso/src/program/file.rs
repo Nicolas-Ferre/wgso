@@ -103,10 +103,11 @@ impl File {
                 directives: crate::directives::parse_file(&code, path, directive_rules, errors),
                 code,
             }),
+            // coverage: off (not easy to test)
             Err(error) => {
                 errors.push(Error::Io(path.into(), error));
                 None
             }
-        }
+        } // coverage: on
     }
 }

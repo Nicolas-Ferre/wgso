@@ -134,7 +134,7 @@ impl Module {
     }
 
     pub(crate) fn type_(&self, name: &str) -> Option<&Type> {
-        let type_name = type_::normalize_type_name(name)?;
+        let type_name = type_::normalize_type_name(name);
         self.types.get(&type_name)
     }
 

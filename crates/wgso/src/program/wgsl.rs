@@ -39,9 +39,7 @@ impl WgslModule {
                 crate::directives::find_all_by_kind(&file.directives, DirectiveKind::RenderShader);
             for directive in render_shader_directives {
                 let vertex_type = directive.vertex_type();
-                let Some(vertex_type) = type_::normalize_type_name(&vertex_type.slice) else {
-                    continue;
-                };
+                let vertex_type = type_::normalize_type_name(&vertex_type.slice);
                 for (type_handle, type_) in self.module.types.clone().iter() {
                     if vertex_type != Type::new(&self.module, type_, 0).label {
                         continue;

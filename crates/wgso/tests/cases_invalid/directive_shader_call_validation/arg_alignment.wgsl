@@ -5,7 +5,7 @@
 #run arg_alignment(param=buffer_arg_alignment.field2)
 #draw arg_alignment<vertices>(param=buffer_arg_alignment.field2)
 
-var<storage> buffer_alignment: TestStruct;
+var<storage> buffer_arg_alignment: TestStruct;
 
 var<uniform> param: u32;
 
