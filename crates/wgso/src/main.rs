@@ -127,7 +127,7 @@ impl WindowRunner {
 
     fn update(&mut self) {
         if let Some(runner) = &mut self.runner {
-            if let Err(program) = runner.update_on_change() {
+            if let Err(program) = runner.reload_on_change() {
                 println!("{}", program.render_errors());
             }
             if let Err(program) = runner.run_step() {

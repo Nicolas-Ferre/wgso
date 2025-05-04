@@ -3,7 +3,7 @@ use std::path::Path;
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
-const SECONDS_BEFORE_RELOADING: u64 = 3;
+const SECONDS_BEFORE_RELOADING: u64 = 2;
 
 #[derive(Debug)]
 pub(crate) struct RunnerWatcher {
@@ -27,11 +27,10 @@ impl RunnerWatcher {
         }
     }
 
-    // coverage: off (window cannot be tested)
     pub(crate) fn detect_changes(&mut self) -> bool {
         let is_updated = self.watcher_events.try_iter().any(|event| match event {
             Ok(event) => event.kind.is_create() || event.kind.is_modify() || event.kind.is_remove(),
-            Err(_) => false,
+            Err(_) => false, // no-coverage (not easy to test)
         });
         if is_updated {
             self.next_update = Some(Instant::now() + Duration::from_secs(SECONDS_BEFORE_RELOADING));
@@ -46,5 +45,4 @@ impl RunnerWatcher {
             false
         }
     }
-    // coverage: on
 }

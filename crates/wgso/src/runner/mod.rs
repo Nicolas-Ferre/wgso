@@ -249,6 +249,31 @@ impl Runner {
         }
     }
 
+    /// Reloads the runner if a file in the program directory has been updated.
+    ///
+    /// # Errors
+    ///
+    /// An error is returned if the program cannot be reloaded.
+    pub fn reload_on_change(&mut self) -> Result<(), Program> {
+        if !self.watcher.detect_changes() {
+            return Ok(());
+        }
+        let mut program = Program::parse(&self.program.root_path);
+        if !program.errors.is_empty() {
+            return Err(program.with_sorted_errors());
+        }
+        if program.modules.storages != self.program.modules.storages {
+            program.errors.push(Error::ChangedStorageStructure);
+            return Err(program.with_sorted_errors());
+        }
+        if self.load_shaders(Some(&mut program)) {
+            self.program = program;
+            Ok(())
+        } else {
+            Err(program.with_sorted_errors())
+        }
+    }
+
     fn load_shaders(&mut self, program: Option<&mut Program>) -> bool {
         let program = program.unwrap_or(&mut self.program);
         self.device.push_error_scope(ErrorFilter::Validation);
@@ -476,31 +501,6 @@ impl Runner {
             TargetSpecialized::Texture(_) => {
                 unreachable!("internal error: updating non-window target surface")
             }
-        }
-    }
-
-    /// Updates the runner if a file in the program directory has been updated.
-    ///
-    /// # Errors
-    ///
-    /// An error is returned if the program cannot be reloaded.
-    pub fn update_on_change(&mut self) -> Result<(), Program> {
-        if !self.watcher.detect_changes() {
-            return Ok(());
-        }
-        let mut program = Program::parse(&self.program.root_path);
-        if !program.errors.is_empty() {
-            return Err(program.with_sorted_errors());
-        }
-        if program.modules.storages != self.program.modules.storages {
-            program.errors.push(Error::ChangedStorageStructure);
-            return Err(program.with_sorted_errors());
-        }
-        if self.load_shaders(Some(&mut program)) {
-            self.program = program;
-            Ok(())
-        } else {
-            Err(program.with_sorted_errors())
         }
     }
 
