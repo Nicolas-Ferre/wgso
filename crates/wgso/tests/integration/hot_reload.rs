@@ -21,7 +21,7 @@ static MUTEX: Mutex<()> = Mutex::new(());
 
 #[test]
 fn reload_with_valid_program() {
-    let _lock = MUTEX.lock();
+    let _lock = MUTEX.lock().unwrap();
     let mut runner = Runner::new(PROGRAM_PATH, None, Some((4, 3))).unwrap();
     runner.reload_on_change().unwrap();
     runner.run_step().unwrap();
@@ -38,7 +38,7 @@ fn reload_with_valid_program() {
 
 #[test]
 fn reload_with_invalid_program() {
-    let _lock = MUTEX.lock();
+    let _lock = MUTEX.lock().unwrap();
     let mut runner = Runner::new(PROGRAM_PATH, None, Some((4, 3))).unwrap();
     let initial_code = fs::read_to_string(DRAW_WGSL_PATH).unwrap();
     let modified_code = initial_code.replace("vec4f(1, 1, 1, 1)", "vec4f(1, 1, 1)");
@@ -52,7 +52,7 @@ fn reload_with_invalid_program() {
 
 #[test]
 fn reload_with_wgpu_error() {
-    let _lock = MUTEX.lock();
+    let _lock = MUTEX.lock().unwrap();
     let mut runner = Runner::new(PROGRAM_PATH, None, Some((4, 3))).unwrap();
     let initial_code = fs::read_to_string(DRAW_WGSL_PATH).unwrap();
     let modified_code = initial_code.replace("#import ~.main", "#import ~.storages");
@@ -66,7 +66,7 @@ fn reload_with_wgpu_error() {
 
 #[test]
 fn reload_with_changed_storage() {
-    let _lock = MUTEX.lock();
+    let _lock = MUTEX.lock().unwrap();
     let mut runner = Runner::new(PROGRAM_PATH, None, Some((4, 3))).unwrap();
     let initial_code = fs::read_to_string(STORAGES_WGSL_PATH).unwrap();
     let modified_code = initial_code.replace("State", "ModifiedState");
