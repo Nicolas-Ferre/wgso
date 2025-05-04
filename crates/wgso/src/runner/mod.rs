@@ -98,6 +98,7 @@ impl Runner {
                 depth_buffer,
             }
         };
+        let buffers = Self::create_buffers(&device, &program);
         let mut runner = Self {
             target,
             program,
@@ -108,12 +109,12 @@ impl Runner {
             render_shaders: FxHashMap::default(),
             compute_shader_executions: vec![],
             render_shader_executions: vec![],
-            buffers: FxHashMap::default(),
+            buffers,
             is_initialized: false,
             instance,
             watcher: RunnerWatcher::new(folder_path),
         };
-        if runner.load_buffers() && runner.load_shaders(None) {
+        if runner.load_shaders(None) {
             Ok(runner)
         } else {
             Err(runner.program.with_sorted_errors())
@@ -245,18 +246,6 @@ impl Runner {
             Err(&self.program)
         } else {
             Ok(())
-        }
-    }
-
-    fn load_buffers(&mut self) -> bool {
-        self.device.push_error_scope(ErrorFilter::Validation);
-        let buffers = Self::create_buffers(&self.device, &self.program);
-        if let Some(error) = executor::block_on(self.device.pop_error_scope()) {
-            self.program.errors.push(gpu::convert_error(error));
-            false
-        } else {
-            self.buffers = buffers;
-            true
         }
     }
 

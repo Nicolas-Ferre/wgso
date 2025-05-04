@@ -27,6 +27,7 @@ impl RunnerWatcher {
         }
     }
 
+    // coverage: off (window cannot be tested)
     pub(crate) fn detect_changes(&mut self) -> bool {
         let is_updated = self.watcher_events.try_iter().any(|event| match event {
             Ok(event) => event.kind.is_create() || event.kind.is_modify() || event.kind.is_remove(),
@@ -45,4 +46,5 @@ impl RunnerWatcher {
             false
         }
     }
+    // coverage: on
 }

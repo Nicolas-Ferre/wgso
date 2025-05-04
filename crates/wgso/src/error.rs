@@ -56,7 +56,9 @@ impl Error {
             Self::UnsupportedWgslFeature(path, message) => {
                 Self::unsupported_wgsl_feature_message(program, path, message)
             }
+            // coverage: off (window cannot be tested)
             Self::ChangedStorageStructure => Self::changed_storage_structure_message(),
+            // coverage: on
         }
     }
 
@@ -280,6 +282,7 @@ impl Error {
         )
     }
 
+    // coverage: off (window cannot be tested)
     fn changed_storage_structure_message() -> String {
         format!(
             "{}",
@@ -289,4 +292,5 @@ impl Error {
             )
         )
     }
+    // coverage: on
 }
