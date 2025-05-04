@@ -1,7 +1,7 @@
 #shader<render, Vertex, Triangle> triangle
 
-#import vertices.types
-#import triangles.types
+#import ~.main
+#import vertices.main
 
 struct Fragment {
     @builtin(position)

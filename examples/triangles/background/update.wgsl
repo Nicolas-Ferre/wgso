@@ -1,7 +1,7 @@
 #shader<compute> update_background
 
+#import ~.storages
 #import constants
-#import background.storages
 #import triangles.storages
 
 @compute
