@@ -16,6 +16,13 @@ Before you consider using this tool, please keep in mind that:
 - It is developed by a single person in his spare time.
 - The library is highly experimental, so it shouldn't be used for production applications.
 
+## Main features
+
+- 🗒 Orchestrate execution of shaders
+- ⚙️ Automate shader CPU side configuration
+- 🔥 Maximize execution on GPU side
+- 🔄 Hot reloadable
+
 ## Supported platforms
 
 - Windows

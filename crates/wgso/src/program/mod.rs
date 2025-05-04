@@ -4,7 +4,7 @@ use crate::Error;
 use file::Files;
 use itertools::Itertools;
 use module::Modules;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub(crate) mod file;
 pub(crate) mod module;
@@ -16,6 +16,7 @@ mod wgsl;
 pub struct Program {
     /// The errors found during parsing.
     pub errors: Vec<Error>,
+    pub(crate) root_path: PathBuf,
     pub(crate) files: Files,
     pub(crate) modules: Modules,
 }
@@ -38,6 +39,7 @@ impl Program {
         if !errors.is_empty() {
             return Self {
                 errors,
+                root_path: root_path.into(),
                 files,
                 modules: Modules::default(),
             };
@@ -48,6 +50,7 @@ impl Program {
         if !errors.is_empty() {
             return Self {
                 errors,
+                root_path: root_path.into(),
                 files,
                 modules: Modules::default(),
             };
@@ -56,6 +59,7 @@ impl Program {
         if !errors.is_empty() {
             return Self {
                 errors,
+                root_path: root_path.into(),
                 files,
                 modules,
             };
@@ -64,6 +68,7 @@ impl Program {
         shader_calls::check_args(&files, &modules, &mut errors);
         Self {
             errors,
+            root_path: root_path.into(),
             files,
             modules,
         }

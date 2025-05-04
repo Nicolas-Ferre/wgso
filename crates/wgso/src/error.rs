@@ -32,6 +32,8 @@ pub enum Error {
     StorageConflict(PathBuf, PathBuf, String),
     /// WGSL code contains a feature unsupported by WGSO.
     UnsupportedWgslFeature(PathBuf, String),
+    /// Program cannot be reloaded because storage structure has changed.
+    ChangedStorageStructure,
 }
 
 impl Error {
@@ -52,8 +54,9 @@ impl Error {
                 Self::storage_conflict_message(program, first, second, name)
             }
             Self::UnsupportedWgslFeature(path, message) => {
-                Self::unsupported_wgsl_feature(program, path, message)
+                Self::unsupported_wgsl_feature_message(program, path, message)
             }
+            Self::ChangedStorageStructure => Self::changed_storage_structure_message(),
         }
     }
 
@@ -66,7 +69,7 @@ impl Error {
             Self::WgslParsing(module, error) => Some(Self::wgsl_parsing_error_path(module, error)),
             Self::WgslValidation(module, error) => Some(Self::wgsl_validation_error_path(module, error)),
             Self::ShaderConflict(first, _, _) => Some(&first.path),
-            Self::WgpuValidation(_) => None, // no-coverage (never called in practice)
+            Self::WgpuValidation(_)|Self::ChangedStorageStructure => None, // no-coverage (never called in practice)
         }
     }
 
@@ -264,7 +267,7 @@ impl Error {
         )
     }
 
-    fn unsupported_wgsl_feature(program: &Program, path: &Path, message: &str) -> String {
+    fn unsupported_wgsl_feature_message(program: &Program, path: &Path, message: &str) -> String {
         format!(
             "{}",
             Renderer::styled().render(
@@ -273,6 +276,16 @@ impl Error {
                         .fold(true)
                         .origin(&path.display().to_string())
                 )
+            )
+        )
+    }
+
+    fn changed_storage_structure_message() -> String {
+        format!(
+            "{}",
+            Renderer::styled().render(
+                Level::Error
+                    .title("program cannot be hot-reloaded because storages have been changed")
             )
         )
     }
