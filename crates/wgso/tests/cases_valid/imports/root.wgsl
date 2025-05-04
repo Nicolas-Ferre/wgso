@@ -1,0 +1,1 @@
+const CONSTANT1 = 2;

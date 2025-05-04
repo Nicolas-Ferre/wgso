@@ -1,6 +1,6 @@
 #shader<compute> init_vertices
 
-#import vertices.storages
+#import ~.storages
 
 @compute
 @workgroup_size(1, 1, 1)

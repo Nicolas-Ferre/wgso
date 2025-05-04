@@ -175,7 +175,7 @@ impl Module {
                     DirectiveKind::Import,
                 );
                 for directive in import_directives {
-                    paths.insert(root_path.join(directive.import_path()));
+                    paths.insert(directive.import_path(root_path));
                 }
             }
         }

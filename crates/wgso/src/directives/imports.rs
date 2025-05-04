@@ -5,18 +5,30 @@ use std::path::{Path, PathBuf};
 use wgso_parser::ParsingError;
 
 impl Directive {
-    pub(crate) fn import_path(&self) -> PathBuf {
+    pub(crate) fn import_path(&self, root_path: &Path) -> PathBuf {
         let segment_count = self.find_all_by_label("import_segment").count();
+        let is_relative = self
+            .find_all_by_label("import_segment")
+            .next()
+            .is_some_and(|segment| segment.slice == "~");
+        let root_path = if is_relative {
+            let file_path = self.path();
+            file_path.parent().unwrap_or(file_path).to_path_buf()
+        } else {
+            root_path.to_path_buf()
+        };
         self.find_all_by_label("import_segment")
             .enumerate()
-            .map(|(index, segment)| {
+            .filter(|(index, segment)| *index != 0 || segment.slice != "~")
+            .fold(root_path, |path, (index, segment)| {
                 if index == segment_count - 1 {
-                    format!("{}.wgsl", segment.slice.clone())
+                    path.join(format!("{}.wgsl", segment.slice))
+                } else if segment.slice == "~" {
+                    path.parent().map(Path::to_path_buf).unwrap_or(path)
                 } else {
-                    segment.slice.clone()
+                    path.join(&segment.slice)
                 }
             })
-            .collect::<PathBuf>()
     }
 }
 
@@ -28,7 +40,7 @@ pub(crate) fn check(
 ) {
     for directive in directives {
         if directive.kind() == DirectiveKind::Import {
-            let path = root_path.join(directive.import_path());
+            let path = directive.import_path(root_path);
             if !files.exists(&path) {
                 errors.push(Error::DirectiveParsing(ParsingError {
                     path: directive.path().into(),

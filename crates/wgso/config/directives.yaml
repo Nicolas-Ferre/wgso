@@ -1,7 +1,4 @@
 patterns:
-  ident: &ident
-    label: identifier
-    regex: '[a-zA-Z_][a-zA-Z0-9_]*'
   i32: &i32
     label: '`i32` value'
     regex: '-?[0-9]+'
@@ -12,6 +9,12 @@ patterns:
     regex: '[0-9]+'
     min: 0
     max: 65535
+  ident: &ident
+    label: identifier
+    regex: '[a-zA-Z_][a-zA-Z0-9_]*'
+  parent_folder: &parent_folder
+    label: "`~`"
+    regex: '~'
 
 priority: &priority !repeat
   max: 1
@@ -142,6 +145,12 @@ draw: &draw
   - !token ')'
 
 import: &import
+  - !repeat
+    group:
+      - !pattern
+        label: import_segment
+        config: *parent_folder
+      - !token '.'
   - !pattern
     label: import_segment
     config: *ident

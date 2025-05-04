@@ -1,7 +1,7 @@
 #shader<render, Vertex, Background> background
 
-#import vertices.types
-#import background.types
+#import ~.main
+#import vertices.main
 
 struct Fragment {
     @builtin(position)
