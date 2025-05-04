@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 use std::time::Duration;
 use std::{fs, thread};
-use wgso::{Error, Program, Runner};
+use wgso::{Program, Runner};
 
 const EXPECTED_DEFAULT_TARGET: &[u8] = &[
     0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, // row 1
@@ -51,17 +51,14 @@ fn reload_with_invalid_program() {
 }
 
 #[test]
-fn reload_with_invalid_binding() {
+fn reload_with_wgpu_error() {
     let _lock = MUTEX.lock();
     let mut runner = Runner::new(PROGRAM_PATH, None, Some((4, 3))).unwrap();
-    let initial_code = fs::read_to_string(STORAGES_WGSL_PATH).unwrap();
-    let modified_code = initial_code.replace(
-        "instance: Instance",
-        "instance: Instance, other: array<f32, 999999999>",
-    );
-    let reloading_result = update_code(&mut runner, &modified_code, STORAGES_WGSL_PATH);
+    let initial_code = fs::read_to_string(DRAW_WGSL_PATH).unwrap();
+    let modified_code = initial_code.replace("#import ~.main", "#import ~.storages");
+    let reloading_result = update_code(&mut runner, &modified_code, DRAW_WGSL_PATH);
     let run_result = runner.run_step();
-    fs::write(STORAGES_WGSL_PATH, initial_code).unwrap();
+    fs::write(DRAW_WGSL_PATH, initial_code).unwrap();
     assert!(reloading_result.is_err());
     assert!(run_result.is_ok());
     assert_eq!(runner.read_target(), EXPECTED_DEFAULT_TARGET);
@@ -76,12 +73,12 @@ fn reload_with_changed_storage() {
     let reloading_result = update_code(&mut runner, &modified_code, STORAGES_WGSL_PATH);
     let run_result = runner.run_step();
     fs::write(STORAGES_WGSL_PATH, initial_code).unwrap();
-    assert!(matches!(
+    assert_eq!(
         reloading_result
             .expect_err("reloading should return an error")
-            .errors[0],
-        Error::ChangedStorageStructure
-    ));
+            .render_errors(),
+        "\u{1b}[1m\u{1b}[91merror\u{1b}[0m: \u{1b}[1mprogram cannot be hot-reloaded because storages have been changed\u{1b}[0m"
+    );
     assert!(run_result.is_ok());
     assert_eq!(runner.read_target(), EXPECTED_DEFAULT_TARGET);
 }
