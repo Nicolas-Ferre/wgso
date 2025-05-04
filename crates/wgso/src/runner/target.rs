@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use wgpu::{Surface, SurfaceConfiguration, SurfaceTexture, Texture, TextureView};
+use wgpu::{Surface, SurfaceConfiguration, SurfaceTexture, Texture, TextureFormat, TextureView};
 use winit::window::Window;
 
 #[derive(Debug)]
@@ -7,6 +7,17 @@ pub(crate) struct Target {
     pub(crate) inner: TargetSpecialized,
     pub(crate) config: TargetConfig,
     pub(crate) depth_buffer: TextureView,
+}
+
+impl Target {
+    pub(crate) fn texture_format(&self) -> TextureFormat {
+        match &self.inner {
+            // coverage: off (window cannot be tested)
+            TargetSpecialized::Window(target) => target.surface_config.format,
+            // coverage: on
+            TargetSpecialized::Texture(_) => TextureFormat::Rgba8UnormSrgb,
+        }
+    }
 }
 
 #[derive(Debug)]

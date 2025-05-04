@@ -19,6 +19,7 @@ fxhash.workspace = true
 futures.workspace = true
 itertools.workspace = true
 naga.workspace = true
+notify.workspace = true
 strip-ansi-escapes.workspace = true
 walkdir.workspace = true
 

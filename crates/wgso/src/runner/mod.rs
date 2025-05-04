@@ -1,11 +1,12 @@
 use crate::runner::shaders::RenderShaderResources;
 use crate::runner::target::{Target, TargetConfig, TargetSpecialized, TextureTarget, WindowTarget};
-use crate::Program;
+use crate::{Error, Program};
 use futures::executor;
 use fxhash::FxHashMap;
 use shader_execution::ShaderExecution;
 use shaders::ComputeShaderResources;
 use std::path::Path;
+use watcher::RunnerWatcher;
 use wgpu::{
     Adapter, Buffer, BufferDescriptor, BufferUsages, ComputePass, Device, ErrorFilter, Extent3d,
     Instance, MapMode, PollType, Queue, RenderPass, TexelCopyBufferInfo, TexelCopyBufferLayout,
@@ -18,6 +19,7 @@ mod gpu;
 mod shader_execution;
 mod shaders;
 mod target;
+mod watcher;
 
 /// A runner to execute a WGSO program.
 #[derive(Debug)]
@@ -34,6 +36,7 @@ pub struct Runner {
     render_shader_executions: Vec<ShaderExecution>,
     buffers: FxHashMap<String, Buffer>,
     is_initialized: bool,
+    watcher: RunnerWatcher,
 }
 
 impl Runner {
@@ -47,7 +50,8 @@ impl Runner {
         event_loop: Option<&ActiveEventLoop>,
         size: Option<(u32, u32)>,
     ) -> Result<Self, Program> {
-        let mut program = Program::parse(folder_path);
+        let folder_path = folder_path.as_ref();
+        let program = Program::parse(folder_path);
         if !program.errors.is_empty() {
             return Err(program.with_sorted_errors());
         }
@@ -66,26 +70,11 @@ impl Runner {
             window_surface.as_ref().map(|(_, surface)| surface),
         );
         let (device, queue) = gpu::create_device(&adapter);
-        device.push_error_scope(ErrorFilter::Validation);
         let surface_config = window_surface.as_ref().map(|(_, surface)| {
             // coverage: off (window cannot be tested)
             gpu::create_surface_config(&adapter, &device, surface, target.size)
         }); // coverage: on
         let depth_buffer = gpu::create_depth_buffer(&device, target.size);
-        let texture_format = surface_config
-            .as_ref()
-            .map_or(TextureFormat::Rgba8UnormSrgb, |config| config.format);
-        let buffers = Self::create_buffers(&device, &program);
-        let compute_shaders = Self::create_compute_shaders(&device, &program);
-        let render_shaders = Self::create_render_shaders(&device, &program, texture_format);
-        let compute_shader_runs =
-            Self::create_compute_shader_runs(&device, &program, &buffers, &compute_shaders);
-        let render_shader_draws =
-            Self::create_render_shader_draws(&device, &program, &buffers, &render_shaders);
-        if let Some(error) = executor::block_on(device.pop_error_scope()) {
-            program.errors.push(gpu::convert_error(error));
-            return Err(program.with_sorted_errors());
-        }
         let target = if let (Some((window, surface)), Some(surface_config)) =
             (window_surface, surface_config)
         {
@@ -109,20 +98,26 @@ impl Runner {
                 depth_buffer,
             }
         };
-        Ok(Self {
+        let mut runner = Self {
             target,
             program,
             device,
             adapter,
             queue,
-            compute_shaders,
-            render_shaders,
-            compute_shader_executions: compute_shader_runs,
-            render_shader_executions: render_shader_draws,
-            buffers,
+            compute_shaders: FxHashMap::default(),
+            render_shaders: FxHashMap::default(),
+            compute_shader_executions: vec![],
+            render_shader_executions: vec![],
+            buffers: FxHashMap::default(),
             is_initialized: false,
             instance,
-        })
+            watcher: RunnerWatcher::new(folder_path),
+        };
+        if runner.load_buffers() && runner.load_shaders(None) {
+            Ok(runner)
+        } else {
+            Err(runner.program.with_sorted_errors())
+        }
     }
 
     /// Lists all GPU buffer names.
@@ -250,6 +245,44 @@ impl Runner {
             Err(&self.program)
         } else {
             Ok(())
+        }
+    }
+
+    fn load_buffers(&mut self) -> bool {
+        self.device.push_error_scope(ErrorFilter::Validation);
+        let buffers = Self::create_buffers(&self.device, &self.program);
+        if let Some(error) = executor::block_on(self.device.pop_error_scope()) {
+            self.program.errors.push(gpu::convert_error(error));
+            false
+        } else {
+            self.buffers = buffers;
+            true
+        }
+    }
+
+    fn load_shaders(&mut self, program: Option<&mut Program>) -> bool {
+        let program = program.unwrap_or(&mut self.program);
+        self.device.push_error_scope(ErrorFilter::Validation);
+        let compute_shaders = Self::create_compute_shaders(&self.device, program);
+        let render_shaders =
+            Self::create_render_shaders(&self.device, program, self.target.texture_format());
+        let compute_shader_executions = Self::create_compute_shader_runs(
+            &self.device,
+            program,
+            &self.buffers,
+            &compute_shaders,
+        );
+        let render_shader_executions =
+            Self::create_render_shader_draws(&self.device, program, &self.buffers, &render_shaders);
+        if let Some(error) = executor::block_on(self.device.pop_error_scope()) {
+            program.errors.push(gpu::convert_error(error));
+            false
+        } else {
+            self.compute_shaders = compute_shaders;
+            self.render_shaders = render_shaders;
+            self.compute_shader_executions = compute_shader_executions;
+            self.render_shader_executions = render_shader_executions;
+            true
         }
     }
 
@@ -454,6 +487,31 @@ impl Runner {
             TargetSpecialized::Texture(_) => {
                 unreachable!("internal error: updating non-window target surface")
             }
+        }
+    }
+
+    /// Updates the runner if a file in the program directory has been updated.
+    ///
+    /// # Errors
+    ///
+    /// An error is returned if the program cannot be reloaded.
+    pub fn update_on_change(&mut self) -> Result<(), Program> {
+        if !self.watcher.detect_changes() {
+            return Ok(());
+        }
+        let mut program = Program::parse(&self.program.root_path);
+        if !program.errors.is_empty() {
+            return Err(program.with_sorted_errors());
+        }
+        if program.modules.storages != self.program.modules.storages {
+            program.errors.push(Error::ChangedStorageStructure);
+            return Err(program.with_sorted_errors());
+        }
+        if self.load_shaders(Some(&mut program)) {
+            self.program = program;
+            Ok(())
+        } else {
+            Err(program.with_sorted_errors())
         }
     }
 
