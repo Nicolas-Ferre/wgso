@@ -1,0 +1,27 @@
+[package]
+name = "wgso_deps"
+description = "Dependency management library for `wgso` crate"
+readme = "../../README.md"
+keywords = ["wgso", "dependency", "management", "library"]
+categories = ["development-tools"]
+exclude = [".github", "README.md"]
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+fs_extra.workspace = true
+serde.workspace = true
+serde_yml.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+
+[target.'cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))'.dependencies]
+reqwest.workspace = true
+zip.workspace = true
+
+[lints]
+workspace = true
