@@ -21,5 +21,5 @@ fn specular_strength(
     let light_dir = normalize(light_position - frag_position);
     let view_dir = normalize(view_position - frag_position);
     let half_dir = normalize(view_dir + light_dir);
-    return pow(max(dot(frag_position, half_dir), 0.0), hardness);
+    return pow(max(dot(frag_normal, half_dir), 0.0), hardness);
 }

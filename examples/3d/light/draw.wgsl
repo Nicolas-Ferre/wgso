@@ -19,7 +19,7 @@ struct Fragment {
 fn vs_main(vertex: Vertex, instance: PointLight) -> Fragment {
     let projection = proj_mat(RATIO, camera.fov, camera.far, camera.near);
     let view = view_mat(camera.position, camera.rotation);
-    let model = model_mat(instance.position, PONT_LIGHT_SIZE, DEFAULT_QUAT);
+    let model = model_mat(instance.position, POINT_LIGHT_SIZE, DEFAULT_QUAT);
     let position = projection * view * model * vec4f(vertex.position, 1);
     return Fragment(position, instance.color);
 }
