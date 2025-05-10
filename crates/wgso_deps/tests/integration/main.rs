@@ -13,6 +13,8 @@ fn retrieve_valid_dependencies() {
     assert!(result.is_ok());
     assert!(is_local_dep_retrieved);
     assert!(is_url_dep_retrieved);
+    // Check retrieval of existing dependencies:
+    assert!(wgso_deps::retrieve_dependencies(config_path.join("wgso.yaml")).is_ok());
 }
 
 #[test]

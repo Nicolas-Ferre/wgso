@@ -17,9 +17,15 @@ fs_extra.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_yml.workspace = true
-tempdir.workspace = true
+tempfile.workspace = true
 thiserror.workspace = true
 zip.workspace = true
+
+[target.'cfg(target_os = "android")'.dependencies]
+openssl = { workspace = true, features = ["vendored"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+openssl = { workspace = true, features = ["vendored"] }
 
 [lints]
 workspace = true

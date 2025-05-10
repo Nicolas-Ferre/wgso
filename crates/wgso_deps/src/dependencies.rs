@@ -3,7 +3,6 @@ use fs_extra::dir::CopyOptions;
 use std::fs::File;
 use std::path::Path;
 use std::{fs, io};
-use tempdir::TempDir;
 use zip::ZipArchive;
 
 const TARGET_FOLDER_NAME: &str = "_";
@@ -80,7 +79,7 @@ fn retrieve_local_dependency(
 }
 
 fn retrieve_url_dependency(target_path: &Path, url: &str, dep_name: &str) -> Result<(), Error> {
-    let tmp_folder = TempDir::new("wgso_deps").map_err(|e| Error::Io("/tmp".into(), e))?;
+    let tmp_folder = tempfile::TempDir::new().map_err(|e| Error::Io("temp folder".into(), e))?;
     let zip_path = tmp_folder.path().join("files.zip");
     let extracted_path = tmp_folder.path().join("files");
     let mut response = reqwest::blocking::get(url).map_err(Error::Request)?;

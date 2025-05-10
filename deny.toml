@@ -1,5 +1,5 @@
 [advisories]
-ignore = ["paste@1.0.15"]
+ignore = []
 
 [bans]
 multiple-versions = "allow"
