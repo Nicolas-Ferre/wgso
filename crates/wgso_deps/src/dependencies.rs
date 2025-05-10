@@ -78,6 +78,7 @@ fn retrieve_local_dependency(
     .map_err(|e| Error::Copy(source_path, target_path.into(), e))
 }
 
+#[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
 fn retrieve_url_dependency(target_path: &Path, url: &str, dep_name: &str) -> Result<(), Error> {
     let tmp_folder = tempfile::TempDir::new().map_err(|e| Error::Io("temp folder".into(), e))?;
     let zip_path = tmp_folder.path().join("files.zip");
@@ -96,4 +97,9 @@ fn retrieve_url_dependency(target_path: &Path, url: &str, dep_name: &str) -> Res
         .find(|entry| entry.path().is_dir())
         .map_or(extracted_path, |entry| entry.path());
     retrieve_local_dependency(target_path, &extracted_root_path, dep_name)
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
+fn retrieve_url_dependency(target_path: &Path, url: &str, dep_name: &str) -> Result<(), Error> {
+    panic!("`wgso_deps` crate is only supported on Window, Linux and macOS")
 }

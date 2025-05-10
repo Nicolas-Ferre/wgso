@@ -13,6 +13,7 @@ pub enum Error {
     #[error("Copy error from path {0} to path {1}: {2}")]
     Copy(PathBuf, PathBuf, fs_extra::error::Error),
     /// An HTTP request error.
+    #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
     #[error("HTTP request error: {0}")]
     Request(reqwest::Error),
     /// An error while extracting a ZIP archive.

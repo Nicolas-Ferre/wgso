@@ -21,7 +21,6 @@ futures = "0.3"
 fxhash = "0.2"
 itertools = "0.14"
 notify = "8"
-openssl = "0.10"
 pico-args = "0.5"
 regex = "1.11"
 reqwest = { version = "0.12", features = ["blocking"] }
