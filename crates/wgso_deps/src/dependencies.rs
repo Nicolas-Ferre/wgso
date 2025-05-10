@@ -1,8 +1,6 @@
 use crate::{config, Error};
 use fs_extra::dir::CopyOptions;
-use std::fs::File;
 use std::path::Path;
-use std::{fs, io};
 
 const TARGET_FOLDER_NAME: &str = "_";
 
@@ -41,7 +39,7 @@ pub fn retrieve_dependencies(config_path: impl AsRef<Path>) -> Result<(), Error>
         .expect("internal error: config path should have a parent");
     for (dep_name, dep_config) in config.dependencies {
         let target_parent_path = config_folder_path.join(TARGET_FOLDER_NAME);
-        fs::create_dir_all(&target_parent_path)
+        std::fs::create_dir_all(&target_parent_path)
             .map_err(|e| Error::Io(target_parent_path.clone(), e))?;
         let target_path = target_parent_path.join(&dep_name);
         if target_path.exists() {
@@ -83,12 +81,15 @@ fn retrieve_url_dependency(target_path: &Path, url: &str, dep_name: &str) -> Res
     let zip_path = tmp_folder.path().join("files.zip");
     let extracted_path = tmp_folder.path().join("files");
     let mut response = reqwest::blocking::get(url).map_err(Error::Request)?;
-    let mut zip_file = File::create(&zip_path).map_err(|e| Error::Io(zip_path.clone(), e))?;
-    io::copy(&mut response, &mut zip_file).map_err(|e| Error::Io(zip_path.clone(), e))?;
-    zip::ZipArchive::new(File::open(&zip_path).map_err(|e| Error::Io(zip_path.clone(), e))?)
-        .map_err(Error::Zip)?
-        .extract(&extracted_path)
-        .map_err(Error::Zip)?;
+    let mut zip_file =
+        std::fs::File::create(&zip_path).map_err(|e| Error::Io(zip_path.clone(), e))?;
+    std::io::copy(&mut response, &mut zip_file).map_err(|e| Error::Io(zip_path.clone(), e))?;
+    zip::ZipArchive::new(
+        std::fs::File::open(&zip_path).map_err(|e| Error::Io(zip_path.clone(), e))?,
+    )
+    .map_err(Error::Zip)?
+    .extract(&extracted_path)
+    .map_err(Error::Zip)?;
     let extracted_root_path = extracted_path
         .read_dir()
         .map_err(|e| Error::Io(zip_path.clone(), e))?
@@ -99,6 +100,6 @@ fn retrieve_url_dependency(target_path: &Path, url: &str, dep_name: &str) -> Res
 }
 
 #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
-fn retrieve_url_dependency(target_path: &Path, url: &str, dep_name: &str) -> Result<(), Error> {
+fn retrieve_url_dependency(_target_path: &Path, _url: &str, _dep_name: &str) -> Result<(), Error> {
     panic!("`wgso_deps` crate is only supported on Window, Linux and macOS")
 }
