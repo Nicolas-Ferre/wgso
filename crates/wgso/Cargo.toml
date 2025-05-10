@@ -23,6 +23,7 @@ notify.workspace = true
 strip-ansi-escapes.workspace = true
 walkdir.workspace = true
 
+wgso_deps.workspace = true
 wgso_parser.workspace = true
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
