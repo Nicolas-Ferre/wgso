@@ -1,5 +1,4 @@
 use crate::Error;
-use fxhash::FxHashMap;
 use naga::common::wgsl::{ToWgsl, TryToWgsl};
 use naga::{AddressSpace, ArraySize, ImageClass, Scalar, ScalarKind, TypeInner, VectorSize};
 use std::sync::Arc;
@@ -9,9 +8,9 @@ use wgso_parser::{ParsingError, Token};
 pub(crate) struct Type {
     pub(crate) size: u32,
     pub(crate) label: String,
-    pub(crate) fields: FxHashMap<String, Arc<Type>>,
-    pub(crate) offset: u32, // relative to root parent type
     pub(crate) array_params: Option<(Box<Type>, u32)>,
+    pub(crate) offset: u32, // relative to root parent type
+    pub(crate) fields: Vec<TypeField>,
 }
 
 impl PartialEq for Type {
@@ -30,7 +29,6 @@ impl Type {
         Self {
             size: parsed_type.inner.size(parsed_module.to_ctx()),
             label: Self::label(parsed_module, parsed_type),
-            fields: Self::fields(parsed_module, parsed_type, global_offset),
             offset: global_offset,
             array_params: if let TypeInner::Array { base, size, .. } = parsed_type.inner {
                 Some((
@@ -40,17 +38,22 @@ impl Type {
             } else {
                 None
             },
+            fields: Self::extract_fields(parsed_module, parsed_type, global_offset),
         }
     }
 
     pub(crate) fn field_ident_type(&self, fields: &[Token]) -> Result<&Self, Error> {
-        if let Some((field, other_fields)) = fields.split_first() {
-            if let Some(field_type) = self.fields.get(&field.slice) {
-                field_type.field_ident_type(other_fields)
+        if let Some((field_name, children)) = fields.split_first() {
+            if let Some(field) = self
+                .fields
+                .iter()
+                .find(|field| field.name == field_name.slice)
+            {
+                field.type_.field_ident_type(children)
             } else {
                 Err(Error::DirectiveParsing(ParsingError {
-                    path: field.path.clone(),
-                    span: field.span.clone(),
+                    path: field_name.path.clone(),
+                    span: field_name.span.clone(),
                     message: format!("unknown field for type `{}`", self.label),
                 }))
             }
@@ -60,9 +63,9 @@ impl Type {
     }
 
     pub(crate) fn field_name_type(&self, fields: &[&str]) -> Option<&Self> {
-        if let Some((field, other_fields)) = fields.split_first() {
-            if let Some(field_type) = self.fields.get(*field) {
-                field_type.field_name_type(other_fields)
+        if let Some((field_name, children)) = fields.split_first() {
+            if let Some(field) = self.fields.iter().find(|field| &field.name == field_name) {
+                field.type_.field_name_type(children)
             } else {
                 None
             }
@@ -163,11 +166,11 @@ impl Type {
     }
 
     #[allow(clippy::wildcard_enum_match_arm)]
-    fn fields(
+    fn extract_fields(
         parsed_module: &naga::Module,
         parsed_type: &naga::Type,
         global_offset: u32,
-    ) -> FxHashMap<String, Arc<Self>> {
+    ) -> Vec<TypeField> {
         match &parsed_type.inner {
             TypeInner::Struct { members, .. } => members
                 .iter()
@@ -179,10 +182,13 @@ impl Type {
                         parsed_member_type,
                         global_offset + member.offset,
                     );
-                    (name, Arc::new(member_type))
+                    TypeField {
+                        name,
+                        type_: Arc::new(member_type),
+                    }
                 })
                 .collect(),
-            _ => FxHashMap::default(),
+            _ => vec![],
         }
     }
 
@@ -260,6 +266,12 @@ pub(crate) fn normalize_type_name(name: &str) -> String {
     } else {
         name.into()
     }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub(crate) struct TypeField {
+    pub(crate) name: String,
+    pub(crate) type_: Arc<Type>,
 }
 
 #[cfg(test)]

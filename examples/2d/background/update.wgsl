@@ -1,8 +1,7 @@
 #shader<compute> update_background
 
-#import ~.storages
-#import constants
-#import triangles.storages
+#import ~.storage
+#import triangles.storage
 
 @compute
 @workgroup_size(1, 1, 1)

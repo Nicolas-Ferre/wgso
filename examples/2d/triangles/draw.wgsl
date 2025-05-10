@@ -1,7 +1,7 @@
 #shader<render, Vertex, Triangle> triangle
 
 #import ~.main
-#import vertices.main
+#import _.std.vertex
 
 struct Fragment {
     @builtin(position)
@@ -14,7 +14,7 @@ struct Fragment {
 
 @vertex
 fn vs_main(vertex: Vertex, instance: Triangle) -> Fragment {
-    let position = vec4f(vertex.position + instance.position, 0., 1.);
+    let position = vec4f(vertex.position.xy + instance.position, 0., 1.);
     return Fragment(position, position, triangle_brightness(instance.brightness_param));
 }
 

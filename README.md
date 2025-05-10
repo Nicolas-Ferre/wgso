@@ -38,6 +38,7 @@ WGSO may also work on some other platforms, but they have not been tested.
 WGSO examples can be run with the following command:
 
 ```shell
+cargo run --release --bin wgso -- install --force <example path>
 cargo run --release --bin wgso -- run <example path>
 ```
 

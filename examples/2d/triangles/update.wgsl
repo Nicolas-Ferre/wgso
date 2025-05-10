@@ -1,7 +1,6 @@
 #shader<compute> update_triangles
 
-#import ~.storages
-#import constants
+#import ~.storage
 
 @compute
 @workgroup_size(TRIANGLE_COUNT, 1, 1)
