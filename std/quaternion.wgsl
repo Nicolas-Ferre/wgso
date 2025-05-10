@@ -21,7 +21,7 @@ fn quat(axis: vec3f, angle: f32) -> vec4f {
 ///
 /// This operation can be used to apply two consecutive rotations.
 fn quat_mul(quat1: vec4f, quat2: vec4f) -> vec4f {
-    return vec4(
+    return vec4f(
         quat1.w * quat2.x + quat1.x * quat2.w + quat1.y * quat2.z - quat1.z * quat2.y,
         quat1.w * quat2.y - quat1.x * quat2.z + quat1.y * quat2.w + quat1.z * quat2.x,
         quat1.w * quat2.z + quat1.x * quat2.y - quat1.y * quat2.x + quat1.z * quat2.w,
@@ -34,5 +34,5 @@ fn quat_mul(quat1: vec4f, quat2: vec4f) -> vec4f {
 /// This operation can be used to get the inverse rotation.
 fn quat_inverse(quat: vec4f) -> vec4f {
     let squared_norm = dot(quat, quat);
-    return vec4(-quat.xyz, quat.w) / squared_norm;
+    return vec4f(-quat.xyz, quat.w) / squared_norm;
 }
