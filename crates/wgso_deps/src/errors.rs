@@ -1,7 +1,6 @@
 use std::io;
 use std::path::PathBuf;
 use thiserror::Error;
-use zip::result::ZipError;
 
 /// An error occurring during dependency management.
 #[derive(Error, Debug)]
@@ -18,7 +17,8 @@ pub enum Error {
     Request(reqwest::Error),
     /// An error while extracting a ZIP archive.
     #[error("ZIP extraction error: {0}")]
-    Zip(ZipError),
+    #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
+    Zip(zip::result::ZipError),
     /// A deserialization error.
     #[error("invalid format: {0}")]
     Deserialization(serde_yml::Error),

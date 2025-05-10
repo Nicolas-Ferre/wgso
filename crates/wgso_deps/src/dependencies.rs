@@ -3,7 +3,6 @@ use fs_extra::dir::CopyOptions;
 use std::fs::File;
 use std::path::Path;
 use std::{fs, io};
-use zip::ZipArchive;
 
 const TARGET_FOLDER_NAME: &str = "_";
 
@@ -46,7 +45,7 @@ pub fn retrieve_dependencies(config_path: impl AsRef<Path>) -> Result<(), Error>
             .map_err(|e| Error::Io(target_parent_path.clone(), e))?;
         let target_path = target_parent_path.join(&dep_name);
         if target_path.exists() {
-            continue;
+            continue; // no-coverage (false negative)
         }
         let dep_path = dep_config
             .path
@@ -86,7 +85,7 @@ fn retrieve_url_dependency(target_path: &Path, url: &str, dep_name: &str) -> Res
     let mut response = reqwest::blocking::get(url).map_err(Error::Request)?;
     let mut zip_file = File::create(&zip_path).map_err(|e| Error::Io(zip_path.clone(), e))?;
     io::copy(&mut response, &mut zip_file).map_err(|e| Error::Io(zip_path.clone(), e))?;
-    ZipArchive::new(File::open(&zip_path).map_err(|e| Error::Io(zip_path.clone(), e))?)
+    zip::ZipArchive::new(File::open(&zip_path).map_err(|e| Error::Io(zip_path.clone(), e))?)
         .map_err(Error::Zip)?
         .extract(&extracted_path)
         .map_err(Error::Zip)?;

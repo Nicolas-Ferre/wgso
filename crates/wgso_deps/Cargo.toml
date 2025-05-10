@@ -18,10 +18,10 @@ serde.workspace = true
 serde_yml.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
-zip.workspace = true
 
 [target.'cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))'.dependencies]
 reqwest.workspace = true
+zip.workspace = true
 
 [lints]
 workspace = true
