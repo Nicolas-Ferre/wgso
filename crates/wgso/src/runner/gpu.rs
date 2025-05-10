@@ -172,7 +172,11 @@ pub(crate) fn pipeline_layout(
 pub(crate) fn create_window(event_loop: &ActiveEventLoop, size: (u32, u32)) -> Arc<Window> {
     let size = PhysicalSize::new(size.0, size.1);
     let window = event_loop
-        .create_window(Window::default_attributes().with_inner_size(size))
+        .create_window(
+            Window::default_attributes()
+                .with_title("")
+                .with_inner_size(size),
+        )
         .expect("cannot create window");
     Arc::new(window)
 }

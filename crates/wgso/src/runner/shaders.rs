@@ -104,10 +104,10 @@ impl RenderShaderResources {
                         step_mode: VertexStepMode::Vertex,
                         attributes: &vertex_type
                             .fields
-                            .values()
+                            .iter()
                             .enumerate()
-                            .map(|(location, field_type)| {
-                                Self::attribute(&field_type.label, field_type.offset, location)
+                            .map(|(location, field)| {
+                                Self::attribute(&field.type_.label, field.type_.offset, location)
                             })
                             .collect::<Vec<_>>(),
                     },
@@ -116,12 +116,12 @@ impl RenderShaderResources {
                         step_mode: VertexStepMode::Instance,
                         attributes: &instance_type
                             .fields
-                            .values()
+                            .iter()
                             .enumerate()
-                            .map(|(location, field_type)| {
+                            .map(|(location, field)| {
                                 Self::attribute(
-                                    &field_type.label,
-                                    field_type.offset,
+                                    &field.type_.label,
+                                    field.type_.offset,
                                     location + first_instance_location,
                                 )
                             })
@@ -134,7 +134,7 @@ impl RenderShaderResources {
                 entry_point: None,
                 targets: &[Some(wgpu::ColorTargetState {
                     format: texture_format,
-                    blend: Some(wgpu::BlendState::REPLACE),
+                    blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
                 compilation_options: PipelineCompilationOptions::default(),

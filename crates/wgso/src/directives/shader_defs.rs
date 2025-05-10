@@ -69,14 +69,14 @@ fn check_duplicated(
 
 fn check_buffer_type(type_: &Token, module: &Arc<Module>, errors: &mut Vec<Error>) {
     if let Some(vertex_type) = module.type_(&type_.slice) {
-        for (name, field_type) in &vertex_type.fields {
-            if !field_type.is_vertex_compatible() {
+        for field in &vertex_type.fields {
+            if !field.type_.is_vertex_compatible() {
                 errors.push(Error::DirectiveParsing(ParsingError {
                     path: type_.path.clone(),
                     span: type_.span.clone(),
                     message: format!(
-                        "field `{name}` of type `{}` cannot be used as vertex data",
-                        field_type.label
+                        "field `{}` of type `{}` cannot be used as vertex data",
+                        field.name, field.type_.label
                     ),
                 }));
             }

@@ -1,3 +1,5 @@
+#![allow(missing_docs, clippy::unwrap_used)]
+
 use std::sync::Mutex;
 use std::time::Duration;
 use std::{fs, thread};
@@ -10,7 +12,7 @@ const EXPECTED_DEFAULT_TARGET: &[u8] = &[
 ];
 const EXPECTED_CHANGED_TARGET: &[u8] = &[
     0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, // row 1
-    0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, // row 2
+    0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, // row 2
     0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, // row 3
 ];
 const PROGRAM_PATH: &str = "tests/case_hot_reload";
@@ -27,7 +29,7 @@ fn reload_with_valid_program() {
     runner.run_step().unwrap();
     assert_eq!(runner.read_target(), EXPECTED_DEFAULT_TARGET);
     let initial_code = fs::read_to_string(DRAW_WGSL_PATH).unwrap();
-    let modified_code = initial_code.replace("vec4f(1, 1, 1, 1)", "vec4f(0, 0, 0, 0)");
+    let modified_code = initial_code.replace("vec4f(1, 1, 1, 1)", "vec4f(0, 0, 0, 1)");
     let reloading_result = update_code(&mut runner, &modified_code, DRAW_WGSL_PATH);
     let run_result = runner.run_step();
     fs::write(DRAW_WGSL_PATH, initial_code).unwrap();
