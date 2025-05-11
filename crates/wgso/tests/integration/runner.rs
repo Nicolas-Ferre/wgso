@@ -37,3 +37,12 @@ fn run_init_shaders_only_once() {
     runner.run_step().unwrap();
     assert_eq!(runner.read("buffer"), vec![65, 0, 0, 0]);
 }
+
+#[test]
+#[allow(clippy::float_cmp)]
+fn retrieve_delta_time() {
+    let mut runner = Runner::new("tests/cases_valid/shaders", None, None).unwrap();
+    assert_eq!(runner.delta_secs(), 0.);
+    runner.run_step().unwrap();
+    assert!(runner.delta_secs() > 0.);
+}

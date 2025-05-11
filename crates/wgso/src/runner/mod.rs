@@ -147,11 +147,7 @@ impl Runner {
         let Some(field) = self.program.parse_field(path) else {
             return;
         };
-        assert_eq!(
-            data.len(),
-            field.type_.size as usize,
-            "provided data size doesn't match buffer size"
-        );
+        assert_eq!(data.len(), field.type_.size as usize, "incorrect data size");
         self.queue.write_buffer(
             &self.buffers[&field.buffer_name],
             field.type_.offset.into(),
