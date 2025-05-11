@@ -26,6 +26,7 @@ mod watcher;
 /// A runner to execute a WGSO program.
 #[derive(Debug)]
 pub struct Runner {
+    pub(crate) std_state: StdState,
     target: Target,
     instance: Instance,
     device: Device,
@@ -39,7 +40,6 @@ pub struct Runner {
     buffers: FxHashMap<String, Buffer>,
     is_initialized: bool,
     watcher: RunnerWatcher,
-    std_state: StdState,
 }
 
 impl Runner {
@@ -103,6 +103,7 @@ impl Runner {
         };
         let buffers = Self::create_buffers(&device, &program);
         let mut runner = Self {
+            std_state: StdState::default(),
             target,
             program,
             device,
@@ -116,7 +117,6 @@ impl Runner {
             is_initialized: false,
             instance,
             watcher: RunnerWatcher::new(folder_path),
-            std_state: StdState::default(),
         };
         if runner.load_shaders(None) {
             Ok(runner)
@@ -127,7 +127,7 @@ impl Runner {
 
     /// Returns the time of the last executed frame.
     pub fn delta_secs(&self) -> f32 {
-        self.std_state.frame_delta_secs
+        self.std_state.time.frame_delta_secs
     }
 
     /// Lists all GPU buffer names.
@@ -250,8 +250,9 @@ impl Runner {
     pub fn run_step(&mut self) -> Result<(), &Program> {
         self.device.push_error_scope(ErrorFilter::Validation);
         if !self.is_initialized {
-            self.write("std_.time", &self.std_state.time_data());
+            self.write("std_.time", &self.std_state.time.data());
         }
+        self.write("std_.keyboard", &self.std_state.keyboard.data());
         let mut encoder = gpu::create_encoder(&self.device);
         let pass = gpu::start_compute_pass(&mut encoder);
         self.run_compute_step(pass);
@@ -273,8 +274,9 @@ impl Runner {
                 self.queue.submit(Some(encoder.finish()));
             }
         }
-        self.std_state.update_time();
-        self.write("std_.time", &self.std_state.time_data());
+        self.std_state.keyboard.refresh();
+        self.std_state.time.update();
+        self.write("std_.time", &self.std_state.time.data());
         if let Some(error) = executor::block_on(self.device.pop_error_scope()) {
             self.program.errors.push(gpu::convert_error(error));
             Err(&self.program)
