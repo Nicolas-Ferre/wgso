@@ -1,11 +1,12 @@
 use crate::runner::shaders::RenderShaderResources;
+use crate::runner::std::StdState;
 use crate::runner::target::{Target, TargetConfig, TargetSpecialized, TextureTarget, WindowTarget};
 use crate::{Error, Program};
+use ::std::path::Path;
 use futures::executor;
 use fxhash::FxHashMap;
 use shader_execution::ShaderExecution;
 use shaders::ComputeShaderResources;
-use std::path::Path;
 use watcher::RunnerWatcher;
 use wgpu::{
     Adapter, Buffer, BufferDescriptor, BufferUsages, ComputePass, Device, ErrorFilter, Extent3d,
@@ -18,6 +19,7 @@ use winit::event_loop::ActiveEventLoop;
 mod gpu;
 mod shader_execution;
 mod shaders;
+mod std;
 mod target;
 mod watcher;
 
@@ -37,6 +39,7 @@ pub struct Runner {
     buffers: FxHashMap<String, Buffer>,
     is_initialized: bool,
     watcher: RunnerWatcher,
+    std_state: StdState,
 }
 
 impl Runner {
@@ -113,6 +116,7 @@ impl Runner {
             is_initialized: false,
             instance,
             watcher: RunnerWatcher::new(folder_path),
+            std_state: StdState::default(),
         };
         if runner.load_shaders(None) {
             Ok(runner)
@@ -121,12 +125,37 @@ impl Runner {
         }
     }
 
+    /// Returns the time of the last executed frame.
+    pub fn delta_secs(&self) -> f32 {
+        self.std_state.frame_delta_secs
+    }
+
     /// Lists all GPU buffer names.
     pub fn buffers(&self) -> impl Iterator<Item = &str> {
         self.program.modules.storages.keys().map(String::as_str)
     }
 
-    /// Read GPU buffer value.
+    /// Writes GPU buffer data.
+    ///
+    /// If the buffer doesn't exist, nothing happens.
+    /// Inner fields can also be provided (e.g. `my_buffer.field.inner`).
+    ///
+    /// # Panics
+    ///
+    /// This will panic if the `data` length doesn't match the buffer size.
+    pub fn write(&self, path: &str, data: &[u8]) {
+        let Some(field) = self.program.parse_field(path) else {
+            return;
+        };
+        assert_eq!(data.len(), field.type_.size as usize, "incorrect data size");
+        self.queue.write_buffer(
+            &self.buffers[&field.buffer_name],
+            field.type_.offset.into(),
+            data,
+        );
+    }
+
+    /// Reads GPU buffer data.
     ///
     /// If the buffer doesn't exist, an empty vector is returned.
     /// Inner fields can also be provided (e.g. `my_buffer.field.inner`).
@@ -220,6 +249,9 @@ impl Runner {
     /// An error is returned if shader execution failed.
     pub fn run_step(&mut self) -> Result<(), &Program> {
         self.device.push_error_scope(ErrorFilter::Validation);
+        if !self.is_initialized {
+            self.write("std_.time", &self.std_state.time_data());
+        }
         let mut encoder = gpu::create_encoder(&self.device);
         let pass = gpu::start_compute_pass(&mut encoder);
         self.run_compute_step(pass);
@@ -241,6 +273,8 @@ impl Runner {
                 self.queue.submit(Some(encoder.finish()));
             }
         }
+        self.std_state.update_time();
+        self.write("std_.time", &self.std_state.time_data());
         if let Some(error) = executor::block_on(self.device.pop_error_scope()) {
             self.program.errors.push(gpu::convert_error(error));
             Err(&self.program)

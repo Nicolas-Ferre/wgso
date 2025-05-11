@@ -7,4 +7,5 @@
 @workgroup_size(1, 1, 1)
 fn main() {
     cubes.vertices = cube_vertices();
+    cubes.material.specular_power = 16;
 }

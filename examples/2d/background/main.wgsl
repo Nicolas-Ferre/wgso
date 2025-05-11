@@ -4,12 +4,13 @@
 
 #import _.std.vertex
 
-const BACKGROUND_SPEED = 0.2;
-const BACKGROUND_MAX_BRIGHTNESS = 1. / 50;
+const BACKGROUND_SPEED = 1;
+const BACKGROUND_MAX_BRIGHTNESS = 1. / 30;
 
 struct Background {
     vertices: array<Vertex, 6>,
     instance: BackgroundInstance,
+    brightness_param: f32,
 }
 
 struct BackgroundInstance {

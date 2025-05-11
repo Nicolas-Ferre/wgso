@@ -72,6 +72,7 @@ pub(crate) fn create_buffer(device: &Device, label: &str, size: u64) -> Buffer {
         size,
         usage: BufferUsages::STORAGE
             | BufferUsages::COPY_SRC
+            | BufferUsages::COPY_DST
             | BufferUsages::UNIFORM
             | BufferUsages::VERTEX
             | BufferUsages::INDEX,

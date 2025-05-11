@@ -5,7 +5,7 @@
 #import _.std.vertex
 
 const TRIANGLE_COUNT = 3;
-const TRIANGLE_BRIGHTNESS_INCREMENT = 0.05;
+const TRIANGLE_BRIGHTNESS_INCREMENT = 3;
 
 struct Triangles {
     vertices: array<Vertex, 3>,

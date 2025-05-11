@@ -5,6 +5,10 @@ use wgso::Runner;
 
 #[rstest::rstest]
 fn run_valid_code(#[files("./tests/cases_valid/*")] path: PathBuf) {
+    if path.join("_").is_dir() {
+        fs::remove_dir_all(path.join("_")).unwrap();
+    }
+    wgso_deps::retrieve_dependencies(path.join("wgso.yaml")).unwrap();
     let mut runner = Runner::new(&path, None, Some((10, 8))).unwrap();
     runner.run_step().unwrap();
     let target_buffer = runner.read_target();
@@ -24,7 +28,16 @@ fn run_valid_code(#[files("./tests/cases_valid/*")] path: PathBuf) {
         .join("\n");
     let mut buffers = runner
         .buffers()
-        .map(|buffer| format!("{buffer}={:?}", runner.read(buffer)))
+        .map(|buffer| {
+            if buffer == "std_" {
+                format!(
+                    "std_.time.frame_index={:?}",
+                    runner.read("std_.time.frame_index")
+                )
+            } else {
+                format!("{buffer}={:?}", runner.read(buffer))
+            }
+        })
         .collect::<Vec<_>>();
     buffers.sort_unstable();
     buffers.insert(0, format!("target=[\n{target_buffer_str}\n]"));

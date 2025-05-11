@@ -9,6 +9,7 @@
 #import _.std.vertex
 
 var<uniform> camera: Camera;
+var<uniform> material: CubeMaterial;
 var<uniform> light: Light;
 
 struct Fragment {
@@ -20,8 +21,6 @@ struct Fragment {
     world_normal: vec3f,
     @location(2)
     color: vec4f,
-    @location(3)
-    specular_power: f32,
 }
 
 @vertex
@@ -32,7 +31,7 @@ fn vs_main(vertex: Vertex, instance: Cube) -> Fragment {
     let clip_position = projection * view * model * vec4f(vertex.position, 1);
     let world_position = model * vec4f(vertex.position, 1);
     let world_normal = model * vec4f(vertex.normal, 0);
-    return Fragment(clip_position, world_position.xyz, world_normal.xyz, instance.color, instance.specular_power);
+    return Fragment(clip_position, world_position.xyz, world_normal.xyz, instance.color);
 }
 
 @fragment
@@ -47,7 +46,7 @@ fn fs_main(fragment: Fragment) -> @location(0) vec4f {
         fragment.world_normal,
         light.point.position,
         camera.position,
-        fragment.specular_power,
+        material.specular_power,
     );
     let light_strength = light.ambiant.strength + diffuse_strength + specular_strength;
     return vec4f(fragment.color.rgb * light.point.color * light_strength, fragment.color.a);
