@@ -38,11 +38,11 @@ WGSO may also work on some other platforms, but they have not been tested.
 WGSO examples can be run with the following command:
 
 ```shell
-cargo run --release --bin wgso -- install --force <example path>
-cargo run --release --bin wgso -- run <example path>
+cargo run --release --bin wgso -- install --force <example path> # install dependencies
+cargo run --release --bin wgso -- run <example path> # run the example
 ```
 
-Examples of WGSO programs are located in the `crates/wgso/tests/cases_valid` folder.
+Examples of WGSO programs are located in the `examples` folder.
 
 ## 📜 License
 

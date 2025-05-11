@@ -4,4 +4,4 @@
 
 ### Added
 
-- First version of WGSO
+- First version of WGSO and standard library
