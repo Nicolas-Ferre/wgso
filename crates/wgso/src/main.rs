@@ -3,7 +3,6 @@
 
 use clap::Parser;
 use std::path::PathBuf;
-use std::time::Instant;
 use std::{fs, process};
 use wgso::{Program, Runner};
 use winit::application::ApplicationHandler;
@@ -85,7 +84,6 @@ impl RunArgs {
         let mut runner = WindowRunner {
             args: self,
             runner: None,
-            last_instant: Instant::now(),
         };
         EventLoop::builder()
             .build()
@@ -115,7 +113,6 @@ impl AnalyzeArgs {
 struct WindowRunner {
     args: RunArgs,
     runner: Option<Runner>,
-    last_instant: Instant,
 }
 
 impl ApplicationHandler for WindowRunner {
@@ -165,10 +162,8 @@ impl WindowRunner {
             if let Err(program) = runner.run_step() {
                 exit_on_error(program);
             }
-            let delta = self.last_instant.elapsed();
-            self.last_instant = Instant::now();
             if self.args.fps {
-                println!("FPS: {}", (1. / delta.as_secs_f32()).round());
+                println!("FPS: {}", (1. / runner.delta_secs()).round());
             }
             for buffer in &self.args.buffer {
                 println!("Buffer `{buffer}`: {:?}", runner.read(buffer));

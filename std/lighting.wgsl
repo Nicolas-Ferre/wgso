@@ -7,7 +7,7 @@ fn diffuse_strength(
     light_position: vec3f,
 ) -> f32 {
     let light_dir = normalize(light_position - frag_position);
-    return max(dot(frag_normal, light_dir), 0.0);
+    return max(dot(normalize(frag_normal), light_dir), 0.0);
 }
 
 /// Calculates the specular part of the Blinn–Phong reflection model.
@@ -21,5 +21,5 @@ fn specular_strength(
     let light_dir = normalize(light_position - frag_position);
     let view_dir = normalize(view_position - frag_position);
     let half_dir = normalize(view_dir + light_dir);
-    return pow(max(dot(frag_normal, half_dir), 0.0), hardness);
+    return pow(max(dot(normalize(frag_normal), half_dir), 0.0), hardness);
 }
