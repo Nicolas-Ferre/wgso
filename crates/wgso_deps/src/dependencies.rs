@@ -83,6 +83,7 @@ fn link_local_dependency(target_path: &Path, dep_path: &Path, dep_name: &str) ->
     }
 }
 
+#[allow(dead_code)]
 fn copy_local_dependency(target_path: &Path, dep_path: &Path, dep_name: &str) -> Result<(), Error> {
     let source_path = dep_path.join(dep_name);
     fs_extra::copy_items(
