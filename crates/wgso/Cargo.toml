@@ -1,6 +1,6 @@
 [package]
 name = "wgso"
-description = "WebGPU Shader Orchestrator to create GPU-native applications"
+description = "WebGPU Shader Orchestrator to run GPU-native applications"
 readme = "../../README.md"
 keywords = ["gpu", "rendering", "compute", "shader", "wgsl"]
 categories = ["game-development", "graphics", "rendering", "concurrency"]
