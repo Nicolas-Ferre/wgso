@@ -20,13 +20,14 @@ struct Time {
     /// Time taken to execute the previous frame, in seconds.
     frame_delta_secs: f32,
     /// Index of the current frame.
-    frame_index: f32,
+    frame_index: u32,
     /// Program start time, in seconds since Unix Epoch.
     start_secs: u32,
 }
 
 /// Surface properties.
 struct Surface {
+    /// Size of the surface in pixels.
     size: vec2u,
 }
 
