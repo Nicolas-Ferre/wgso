@@ -31,8 +31,9 @@ fn run_valid_code(#[files("./tests/cases_valid/*")] path: PathBuf) {
         .map(|buffer| {
             if buffer == "std_" {
                 format!(
-                    "std_.time.frame_index={:?}",
-                    runner.read("std_.time.frame_index")
+                    "std_.time.frame_index={:?}\nstd_.surface={:?}",
+                    runner.read("std_.time.frame_index"),
+                    runner.read("std_.surface"),
                 )
             } else {
                 format!("{buffer}={:?}", runner.read(buffer))

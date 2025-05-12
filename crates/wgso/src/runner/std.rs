@@ -5,6 +5,7 @@ use winit::keyboard::KeyCode;
 #[derive(Debug, Default)]
 pub(crate) struct StdState {
     pub(crate) time: StdTimeState,
+    pub(crate) surface: SurfaceState,
     pub(crate) keyboard: StdKeyboardState,
 }
 
@@ -45,6 +46,26 @@ impl StdTimeState {
         self.frame_delta_secs = (now - self.last_frame_end).as_secs_f32();
         self.last_frame_end = now;
         self.frame_index += 1;
+    }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct SurfaceState {
+    size: (u32, u32),
+}
+
+impl SurfaceState {
+    pub(crate) fn data(&self) -> Vec<u8> {
+        self.size
+            .0
+            .to_ne_bytes()
+            .into_iter()
+            .chain(self.size.1.to_ne_bytes())
+            .collect()
+    }
+
+    pub(crate) fn update(&mut self, size: (u32, u32)) {
+        self.size = size;
     }
 }
 

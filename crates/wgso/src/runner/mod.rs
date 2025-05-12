@@ -252,6 +252,8 @@ impl Runner {
         if !self.is_initialized {
             self.write("std_.time", &self.std_state.time.data());
         }
+        self.std_state.surface.update(self.target.config.size);
+        self.write("std_.surface", &self.std_state.surface.data());
         self.write("std_.keyboard", &self.std_state.keyboard.data());
         let mut encoder = gpu::create_encoder(&self.device);
         let pass = gpu::start_compute_pass(&mut encoder);
