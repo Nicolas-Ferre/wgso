@@ -1,6 +1,5 @@
 use crate::{config, Error};
 use fs_extra::dir::CopyOptions;
-use std::env::current_dir;
 use std::path::Path;
 
 const TARGET_FOLDER_NAME: &str = "_";
@@ -64,14 +63,14 @@ pub fn retrieve_dependencies(config_path: impl AsRef<Path>) -> Result<(), Error>
 fn link_local_dependency(target_path: &Path, dep_path: &Path, dep_name: &str) -> Result<(), Error> {
     #[cfg(target_family = "unix")]
     {
-        let source_path = current_dir()
+        let source_path = std::env::current_dir()
             .map_err(|e| Error::Io("<current folder>".into(), e))?
             .join(dep_path.join(dep_name));
         std::os::unix::fs::symlink(&source_path, target_path).map_err(|e| Error::Io(source_path, e))
     }
     #[cfg(target_family = "windows")]
     {
-        let source_path = current_dir()
+        let source_path = std::env::current_dir()
             .map_err(|e| Error::Io("<current folder>".into(), e))?
             .join(dep_path.join(dep_name));
         std::os::windows::fs::symlink_dir(&source_path, target_path)
