@@ -26,7 +26,7 @@ fn is_just_released(state: InputState) -> bool {
 /// If none of the inputs are pressed, the returned direction is `vec2f(0, 0)`.
 fn input_direction(left: InputState, right: InputState, up: InputState, down: InputState) -> vec2f {
     let direction = vec2f(input_axis(left, right), input_axis(down, up));
-    return select(vec2f(0, 0), normalize(direction), direction != vec2f(0, 0));
+    return direction / max(length(direction), 1e-6);
 }
 
 /// Returns the axis value between between -1. and 1 based on left and right inputs.
