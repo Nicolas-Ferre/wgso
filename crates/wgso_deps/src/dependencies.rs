@@ -16,7 +16,7 @@ const TARGET_FOLDER_NAME: &str = "_";
 /// dependencies:
 ///   dependency1_name:
 ///     # path is relative to configuration file folder
-///     # dependency is retrieved from local path '../deps/dependency1_name'
+///     # dependency is retrieved from local path '../deps/dependency1_name' (symbolic link is created)
 ///     path: ../deps/
 ///   dependency2_name:
 ///     # dependency is located in '<first root folder>/dependency2_name' folder of ZIP file
@@ -50,7 +50,7 @@ pub fn retrieve_dependencies(config_path: impl AsRef<Path>) -> Result<(), Error>
             .map(|path| config_folder_path.join(path))
             .filter(|path| path.is_dir() || dep_config.url.is_none());
         if let Some(dep_path) = dep_path {
-            retrieve_local_dependency(&target_path, &dep_path, &dep_name)?;
+            link_local_dependency(&target_path, &dep_path, &dep_name)?;
         } else if let Some(url) = dep_config.url {
             retrieve_url_dependency(&target_path, &url, &dep_name)?;
         } else {
@@ -60,11 +60,30 @@ pub fn retrieve_dependencies(config_path: impl AsRef<Path>) -> Result<(), Error>
     Ok(())
 }
 
-fn retrieve_local_dependency(
-    target_path: &Path,
-    dep_path: &Path,
-    dep_name: &str,
-) -> Result<(), Error> {
+fn link_local_dependency(target_path: &Path, dep_path: &Path, dep_name: &str) -> Result<(), Error> {
+    #[cfg(target_family = "unix")]
+    {
+        let source_path = std::env::current_dir()
+            .map_err(|e| Error::Io("<current folder>".into(), e))?
+            .join(dep_path.join(dep_name));
+        std::os::unix::fs::symlink(&source_path, target_path).map_err(|e| Error::Io(source_path, e))
+    }
+    #[cfg(target_family = "windows")]
+    {
+        let source_path = std::env::current_dir()
+            .map_err(|e| Error::Io("<current folder>".into(), e))?
+            .join(dep_path.join(dep_name));
+        std::os::windows::fs::symlink_dir(&source_path, target_path)
+            .map_err(|e| Error::Io(source_path, e))
+    }
+    #[cfg(not(any(target_family = "unix", target_family = "windows")))]
+    {
+        copy_local_dependency(target_path, dep_path, dep_name)
+    }
+}
+
+#[allow(dead_code)]
+fn copy_local_dependency(target_path: &Path, dep_path: &Path, dep_name: &str) -> Result<(), Error> {
     let source_path = dep_path.join(dep_name);
     fs_extra::copy_items(
         &[&source_path],
@@ -96,7 +115,7 @@ fn retrieve_url_dependency(target_path: &Path, url: &str, dep_name: &str) -> Res
         .filter_map(Result::ok)
         .find(|entry| entry.path().is_dir())
         .map_or(extracted_path, |entry| entry.path());
-    retrieve_local_dependency(target_path, &extracted_root_path, dep_name)
+    copy_local_dependency(target_path, &extracted_root_path, dep_name)
 }
 
 #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]

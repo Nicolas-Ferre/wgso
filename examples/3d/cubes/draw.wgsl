@@ -1,7 +1,6 @@
 #shader<render, Vertex, Cube> cube
 
 #import ~.main
-#import constants
 #import camera.main
 #import light.main
 #import _.std.lighting
@@ -25,7 +24,7 @@ struct Fragment {
 
 @vertex
 fn vs_main(vertex: Vertex, instance: Cube) -> Fragment {
-    let projection = proj_mat(RATIO, camera.fov, camera.far, camera.near);
+    let projection = proj_mat(camera.surface_ratio, camera.fov, camera.far, camera.near);
     let view = view_mat(camera.position, camera.rotation);
     let model = model_mat(instance.position, CUBE_SIZE, instance.rotation);
     let clip_position = projection * view * model * vec4f(vertex.position, 1);

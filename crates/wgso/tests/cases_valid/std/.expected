@@ -9,3 +9,4 @@ target=[
     000000FF, 000000FF, 000000FF, 000000FF, 000000FF, 000000FF, 000000FF, 000000FF, 000000FF, 000000FF, 
 ]
 std_.time.frame_index=[1, 0, 0, 0]
+std_.surface=[10, 0, 0, 0, 8, 0, 0, 0]

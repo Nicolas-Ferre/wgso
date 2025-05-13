@@ -11,6 +11,7 @@ const RECTANGLE_SPEED = 0.02;
 @compute
 @workgroup_size(1, 1, 1)
 fn main() {
+    rectangles.ratio = f32(std_.surface.size.x) / f32(std_.surface.size.y);
     rectangles.keyboard.position += RECTANGLE_SPEED * input_direction(
         std_.keyboard.keys[KB_ARROW_LEFT],
         std_.keyboard.keys[KB_ARROW_RIGHT],

@@ -19,6 +19,7 @@ pub(crate) struct Files {
 impl Files {
     pub(crate) fn new(path: &Path, directive_rules: &[Rule], errors: &mut Vec<Error>) -> Self {
         let files: FxHashMap<_, _> = WalkDir::new(path)
+            .follow_links(true)
             .into_iter()
             .filter_map(|file| match file {
                 Ok(file) => {

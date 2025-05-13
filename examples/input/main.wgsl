@@ -1,10 +1,11 @@
 #init init_rectangles()
 #run update_rectangles()
-#draw draw_rectangles<rectangles.vertices, rectangles.keyboard>()
+#draw draw_rectangles<rectangles.vertices, rectangles.keyboard>(ratio=rectangles.ratio)
 
 #import _.std.vertex
 
 struct Rectangles {
+    ratio: f32,
     vertices: array<Vertex, 6>,
     keyboard: KeyboardRect,
 }

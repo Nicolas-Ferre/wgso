@@ -1,7 +1,6 @@
 #shader<render, Vertex, PointLight> light
 
 #import ~.main
-#import constants
 #import camera.main
 #import _.std.matrix
 #import _.std.vertex
@@ -17,7 +16,7 @@ struct Fragment {
 
 @vertex
 fn vs_main(vertex: Vertex, instance: PointLight) -> Fragment {
-    let projection = proj_mat(RATIO, camera.fov, camera.far, camera.near);
+    let projection = proj_mat(camera.surface_ratio, camera.fov, camera.far, camera.near);
     let view = view_mat(camera.position, camera.rotation);
     let model = model_mat(instance.position, POINT_LIGHT_SIZE, DEFAULT_QUAT);
     let position = projection * view * model * vec4f(vertex.position, 1);
