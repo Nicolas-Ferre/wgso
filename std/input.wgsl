@@ -1,5 +1,7 @@
 //! Utilities to retrieve input state.
 
+#import ~.math
+
 /// The state of an input (e.g. a button).
 alias InputState = u32;
 
@@ -21,12 +23,19 @@ fn is_just_released(state: InputState) -> bool {
     return (state & (1 << BIT)) != 0;
 }
 
+/// Returns the input ID when specified.
+///
+/// This is only useful for special mouse buttons.
+fn input_id(state: InputState) -> u32 {
+    const BIT_OFFSET = 16;
+    return state >> BIT_OFFSET;
+}
+
 /// Returns the normalized direction based on left, right, up and down inputs.
 ///
 /// If none of the inputs are pressed, the returned direction is `vec2f(0, 0)`.
 fn input_direction(left: InputState, right: InputState, up: InputState, down: InputState) -> vec2f {
-    let direction = vec2f(input_axis(left, right), input_axis(down, up));
-    return direction / max(length(direction), 1e-6);
+    return normalize_vec2f_or_zero(vec2f(input_axis(left, right), input_axis(down, up)));
 }
 
 /// Returns the axis value between between -1. and 1 based on left and right inputs.
@@ -474,4 +483,19 @@ const KB_F33 = 191;
 const KB_F34 = 192;
 /// General-purpose function key.
 const KB_F35 = 193;
-/// General-purpose function key.
+
+/// Left mouse button.
+const MS_BUTTON_LEFT = 0;
+/// Right mouse button.
+const MS_BUTTON_RIGHT = 1;
+/// Middle/wheel mouse button.
+const MS_BUTTON_MIDDLE = 2;
+/// Back mouse button.
+const MS_BUTTON_BACK = 3;
+/// Forward mouse button.
+const MS_BUTTON_FORWARD = 4;
+
+/// Mouse wheel unit in lines (row and columns).
+const MS_WHEEL_LINES = 0;
+/// Mouse wheel unit in pixels.
+const MS_WHEEL_PIXELS = 1;

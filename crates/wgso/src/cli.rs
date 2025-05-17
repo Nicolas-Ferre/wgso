@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::{fs, process};
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
-use winit::event::WindowEvent;
+use winit::event::{DeviceEvent, DeviceId, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::keyboard::PhysicalKey;
 use winit::window::WindowId;
@@ -128,18 +128,40 @@ impl ApplicationHandler for WindowRunner {
         _window_id: WindowId,
         event: WindowEvent,
     ) {
-        match event {
-            WindowEvent::RedrawRequested => self.update(),
-            WindowEvent::CloseRequested => event_loop.exit(),
-            WindowEvent::Resized(size) => self.update_window_size(size),
-            WindowEvent::KeyboardInput { event, .. } => {
-                if let Some(runner) = &mut self.runner {
+        if let Some(runner) = &mut self.runner {
+            match event {
+                WindowEvent::RedrawRequested => self.update(),
+                WindowEvent::CloseRequested => event_loop.exit(),
+                WindowEvent::Resized(size) => self.update_window_size(size),
+                WindowEvent::KeyboardInput { event, .. } => {
                     if let PhysicalKey::Code(key) = event.physical_key {
                         runner.std_state.keyboard.update_key(key, event.state);
                     }
                 }
+                WindowEvent::CursorMoved { position, .. } => {
+                    runner.std_state.mouse.update_position(position);
+                }
+                WindowEvent::MouseInput { button, state, .. } => {
+                    runner.std_state.mouse.update_button(button, state);
+                }
+                WindowEvent::MouseWheel { delta, .. } => {
+                    runner.std_state.mouse.update_wheel_delta(delta);
+                }
+                _ => (),
             }
-            _ => (),
+        }
+    }
+
+    fn device_event(
+        &mut self,
+        _event_loop: &ActiveEventLoop,
+        _device_id: DeviceId,
+        event: DeviceEvent,
+    ) {
+        if let Some(runner) = &mut self.runner {
+            if let DeviceEvent::MouseMotion { delta } = event {
+                runner.std_state.mouse.update_delta(delta);
+            }
         }
     }
 

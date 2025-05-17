@@ -5,16 +5,22 @@ error: value has an offset of 4 bytes in `buffer_arg_alignment`, which is not a 
   |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
   |
 error: value has an offset of 4 bytes in `buffer_arg_alignment`, which is not a multiple of 256 bytes
+ --> ./tests/cases_invalid/directive_shader_call_validation/arg_alignment.wgsl:5:26
+  |
+5 | #run arg_alignment(param=buffer_arg_alignment.field2)
+  |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+error: value has an offset of 4 bytes in `buffer_arg_alignment`, which is not a multiple of 256 bytes
  --> ./tests/cases_invalid/directive_shader_call_validation/arg_alignment.wgsl:6:48
   |
 6 | #draw arg_alignment<vertices, instances>(param=buffer_arg_alignment.field2)
   |                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
   |
-error: value has an offset of 4 bytes in `buffer_arg_alignment`, which is not a multiple of 256 bytes
- --> ./tests/cases_invalid/directive_shader_call_validation/arg_alignment.wgsl:5:26
+error: duplicated parameter
+ --> ./tests/cases_invalid/directive_shader_call_validation/arg_duplicated.wgsl:5:81
   |
-5 | #run arg_alignment(param=buffer_arg_alignment.field2)
-  |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+5 | #run arg_duplicated(param1=buffer_arg_duplicated, param2=buffer_arg_duplicated, param1=buffer_arg_duplicated)
+  |                                                                                 ^^^^^^
   |
 error: duplicated parameter
  --> ./tests/cases_invalid/directive_shader_call_validation/arg_duplicated.wgsl:4:82
@@ -28,11 +34,11 @@ error: duplicated parameter
 6 | #draw arg_duplicated<vertices, instances>(param1=buffer_arg_duplicated, param2=buffer_arg_duplicated, param1=buffer_arg_duplicated)
   |                                                                                                       ^^^^^^
   |
-error: duplicated parameter
- --> ./tests/cases_invalid/directive_shader_call_validation/arg_duplicated.wgsl:5:81
+error: found argument with type `i32`, expected uniform type `u32`
+ --> ./tests/cases_invalid/directive_shader_call_validation/arg_invalid_type.wgsl:5:29
   |
-5 | #run arg_duplicated(param1=buffer_arg_duplicated, param2=buffer_arg_duplicated, param1=buffer_arg_duplicated)
-  |                                                                                 ^^^^^^
+5 | #run arg_invalid_type(value=buffer_arg_invalid_type)
+  |                             ^^^^^^^^^^^^^^^^^^^^^^^
   |
 error: found argument with type `i32`, expected uniform type `u32`
  --> ./tests/cases_invalid/directive_shader_call_validation/arg_invalid_type.wgsl:4:30
@@ -46,11 +52,11 @@ error: found argument with type `i32`, expected uniform type `u32`
 6 | #draw arg_invalid_type<vertices, instances>(value=buffer_arg_invalid_type)
   |                                                   ^^^^^^^^^^^^^^^^^^^^^^^
   |
-error: found argument with type `i32`, expected uniform type `u32`
- --> ./tests/cases_invalid/directive_shader_call_validation/arg_invalid_type.wgsl:5:29
+error: found argument with type `MyStruct`, expected uniform type `MyStruct`
+ --> ./tests/cases_invalid/directive_shader_call_validation/arg_invalid_type_same_name1.wgsl:2:39
   |
-5 | #run arg_invalid_type(value=buffer_arg_invalid_type)
-  |                             ^^^^^^^^^^^^^^^^^^^^^^^
+2 | #run arg_invalid_type_same_name(param=buffer_arg_invalid_type_same_name)
+  |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   |
 error: found argument with type `MyStruct`, expected uniform type `MyStruct`
  --> ./tests/cases_invalid/directive_shader_call_validation/arg_invalid_type_same_name1.wgsl:1:40
@@ -63,12 +69,6 @@ error: found argument with type `MyStruct`, expected uniform type `MyStruct`
   |
 3 | #draw arg_invalid_type_same_name<vertices, instances>(param=buffer_arg_invalid_type_same_name)
   |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  |
-error: found argument with type `MyStruct`, expected uniform type `MyStruct`
- --> ./tests/cases_invalid/directive_shader_call_validation/arg_invalid_type_same_name1.wgsl:2:39
-  |
-2 | #run arg_invalid_type_same_name(param=buffer_arg_invalid_type_same_name)
-  |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   |
 error: missing uniform argument `param`
  --> ./tests/cases_invalid/directive_shader_call_validation/arg_missing.wgsl:5:6
@@ -107,12 +107,6 @@ error: no uniform variable `arg_unknown_param` in shader `arg_unknown`
   |                                        ^^^^^^^^^^^^^^^^^
   |
 error: unknown storage variable `arg_unknown_storage`
- --> ./tests/cases_invalid/directive_shader_call_validation/arg_unknown_storage.wgsl:5:32
-  |
-5 | #run arg_unknown_storage(param=arg_unknown_storage)
-  |                                ^^^^^^^^^^^^^^^^^^^
-  |
-error: unknown storage variable `arg_unknown_storage`
  --> ./tests/cases_invalid/directive_shader_call_validation/arg_unknown_storage.wgsl:4:33
   |
 4 | #init arg_unknown_storage(param=arg_unknown_storage)
@@ -124,6 +118,12 @@ error: unknown storage variable `arg_unknown_storage`
 6 | #draw arg_unknown_storage<vertices, instances>(param=arg_unknown_storage)
   |                                                      ^^^^^^^^^^^^^^^^^^^
   |
+error: unknown storage variable `arg_unknown_storage`
+ --> ./tests/cases_invalid/directive_shader_call_validation/arg_unknown_storage.wgsl:5:32
+  |
+5 | #run arg_unknown_storage(param=arg_unknown_storage)
+  |                                ^^^^^^^^^^^^^^^^^^^
+  |
 error: unknown field for type `u32`
  --> ./tests/cases_invalid/directive_shader_call_validation/arg_unknown_storage_field.wgsl:4:46
   |
@@ -131,28 +131,28 @@ error: unknown field for type `u32`
   |                                              ^^^^^
   |
 error: unknown field for type `u32`
- --> ./tests/cases_invalid/directive_shader_call_validation/arg_unknown_storage_field.wgsl:5:45
-  |
-5 | #run arg_unknown_storage_field(param=buffer.field)
-  |                                             ^^^^^
-  |
-error: unknown field for type `u32`
  --> ./tests/cases_invalid/directive_shader_call_validation/arg_unknown_storage_field.wgsl:6:67
   |
 6 | #draw arg_unknown_storage_field<vertices, instances>(param=buffer.field)
   |                                                                   ^^^^^
   |
-error: found item type `u32`, expected `i32`
- --> ./tests/cases_invalid/directive_shader_call_validation/buffer_invalid_type.wgsl:3:27
+error: unknown field for type `u32`
+ --> ./tests/cases_invalid/directive_shader_call_validation/arg_unknown_storage_field.wgsl:5:45
   |
-3 | #draw buffer_invalid_type<vertices, instances>()
-  |                           ^^^^^^^^
+5 | #run arg_unknown_storage_field(param=buffer.field)
+  |                                             ^^^^^
   |
 error: found item type `u32`, expected `i32`
  --> ./tests/cases_invalid/directive_shader_call_validation/buffer_invalid_type.wgsl:3:37
   |
 3 | #draw buffer_invalid_type<vertices, instances>()
   |                                     ^^^^^^^^^
+  |
+error: found item type `u32`, expected `i32`
+ --> ./tests/cases_invalid/directive_shader_call_validation/buffer_invalid_type.wgsl:3:27
+  |
+3 | #draw buffer_invalid_type<vertices, instances>()
+  |                           ^^^^^^^^
   |
 error: found non-array argument
  --> ./tests/cases_invalid/directive_shader_call_validation/buffer_non_array.wgsl:3:24
@@ -161,26 +161,26 @@ error: found non-array argument
   |                        ^^^^^^^^^^^^^^^^
   |
 error: unknown storage variable `unknown`
- --> ./tests/cases_invalid/directive_shader_call_validation/buffer_unknown_storage.wgsl:3:30
-  |
-3 | #draw buffer_unknown_storage<unknown, unknown>()
-  |                              ^^^^^^^
-  |
-error: unknown storage variable `unknown`
  --> ./tests/cases_invalid/directive_shader_call_validation/buffer_unknown_storage.wgsl:3:39
   |
 3 | #draw buffer_unknown_storage<unknown, unknown>()
   |                                       ^^^^^^^
   |
-error: unknown field for type `array<u32>`
- --> ./tests/cases_invalid/directive_shader_call_validation/buffer_unknown_storage_field.wgsl:3:45
+error: unknown storage variable `unknown`
+ --> ./tests/cases_invalid/directive_shader_call_validation/buffer_unknown_storage.wgsl:3:30
   |
-3 | #draw buffer_unknown_storage_field<vertices.field, instances.field>()
-  |                                             ^^^^^
+3 | #draw buffer_unknown_storage<unknown, unknown>()
+  |                              ^^^^^^^
   |
 error: unknown field for type `array<u32>`
  --> ./tests/cases_invalid/directive_shader_call_validation/buffer_unknown_storage_field.wgsl:3:62
   |
 3 | #draw buffer_unknown_storage_field<vertices.field, instances.field>()
   |                                                              ^^^^^
+  |
+error: unknown field for type `array<u32>`
+ --> ./tests/cases_invalid/directive_shader_call_validation/buffer_unknown_storage_field.wgsl:3:45
+  |
+3 | #draw buffer_unknown_storage_field<vertices.field, instances.field>()
+  |                                             ^^^^^
   |
