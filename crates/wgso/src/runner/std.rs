@@ -256,7 +256,7 @@ impl InputState {
 
     #[allow(clippy::cast_possible_truncation)]
     fn id(self) -> u16 {
-        (self.data << Self::ID_BIT_OFFSET) as u16
+        (self.data >> Self::ID_BIT_OFFSET) as u16
     }
 
     fn set_id(&mut self, id: u16) {
