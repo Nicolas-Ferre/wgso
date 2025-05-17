@@ -66,22 +66,31 @@ impl Files {
             .filter(|directive| {
                 directive.kind() == DirectiveKind::Run || directive.kind() == DirectiveKind::Init
             })
-            .sorted_by_key(|directive| {
+            .enumerate()
+            .sorted_unstable_by_key(|(index, directive)| {
                 (
                     directive.kind() != DirectiveKind::Init,
                     directive.priority(),
+                    usize::MAX - index,
                     directive.shader_name().slice.clone(),
                 )
             })
+            .map(|(_, directive)| directive)
     }
 
     pub(crate) fn draw_directives(&self) -> impl Iterator<Item = &Directive> {
         self.directives
             .iter()
             .filter(|directive| directive.kind() == DirectiveKind::Draw)
-            .sorted_by_key(|directive| {
-                (directive.priority(), directive.shader_name().slice.clone())
+            .enumerate()
+            .sorted_unstable_by_key(|(index, directive)| {
+                (
+                    directive.priority(),
+                    usize::MAX - index,
+                    directive.shader_name().slice.clone(),
+                )
             })
+            .map(|(_, directive)| directive)
     }
 
     fn is_wgsl_file(file: &DirEntry) -> bool {

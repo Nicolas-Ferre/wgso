@@ -1,4 +1,4 @@
-#shader<render, Vertex, KeyboardRect> draw_rectangles
+#shader<render, Vertex, Rect> draw_rectangles
 
 #import ~.main
 #import _.std.vertex
@@ -15,7 +15,7 @@ struct Fragment {
 }
 
 @vertex
-fn vs_main(vertex: Vertex, instance: KeyboardRect) -> Fragment {
+fn vs_main(vertex: Vertex, instance: Rect) -> Fragment {
     let position = vertex.position.xy * RECT_SIZE + instance.position;
     return Fragment(
         vec4f(position.x, position.y * ratio, 0, 1),
