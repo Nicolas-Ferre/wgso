@@ -2,9 +2,10 @@
 
 // coverage: off (not easy to test)
 
+/// Android entrypoint.
 #[cfg(target_os = "android")]
 #[no_mangle]
-fn android_main(app: android_activity::AndroidApp) {
+pub fn android_main(app: android_activity::AndroidApp) {
     static PROJECT_DIR: include_dir::Dir<'_> = include_dir::include_dir!("$PROGRAM_PATH");
     let program_path = app
         .internal_data_path()

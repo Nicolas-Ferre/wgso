@@ -45,7 +45,11 @@ wgpu = { workspace = true, features = ["webgl", "wgsl"] }
 rstest.workspace = true
 
 [package.metadata.android]
-build_targets = ["armv7-linux-androideabi"]
+build_targets = [
+    "armv7-linux-androideabi",
+    "aarch64-linux-android",
+    "x86_64-linux-android",
+]
 
 [package.metadata.android.sdk]
 target_sdk_version = 31

@@ -1,5 +1,3 @@
-const SECONDS_BEFORE_RELOADING: u64 = 2;
-
 #[cfg(not(target_os = "android"))]
 #[derive(Debug)]
 pub(crate) struct RunnerWatcher {
@@ -10,6 +8,8 @@ pub(crate) struct RunnerWatcher {
 
 #[cfg(not(target_os = "android"))]
 impl RunnerWatcher {
+    const SECONDS_BEFORE_RELOADING: u64 = 2;
+
     pub(crate) fn new(folder_path: &std::path::Path) -> Self {
         use notify::Watcher;
         let (tx, rx) = std::sync::mpsc::channel();
@@ -33,7 +33,7 @@ impl RunnerWatcher {
         if is_updated {
             self.next_update = Some(
                 std::time::Instant::now()
-                    + std::time::Duration::from_secs(SECONDS_BEFORE_RELOADING),
+                    + std::time::Duration::from_secs(Self::SECONDS_BEFORE_RELOADING),
             );
         }
         if self
@@ -57,7 +57,8 @@ impl RunnerWatcher {
     pub(crate) fn new(_folder_path: &std::path::Path) -> Self {
         Self {}
     }
-
+    
+    #[allow(clippy::unused_self, clippy::needless_pass_by_ref_mut)]
     pub(crate) fn detect_changes(&mut self) -> bool {
         false
     }
