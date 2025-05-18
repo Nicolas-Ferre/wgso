@@ -1,24 +1,22 @@
-use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
-use std::path::Path;
-use std::sync::mpsc::Receiver;
-use std::time::{Duration, Instant};
-
-const SECONDS_BEFORE_RELOADING: u64 = 2;
-
+#[cfg(not(target_os = "android"))]
 #[derive(Debug)]
 pub(crate) struct RunnerWatcher {
-    _watcher: RecommendedWatcher,
-    watcher_events: Receiver<notify::Result<Event>>,
-    next_update: Option<Instant>,
+    _watcher: notify::RecommendedWatcher,
+    watcher_events: std::sync::mpsc::Receiver<notify::Result<notify::Event>>,
+    next_update: Option<std::time::Instant>,
 }
 
+#[cfg(not(target_os = "android"))]
 impl RunnerWatcher {
-    pub(crate) fn new(folder_path: &Path) -> Self {
+    const SECONDS_BEFORE_RELOADING: u64 = 2;
+
+    pub(crate) fn new(folder_path: &std::path::Path) -> Self {
+        use notify::Watcher;
         let (tx, rx) = std::sync::mpsc::channel();
-        let mut watcher =
-            RecommendedWatcher::new(tx, Config::default()).expect("cannot initialize watcher");
+        let mut watcher = notify::RecommendedWatcher::new(tx, notify::Config::default())
+            .expect("cannot initialize watcher");
         watcher
-            .watch(folder_path, RecursiveMode::Recursive)
+            .watch(folder_path, notify::RecursiveMode::Recursive)
             .expect("cannot watch program directory");
         Self {
             _watcher: watcher,
@@ -33,16 +31,35 @@ impl RunnerWatcher {
             Err(_) => false, // no-coverage (not easy to test)
         });
         if is_updated {
-            self.next_update = Some(Instant::now() + Duration::from_secs(SECONDS_BEFORE_RELOADING));
+            self.next_update = Some(
+                std::time::Instant::now()
+                    + std::time::Duration::from_secs(Self::SECONDS_BEFORE_RELOADING),
+            );
         }
         if self
             .next_update
-            .is_some_and(|next_update| Instant::now() >= next_update)
+            .is_some_and(|next_update| std::time::Instant::now() >= next_update)
         {
             self.next_update = None;
             true
         } else {
             false
         }
+    }
+}
+
+#[cfg(target_os = "android")]
+#[derive(Debug)]
+pub(crate) struct RunnerWatcher {}
+
+#[cfg(target_os = "android")]
+impl RunnerWatcher {
+    pub(crate) fn new(_folder_path: &std::path::Path) -> Self {
+        Self {}
+    }
+
+    #[allow(clippy::unused_self, clippy::needless_pass_by_ref_mut)]
+    pub(crate) fn detect_changes(&mut self) -> bool {
+        false
     }
 }

@@ -28,21 +28,32 @@ Before you consider using this tool, please keep in mind that:
 - Windows
 - Linux
 - macOS (limited support because the maintainer doesn't have access to a physical device)
+- Android
 
-It is planned to also support Android and WASM targets in the future.
+It is planned to also support WASM targets in the future.
 
 WGSO may also work on some other platforms, but they have not been tested.
 
 ## 🏁 Getting started
 
-WGSO examples can be run with the following command:
+Examples of WGSO programs are located in the `examples` folder.
+
+Example dependencies can be installed with the following command:
 
 ```shell
-cargo run --release --bin wgso -- install --force <example path> # install dependencies
-cargo run --release --bin wgso -- run <example path> # run the example
+cargo run --release --bin wgso -- install --force <example path>
 ```
 
-Examples of WGSO programs are located in the `examples` folder.
+Then the example can be run with the following commands:
+
+- Native platforms (Window, Linux and macOS):
+    - ```shell
+      cargo run --release --bin wgso -- run <example path>
+      ```
+- Android:
+    - ```shell
+      PROGRAM_PATH=<example absolute path> cargo apk run --manifest-path=crates/wgso/Cargo.toml --release --example wgso_android
+      ```
 
 ## 📜 License
 

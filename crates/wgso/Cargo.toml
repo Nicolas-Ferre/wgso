@@ -5,7 +5,7 @@ readme = "../../README.md"
 keywords = ["gpu", "rendering", "compute", "shader", "wgsl"]
 categories = ["game-development", "graphics", "rendering", "concurrency"]
 exclude = [".github", "README.md"]
-version.workspace = true
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -15,8 +15,8 @@ rust-version.workspace = true
 [dependencies]
 annotate-snippets.workspace = true
 clap.workspace = true
-fxhash.workspace = true
 futures.workspace = true
+fxhash.workspace = true
 itertools.workspace = true
 naga.workspace = true
 notify.workspace = true
@@ -32,6 +32,7 @@ winit = { workspace = true, features = ["rwh_05"] }
 [target.'cfg(target_os = "android")'.dependencies]
 android-activity.workspace = true
 android_logger.workspace = true
+include_dir.workspace = true
 winit = { workspace = true, features = ["android-native-activity", "rwh_05"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -42,6 +43,21 @@ wgpu = { workspace = true, features = ["webgl", "wgsl"] }
 
 [dev-dependencies]
 rstest.workspace = true
+
+[package.metadata.android]
+build_targets = [
+    "armv7-linux-androideabi",
+    "aarch64-linux-android",
+    "x86_64-linux-android",
+]
+
+[package.metadata.android.sdk]
+target_sdk_version = 31
+
+[[example]]
+name = "wgso_android"
+path = "examples/main_android.rs"
+crate-type = ["cdylib"]
 
 [lints]
 workspace = true

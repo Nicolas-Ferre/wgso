@@ -13,6 +13,10 @@ use winit::window::WindowId;
 
 // coverage: off (not easy to test)
 
+#[cfg(target_os = "android")]
+pub(crate) static ANDROID_APP: std::sync::OnceLock<android_activity::AndroidApp> =
+    std::sync::OnceLock::new();
+
 /// Arguments of `wgso` CLI.
 #[derive(Parser, Debug)]
 #[command(version, about, long_about=None)]
@@ -70,22 +74,33 @@ impl InstallArgs {
 #[command(version, about, long_about=None)]
 pub struct RunArgs {
     /// Path to the WGSO program directory to run.
-    path: PathBuf,
+    pub path: PathBuf,
     /// List of GPU buffers to display at each step.
     #[arg(short, long, num_args(0..), default_values_t = Vec::<String>::new())]
-    buffer: Vec<String>,
+    pub buffer: Vec<String>,
     /// Print FPS in standard output.
     #[clap(long, short, action)]
-    fps: bool,
+    pub fps: bool,
 }
 
 impl RunArgs {
     fn run(self) {
-        let mut runner = WindowRunner {
-            args: self,
-            runner: None,
-        };
+        let mut runner = WindowRunner::new(self);
         EventLoop::builder()
+            .build()
+            .expect("event loop initialization failed")
+            .run_app(&mut runner)
+            .expect("event loop failed");
+    }
+
+    /// Runs a WGSO program on Android.
+    #[cfg(target_os = "android")]
+    pub fn run_android(self, android_app: android_activity::AndroidApp) {
+        use winit::platform::android::EventLoopBuilderExtAndroid;
+        let mut runner = WindowRunner::new(self);
+        ANDROID_APP.get_or_init(|| android_app.clone());
+        EventLoop::builder()
+            .with_android_app(android_app)
             .build()
             .expect("event loop initialization failed")
             .run_app(&mut runner)
@@ -173,6 +188,10 @@ impl ApplicationHandler for WindowRunner {
 }
 
 impl WindowRunner {
+    fn new(args: RunArgs) -> Self {
+        Self { args, runner: None }
+    }
+
     fn refresh_surface(&mut self, event_loop: &ActiveEventLoop) {
         if let Some(runner) = &mut self.runner {
             runner.refresh_surface();
