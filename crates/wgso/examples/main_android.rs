@@ -26,4 +26,3 @@ pub extern "Rust" fn android_main(app: android_activity::AndroidApp) {
     };
     args.run_android(app);
 }
-    
