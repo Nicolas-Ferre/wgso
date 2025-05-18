@@ -6,7 +6,7 @@
 #[cfg(target_os = "android")]
 #[allow(unsafe_code)]
 #[no_mangle]
-pub fn android_main(app: android_activity::AndroidApp) {
+pub extern "C" fn android_main(app: android_activity::AndroidApp) {
     static PROJECT_DIR: include_dir::Dir<'_> = include_dir::include_dir!("$PROGRAM_PATH");
     let program_path = app
         .internal_data_path()
