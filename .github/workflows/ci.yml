@@ -21,7 +21,7 @@ env:
   RUST_BACKTRACE: 1
   COV_THRESHOLD: 100.0
   CODECOV_UPLOAD: true
-  PROGRAM_PATH: $PWD/examples/2d
+  PROGRAM_PATH: ../../examples/2d
 
 jobs:
   clippy:
