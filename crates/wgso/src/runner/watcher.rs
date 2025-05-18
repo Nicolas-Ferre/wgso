@@ -57,7 +57,7 @@ impl RunnerWatcher {
     pub(crate) fn new(_folder_path: &std::path::Path) -> Self {
         Self {}
     }
-    
+
     #[allow(clippy::unused_self, clippy::needless_pass_by_ref_mut)]
     pub(crate) fn detect_changes(&mut self) -> bool {
         false
