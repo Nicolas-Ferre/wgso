@@ -17,8 +17,9 @@ struct Fragment {
 @vertex
 fn vs_main(vertex: Vertex, instance: Rect) -> Fragment {
     let position = vertex.position.xy * RECT_SIZE + instance.position;
+    let ratio = select(vec2f(1, ratio), vec2f(1 / ratio, 1), ratio > 1);
     return Fragment(
-        vec4f(position.x, position.y * ratio, 0, 1),
+        vec4f(position * ratio, 0, 1),
         instance.color,
     );
 }
