@@ -35,7 +35,7 @@ tempfile = "3"
 thiserror = "2"
 walkdir = "2"
 winit = "0.30"
-zip = "2"
+zip = "3"
 
 naga = { version = "25.0", features = ["wgsl-in", "wgsl-out"] }
 wgpu = "25.0"
