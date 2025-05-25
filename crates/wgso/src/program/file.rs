@@ -70,9 +70,9 @@ impl Files {
             .sorted_unstable_by_key(|(index, directive)| {
                 (
                     directive.kind() != DirectiveKind::Init,
-                    directive.priority(),
+                    -directive.priority(),
+                    directive.shader_name().path.clone(),
                     usize::MAX - index,
-                    directive.shader_name().slice.clone(),
                 )
             })
             .map(|(_, directive)| directive)
@@ -85,9 +85,9 @@ impl Files {
             .enumerate()
             .sorted_unstable_by_key(|(index, directive)| {
                 (
-                    directive.priority(),
+                    -directive.priority(),
+                    directive.shader_name().path.clone(),
                     usize::MAX - index,
-                    directive.shader_name().slice.clone(),
                 )
             })
             .map(|(_, directive)| directive)

@@ -1,8 +1,8 @@
 #init init()
-#run<42> test_compute(mode=mode0)
-#run<-42> test_compute(mode=mode1)
-#draw<-42> test_render<vertices, instance2>()
-#draw<42> test_render<vertices, instance1>()
+#run<-42> test_compute(mode=mode0)
+#run<42> test_compute(mode=mode1)
+#draw<-42> test_render<vertices, instance1>()
+#draw<42> test_render<vertices, instance2>()
 #init test_compute(mode=modes.inner.mode0)
 
 var<storage, read_write> mode0: u32;
