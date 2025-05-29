@@ -48,7 +48,7 @@ impl WgslModule {
     ) -> usize {
         let mut max_location_count = 0;
         let render_shader_directives =
-            crate::directives::find_all_by_kind(&file.directives, DirectiveKind::RenderShader);
+            crate::directives::find_all_by_kind(&file.directives, DirectiveKind::RenderModule);
         for directive in render_shader_directives {
             let type_token = if is_vertex {
                 directive.vertex_type()

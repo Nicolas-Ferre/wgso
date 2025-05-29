@@ -1,24 +1,24 @@
 error: field `incompatible_field` of type `Inner` cannot be used as vertex data
- --> ./tests/cases_invalid/directive_shader_def_validation/buffer_type_incompatible.wgsl:1:17
+ --> ./tests/cases_invalid/directive_shader_def_validation/buffer_type_incompatible.wgsl:1:14
   |
-1 | #shader<render, Incompatible, Incompatible> buffer_type_incompatible
-  |                 ^^^^^^^^^^^^
+1 | #mod<render, Incompatible, Incompatible> buffer_type_incompatible
+  |              ^^^^^^^^^^^^
   |
 error: field `incompatible_field` of type `Inner` cannot be used as vertex data
- --> ./tests/cases_invalid/directive_shader_def_validation/buffer_type_incompatible.wgsl:1:31
+ --> ./tests/cases_invalid/directive_shader_def_validation/buffer_type_incompatible.wgsl:1:28
   |
-1 | #shader<render, Incompatible, Incompatible> buffer_type_incompatible
-  |                               ^^^^^^^^^^^^
-  |
-error: type `Unknown` not found
- --> ./tests/cases_invalid/directive_shader_def_validation/buffer_type_unknown.wgsl:1:17
-  |
-1 | #shader<render, Unknown, Unknown> buffer_type_unknown
-  |                 ^^^^^^^
+1 | #mod<render, Incompatible, Incompatible> buffer_type_incompatible
+  |                            ^^^^^^^^^^^^
   |
 error: type `Unknown` not found
- --> ./tests/cases_invalid/directive_shader_def_validation/buffer_type_unknown.wgsl:1:26
+ --> ./tests/cases_invalid/directive_shader_def_validation/buffer_type_unknown.wgsl:1:14
   |
-1 | #shader<render, Unknown, Unknown> buffer_type_unknown
-  |                          ^^^^^^^
+1 | #mod<render, Unknown, Unknown> buffer_type_unknown
+  |              ^^^^^^^
+  |
+error: type `Unknown` not found
+ --> ./tests/cases_invalid/directive_shader_def_validation/buffer_type_unknown.wgsl:1:23
+  |
+1 | #mod<render, Unknown, Unknown> buffer_type_unknown
+  |                       ^^^^^^^
   |

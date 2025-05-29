@@ -14,8 +14,8 @@ use std::sync::Arc;
 #[derive(Debug, Default)]
 pub(crate) struct Modules {
     pub(crate) storages: FxHashMap<String, Arc<Type>>,
-    pub(crate) compute_shaders: FxHashMap<String, (Directive, Arc<Module>)>,
-    pub(crate) render_shaders: FxHashMap<String, (Directive, Arc<Module>)>,
+    pub(crate) compute: FxHashMap<(PathBuf, String), (Directive, Arc<Module>)>,
+    pub(crate) render: FxHashMap<(PathBuf, String), (Directive, Arc<Module>)>,
 }
 
 impl Modules {
@@ -32,8 +32,8 @@ impl Modules {
             .collect::<Vec<_>>();
         Self {
             storages: Self::storages(&modules, errors),
-            compute_shaders: Self::shaders(&modules, DirectiveKind::ComputeShader),
-            render_shaders: Self::shaders(&modules, DirectiveKind::RenderShader),
+            compute: Self::shaders(&modules, DirectiveKind::ComputeModule),
+            render: Self::shaders(&modules, DirectiveKind::RenderModule),
         }
     }
 
@@ -67,14 +67,22 @@ impl Modules {
     fn shaders(
         modules: &[Arc<Module>],
         kind: DirectiveKind,
-    ) -> FxHashMap<String, (Directive, Arc<Module>)> {
+    ) -> FxHashMap<(PathBuf, String), (Directive, Arc<Module>)> {
         modules
             .iter()
             .flat_map(|module| {
                 crate::directives::find_all_by_kind(&module.wgsl.files[0].directives, kind)
                     .map(|directive| (directive.clone(), module.clone()))
             })
-            .map(|(directive, module)| (directive.shader_name().slice.clone(), (directive, module)))
+            .map(|(directive, module)| {
+                (
+                    (
+                        directive.path().into(),
+                        directive.shader_name().slice.clone(),
+                    ),
+                    (directive, module),
+                )
+            })
             .collect()
     }
 }

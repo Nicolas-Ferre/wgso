@@ -1,4 +1,4 @@
-#shader<compute, 10> x
+#mod<compute, 10> x
 #run x()
 
 var<storage, read_write> max_invocation_ids_x: MaxInvocationIds;

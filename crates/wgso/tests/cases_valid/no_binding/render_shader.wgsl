@@ -1,4 +1,4 @@
-#shader<render, Vertex, Instance> test_render
+#mod<render, Vertex, Instance> test_render
 #draw test_render<vertices, instances>()
 
 var<storage, read> vertices: array<Vertex, 3>;

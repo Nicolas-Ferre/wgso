@@ -1,5 +1,5 @@
-#shader<compute> arg_duplicated
-#shader<render, u32, u32> arg_duplicated
+#mod<compute> arg_duplicated
+#mod<render, u32, u32> arg_duplicated
 
 #init arg_duplicated(param1=buffer_arg_duplicated, param2=buffer_arg_duplicated, param1=buffer_arg_duplicated)
 #run arg_duplicated(param1=buffer_arg_duplicated, param2=buffer_arg_duplicated, param1=buffer_arg_duplicated)

@@ -1,4 +1,4 @@
-#shader<compute> init_background
+#mod<compute> init_background
 
 #import ~.storage
 

@@ -1,4 +1,4 @@
-#shader<compute> update
+#mod<compute> update
 
 #import ~.storage
 #import _.std.storage

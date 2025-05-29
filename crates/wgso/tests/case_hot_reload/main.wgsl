@@ -1,5 +1,5 @@
-#init init()
-#draw rectangle<state.vertices, state.instance>()
+#init ~.init.init()
+#draw ~.draw.rectangle<state.vertices, state.instance>()
 
 struct Vertex {
     position: vec2f,

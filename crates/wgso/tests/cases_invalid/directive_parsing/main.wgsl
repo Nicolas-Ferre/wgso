@@ -1,2 +1,2 @@
-#shader<invalid> test
-#shader<compute> test invalid
+#mod<invalid> test
+#mod<compute> test invalid

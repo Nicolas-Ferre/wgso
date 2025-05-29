@@ -1,4 +1,4 @@
-#shader<compute> test_compute
+#mod<compute> test_compute
 
 var<storage, read_write> buffer: i32;
 

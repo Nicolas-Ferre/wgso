@@ -1,4 +1,4 @@
-#shader<render, Vertex, Triangle> triangle
+#mod<render, Vertex, Triangle> triangle
 
 #import ~.main
 #import _.std.vertex

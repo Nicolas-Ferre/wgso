@@ -4,12 +4,12 @@ use crate::Error;
 use std::sync::Arc;
 use wgso_parser::{ParsingError, Token};
 
-const DEF_DIRECTIVE_KINDS: &[DirectiveKind] =
-    &[DirectiveKind::ComputeShader, DirectiveKind::RenderShader];
+const MODULE_DIRECTIVE_KINDS: &[DirectiveKind] =
+    &[DirectiveKind::ComputeModule, DirectiveKind::RenderModule];
 
 impl Directive {
     pub(crate) fn workgroup_count(&self) -> (u16, u16, u16) {
-        assert_eq!(self.kind(), DirectiveKind::ComputeShader);
+        assert_eq!(self.kind(), DirectiveKind::ComputeModule);
         let mut tokens = self.find_all_by_label("workgroup_count");
         let workgroup_count_x = tokens.next().map_or(1, Self::convert_to_integer);
         let workgroup_count_y = tokens.next().map_or(1, Self::convert_to_integer);
@@ -18,12 +18,12 @@ impl Directive {
     }
 
     pub(crate) fn vertex_type(&self) -> &Token {
-        assert_eq!(self.kind(), DirectiveKind::RenderShader);
+        assert_eq!(self.kind(), DirectiveKind::RenderModule);
         self.find_one_by_label("vertex_type")
     }
 
     pub(crate) fn instance_type(&self) -> &Token {
-        assert_eq!(self.kind(), DirectiveKind::RenderShader);
+        assert_eq!(self.kind(), DirectiveKind::RenderModule);
         self.find_one_by_label("instance_type")
     }
 }
@@ -31,14 +31,14 @@ impl Directive {
 pub(crate) fn check(directives: &[Directive], errors: &mut Vec<Error>) {
     for (index, directive) in directives.iter().enumerate() {
         let kind = directive.kind();
-        if DEF_DIRECTIVE_KINDS.contains(&kind) {
+        if MODULE_DIRECTIVE_KINDS.contains(&kind) {
             check_duplicated(kind, directive, &directives[index + 1..], errors);
         }
     }
 }
 
 pub(crate) fn check_params(modules: &Modules, errors: &mut Vec<Error>) {
-    for (directive, module) in modules.render_shaders.values() {
+    for (directive, module) in modules.render.values() {
         check_buffer_type(directive.vertex_type(), module, errors);
         check_buffer_type(directive.instance_type(), module, errors);
     }
@@ -92,8 +92,8 @@ fn check_buffer_type(type_: &Token, module: &Arc<Module>, errors: &mut Vec<Error
 
 fn shader_kind_name(kind: DirectiveKind) -> &'static str {
     match kind {
-        DirectiveKind::ComputeShader => "compute",
-        DirectiveKind::RenderShader => "render",
+        DirectiveKind::ComputeModule => "compute",
+        DirectiveKind::RenderModule => "render",
         DirectiveKind::Init | DirectiveKind::Run | DirectiveKind::Draw | DirectiveKind::Import => {
             unreachable!("internal error: unexpected directive kind")
         }

@@ -1,6 +1,6 @@
-#init init_background()
-#run update_background()
-#draw background<background.vertices, background.instance>()
+#init ~.init.init_background()
+#run ~.update.update_background()
+#draw ~.draw.background<background.vertices, background.instance>()
 
 #import _.std.vertex
 

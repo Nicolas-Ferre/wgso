@@ -1,5 +1,5 @@
-#shader<compute> arg_unknown_storage
-#shader<render, u32, u32> arg_unknown_storage
+#mod<compute> arg_unknown_storage
+#mod<render, u32, u32> arg_unknown_storage
 
 #init arg_unknown_storage(param=arg_unknown_storage)
 #run arg_unknown_storage(param=arg_unknown_storage)

@@ -1,4 +1,4 @@
-#shader<compute> test
+#mod<compute> test
 #run test()
 
 #import inner.function

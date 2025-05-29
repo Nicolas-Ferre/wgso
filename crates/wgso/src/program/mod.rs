@@ -46,7 +46,7 @@ impl Program {
         }
         imports::check(&files.directives, &files, root_path, &mut errors);
         shader_defs::check(&files.directives, &mut errors);
-        shader_calls::check(&files.directives, &mut errors);
+        shader_calls::check(&files.directives, root_path, &mut errors);
         if !errors.is_empty() {
             return Self {
                 errors,
@@ -65,7 +65,7 @@ impl Program {
             };
         }
         shader_defs::check_params(&modules, &mut errors);
-        shader_calls::check_args(&files, &modules, &mut errors);
+        shader_calls::check_args(root_path, &files, &modules, &mut errors);
         Self {
             errors,
             root_path: root_path.into(),

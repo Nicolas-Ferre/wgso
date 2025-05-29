@@ -1,4 +1,4 @@
-#shader<render, u32, u32> buffer_non_array
+#mod<render, u32, u32> buffer_non_array
 
 #draw buffer_non_array<invalid_vertices, invalid_instances>()
 

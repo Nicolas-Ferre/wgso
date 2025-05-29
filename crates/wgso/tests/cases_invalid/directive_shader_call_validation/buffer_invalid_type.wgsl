@@ -1,4 +1,4 @@
-#shader<render, i32, i32> buffer_invalid_type
+#mod<render, i32, i32> buffer_invalid_type
 
 #draw buffer_invalid_type<vertices, instances>()
 

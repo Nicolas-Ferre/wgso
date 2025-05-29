@@ -1,4 +1,4 @@
-#shader<render, Vertex, BackgroundInstance> background
+#mod<render, Vertex, BackgroundInstance> background
 
 #import ~.main
 #import _.std.vertex

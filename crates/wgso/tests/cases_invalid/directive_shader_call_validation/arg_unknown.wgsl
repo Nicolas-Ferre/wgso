@@ -1,5 +1,5 @@
-#shader<compute> arg_unknown
-#shader<render, u32, u32> arg_unknown
+#mod<compute> arg_unknown
+#mod<render, u32, u32> arg_unknown
 
 #init arg_unknown(arg_unknown_param=buffer_arg_unknown)
 #run arg_unknown(arg_unknown_param=buffer_arg_unknown)

@@ -1,4 +1,4 @@
-#shader<render, Vertex, Cube> cube
+#mod<render, Vertex, Cube> cube
 
 #import ~.main
 #import camera.main

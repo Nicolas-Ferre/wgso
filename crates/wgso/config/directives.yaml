@@ -86,6 +86,26 @@ args: &args !repeat
         - !token ','
         - *arg_pair
 
+item_path: &item_path !repeat
+  min: 1
+  max: 1
+  group:
+    - !repeat
+      group:
+        - !pattern
+          label: path_segment
+          config: *parent_folder
+        - !token '.'
+    - !pattern
+      label: path_segment
+      config: *ident
+    - !repeat
+      group:
+        - !token '.'
+        - !pattern
+          label: path_segment
+          config: *ident
+
 compute_shader: &compute_shader
   - !repeat
     max: 3
@@ -123,18 +143,14 @@ shader: &shader
 
 run: &run
   - *priority
-  - !pattern
-    label: shader_name
-    config: *ident
+  - *item_path
   - !token '('
   - *args
   - !token ')'
 
 draw: &draw
   - *priority
-  - !pattern
-    label: shader_name
-    config: *ident
+  - *item_path
   - !token '<'
   - *vertex_buffer
   - !token ','
@@ -144,26 +160,9 @@ draw: &draw
   - *args
   - !token ')'
 
-import: &import
-  - !repeat
-    group:
-      - !pattern
-        label: import_segment
-        config: *parent_folder
-      - !token '.'
-  - !pattern
-    label: import_segment
-    config: *ident
-  - !repeat
-    group:
-      - !token '.'
-      - !pattern
-        label: import_segment
-        config: *ident
-
 main:
   - !choice
-    - token: 'shader'
+    - token: 'mod'
       next: *shader
     - token: 'init'
       next: *run
@@ -172,4 +171,5 @@ main:
     - token: 'draw'
       next: *draw
     - token: 'import'
-      next: *import
+      next:
+        - *item_path

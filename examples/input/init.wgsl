@@ -1,4 +1,4 @@
-#shader<compute> init_rectangles
+#mod<compute> init_rectangles
 
 #import ~.storage
 #import _.std.color

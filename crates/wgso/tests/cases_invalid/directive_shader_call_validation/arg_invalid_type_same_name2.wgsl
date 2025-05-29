@@ -1,5 +1,5 @@
-#shader<compute> arg_invalid_type_same_name
-#shader<render, u32, u32> arg_invalid_type_same_name
+#mod<compute> arg_invalid_type_same_name
+#mod<render, u32, u32> arg_invalid_type_same_name
 
 var<uniform> param: MyStruct;
 
