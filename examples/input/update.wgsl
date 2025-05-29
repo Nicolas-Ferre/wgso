@@ -1,4 +1,4 @@
-#shader<compute> update_rectangles
+#mod<compute> update_rectangles
 
 #import ~.storage
 #import _.std.color
@@ -35,7 +35,7 @@ fn update_keyboard() {
 
 fn update_mouse() {
     rectangles.mouse.position = (std_.mouse.position / vec2f(std_.surface.size) - vec2f(0.5, 0.5))
-        * vec2f(2, -rectangles.ratio);
+        * vec2f(2, -2) / ratio_2d(rectangles.ratio);
     let enter_state = std_.mouse.buttons[MS_BUTTON_LEFT];
     if is_just_pressed(enter_state) {
         rectangles.mouse.color = BLUE;

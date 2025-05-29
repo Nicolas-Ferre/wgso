@@ -1,4 +1,4 @@
-#shader<compute> update_triangles
+#mod<compute> update_triangles
 
 #import ~.storage
 #import _.std.storage

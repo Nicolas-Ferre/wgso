@@ -1,4 +1,4 @@
-#shader<render, Vertex, PlaneInstance> plane
+#mod<render, Vertex, PlaneInstance> plane
 
 #import ~.main
 #import camera.main

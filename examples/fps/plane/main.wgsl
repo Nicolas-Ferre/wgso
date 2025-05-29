@@ -1,5 +1,5 @@
-#init init_plane()
-#draw plane<plane.vertices, plane.instance>(camera=camera)
+#init ~.init.init_plane()
+#draw ~.draw.plane<plane.vertices, plane.instance>(camera=camera)
 
 #import _.std.vertex
 

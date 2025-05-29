@@ -1,6 +1,6 @@
-#init init_triangles()
-#run update_triangles()
-#draw triangle<triangles.vertices, triangles.instances>()
+#init ~.init.init_triangles()
+#run ~.update.update_triangles()
+#draw ~.draw.triangle<triangles.vertices, triangles.instances>()
 
 #import _.std.vertex
 

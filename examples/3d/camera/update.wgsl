@@ -1,4 +1,4 @@
-#shader<compute> update_camera
+#mod<compute> update_camera
 
 #import ~.storage
 #import _.std.storage

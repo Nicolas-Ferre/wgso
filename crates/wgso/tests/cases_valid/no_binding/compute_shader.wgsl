@@ -1,4 +1,4 @@
-#shader<compute> test_compute
+#mod<compute> test_compute
 #run test_compute()
 
 @compute

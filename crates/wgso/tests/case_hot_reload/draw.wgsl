@@ -1,4 +1,4 @@
-#shader<render, Vertex, Instance> rectangle
+#mod<render, Vertex, Instance> rectangle
 
 #import ~.main
 

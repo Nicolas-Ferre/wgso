@@ -3,8 +3,10 @@ use crate::program::file::Files;
 use crate::program::module::{Module, Modules};
 use crate::Error;
 use fxhash::FxHashSet;
+use itertools::Itertools;
 use std::mem;
 use std::ops::Range;
+use std::path::{Path, PathBuf};
 use wgpu::Limits;
 use wgso_parser::{ParsingError, Token};
 
@@ -55,6 +57,39 @@ impl Directive {
             .expect("internal error: directive arguments should be validated")
     }
 
+    pub(crate) fn item_ident(&self, root_path: &Path) -> (PathBuf, String) {
+        let path = if self.find_all_by_label("path_segment").count() == 1 {
+            self.path().into()
+        } else {
+            self.segment_path(root_path, false)
+        };
+        let name = self
+            .find_all_by_label("path_segment")
+            .last()
+            .expect("internal error: cannot find shader call item name")
+            .slice
+            .clone();
+        (path, name)
+    }
+
+    pub(crate) fn item_slice(&self) -> String {
+        self.find_all_by_label("path_segment")
+            .map(|segment| &segment.slice)
+            .join(".")
+    }
+
+    pub(crate) fn item_span(&self) -> Range<usize> {
+        let first = self
+            .find_all_by_label("path_segment")
+            .next()
+            .expect("internal error: cannot find shader call item name");
+        let last = self
+            .find_all_by_label("path_segment")
+            .last()
+            .expect("internal error: cannot find shader call item name");
+        first.span.start..last.span.end
+    }
+
     fn arg_tokens(&self) -> Vec<&Token> {
         self.tokens
             .iter()
@@ -100,26 +135,31 @@ impl Directive {
     }
 }
 
-pub(crate) fn check(directives: &[Directive], errors: &mut Vec<Error>) {
+pub(crate) fn check(directives: &[Directive], root_path: &Path, errors: &mut Vec<Error>) {
     for directive in directives {
         if let Some(shader_def_kind) = shader_def_kind(directive.kind()) {
-            check_shader_name(directive, directives, shader_def_kind, errors);
+            check_shader_name(root_path, directive, directives, shader_def_kind, errors);
         }
     }
 }
 
-pub(crate) fn check_args(files: &Files, modules: &Modules, errors: &mut Vec<Error>) {
+pub(crate) fn check_args(
+    root_path: &Path,
+    files: &Files,
+    modules: &Modules,
+    errors: &mut Vec<Error>,
+) {
     for directive in files.run_directives() {
-        let shader_module = shader_module(directive, modules);
+        let shader_module = shader_module(root_path, directive, modules);
         check_arg_names(directive, shader_module, errors);
         check_arg_value(modules, directive, shader_module, errors);
     }
     for directive in files.draw_directives() {
-        let shader_module = shader_module(directive, modules);
+        let shader_module = shader_module(root_path, directive, modules);
         check_arg_names(directive, shader_module, errors);
         check_arg_value(modules, directive, shader_module, errors);
-        let shader_name = &directive.shader_name().slice;
-        if let Some((shader_directive, module)) = modules.render_shaders.get(shader_name) {
+        let shader_ident = directive.item_ident(root_path);
+        if let Some((shader_directive, module)) = modules.render.get(&shader_ident) {
             check_buffer(true, modules, directive, shader_directive, module, errors);
             check_buffer(false, modules, directive, shader_directive, module, errors);
         }
@@ -127,43 +167,45 @@ pub(crate) fn check_args(files: &Files, modules: &Modules, errors: &mut Vec<Erro
 }
 
 fn check_shader_name(
+    root_path: &Path,
     directive: &Directive,
     directives: &[Directive],
     shader_def_kind: DirectiveKind,
     errors: &mut Vec<Error>,
 ) {
-    let shader_name = directive.shader_name();
+    let item_ident = directive.item_ident(root_path);
     let is_shader_found = directives.iter().any(|directive| {
-        directive.kind() == shader_def_kind && directive.shader_name().slice == shader_name.slice
+        directive.kind() == shader_def_kind
+            && directive.path() == item_ident.0
+            && directive.shader_name().slice == item_ident.1
     });
     if !is_shader_found {
         errors.push(Error::DirectiveParsing(ParsingError {
-            path: shader_name.path.clone(),
-            span: shader_name.span.clone(),
+            path: directive.path().into(),
+            span: directive.item_span(),
             message: "shader not found".into(),
         }));
     }
 }
 
 fn check_arg_names(directive: &Directive, shader_module: &Module, errors: &mut Vec<Error>) {
-    let shader_name = directive.shader_name();
     let args = directive.args();
     let shader_uniform_names: FxHashSet<_> = shader_module.uniform_names().collect();
     let run_arg_names: FxHashSet<_> = args.iter().map(|arg| &arg.name.slice).collect();
     for &missing_arg in shader_uniform_names.difference(&run_arg_names) {
         errors.push(Error::DirectiveParsing(ParsingError {
-            path: shader_name.path.clone(),
-            span: shader_name.span.clone(),
+            path: directive.path().into(),
+            span: directive.item_span(),
             message: format!("missing uniform argument `{missing_arg}`"),
         }));
     }
     for &unknown_arg in run_arg_names.difference(&shader_uniform_names) {
         errors.push(Error::DirectiveParsing(ParsingError {
-            path: shader_name.path.clone(),
+            path: directive.path().into(),
             span: directive.arg(unknown_arg).name.span.clone(),
             message: format!(
                 "no uniform variable `{unknown_arg}` in shader `{}`",
-                shader_name.slice
+                directive.item_slice()
             ),
         }));
     }
@@ -186,11 +228,10 @@ fn check_arg_value(
     errors: &mut Vec<Error>,
 ) {
     let offset_alignment = Limits::default().min_uniform_buffer_offset_alignment;
-    let shader_name = directive.shader_name();
     for arg in directive.args() {
         let Some(storage_type) = modules.storages.get(&arg.value.var.slice) else {
             errors.push(Error::DirectiveParsing(ParsingError {
-                path: shader_name.path.clone(),
+                path: directive.path().into(),
                 span: arg.value.span,
                 message: format!("unknown storage variable `{}`", arg.value.var.slice),
             }));
@@ -208,7 +249,7 @@ fn check_arg_value(
         };
         if &*uniform.type_ != arg_type {
             errors.push(Error::DirectiveParsing(ParsingError {
-                path: shader_name.path.clone(),
+                path: directive.path().into(),
                 span: arg.value.span,
                 message: format!(
                     "found argument with type `{}`, expected uniform type `{}`",
@@ -217,7 +258,7 @@ fn check_arg_value(
             }));
         } else if arg_type.offset % offset_alignment != 0 {
             errors.push(Error::DirectiveParsing(ParsingError {
-                path: shader_name.path.clone(),
+                path: directive.path().into(),
                 span: arg.value.span,
                 message: format!(
                     "value has an offset of {} bytes in `{}`, which is not a multiple of 256 bytes",
@@ -269,7 +310,7 @@ fn check_buffer(
         (None, false) => arg_type,
         (None, true) => {
             errors.push(Error::DirectiveParsing(ParsingError {
-                path: draw_directive.shader_name().path.clone(),
+                path: draw_directive.path().into(),
                 span: buffer.span,
                 message: "found non-array argument".into(),
             }));
@@ -278,7 +319,7 @@ fn check_buffer(
     };
     if expected_item_type != arg_item_type {
         errors.push(Error::DirectiveParsing(ParsingError {
-            path: draw_directive.shader_name().path.clone(),
+            path: draw_directive.path().into(),
             span: buffer.span,
             message: format!(
                 "found item type `{}`, expected `{}`",
@@ -290,17 +331,17 @@ fn check_buffer(
 
 fn shader_def_kind(call_kind: DirectiveKind) -> Option<DirectiveKind> {
     match call_kind {
-        DirectiveKind::Init | DirectiveKind::Run => Some(DirectiveKind::ComputeShader),
-        DirectiveKind::Draw => Some(DirectiveKind::RenderShader),
-        DirectiveKind::ComputeShader | DirectiveKind::RenderShader | DirectiveKind::Import => None,
+        DirectiveKind::Init | DirectiveKind::Run => Some(DirectiveKind::ComputeModule),
+        DirectiveKind::Draw => Some(DirectiveKind::RenderModule),
+        DirectiveKind::ComputeModule | DirectiveKind::RenderModule | DirectiveKind::Import => None,
     }
 }
 
-fn shader_module<'a>(directive: &Directive, modules: &'a Modules) -> &'a Module {
+fn shader_module<'a>(root_path: &Path, directive: &Directive, modules: &'a Modules) -> &'a Module {
     if directive.kind() == DirectiveKind::Draw {
-        &modules.render_shaders[&directive.shader_name().slice].1
+        &modules.render[&directive.item_ident(root_path)].1
     } else {
-        &modules.compute_shaders[&directive.shader_name().slice].1
+        &modules.compute[&directive.item_ident(root_path)].1
     }
 }
 

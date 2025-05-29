@@ -2,7 +2,7 @@ use crate::runner::shaders::RenderShaderResources;
 use crate::runner::std::StdState;
 use crate::runner::target::{Target, TargetConfig, TargetSpecialized, TextureTarget, WindowTarget};
 use crate::{Error, Program};
-use ::std::path::Path;
+use ::std::path::{Path, PathBuf};
 use futures::executor;
 use fxhash::FxHashMap;
 use shader_execution::ShaderExecution;
@@ -33,8 +33,8 @@ pub struct Runner {
     adapter: Adapter,
     queue: Queue,
     program: Program,
-    compute_shaders: FxHashMap<String, ComputeShaderResources>,
-    render_shaders: FxHashMap<String, RenderShaderResources>,
+    compute_shaders: FxHashMap<(PathBuf, String), ComputeShaderResources>,
+    render_shaders: FxHashMap<(PathBuf, String), RenderShaderResources>,
     compute_shader_executions: Vec<ShaderExecution>,
     render_shader_executions: Vec<ShaderExecution>,
     buffers: FxHashMap<String, Buffer>,
@@ -359,10 +359,10 @@ impl Runner {
     fn create_compute_shaders(
         device: &Device,
         program: &Program,
-    ) -> FxHashMap<String, ComputeShaderResources> {
+    ) -> FxHashMap<(PathBuf, String), ComputeShaderResources> {
         program
             .modules
-            .compute_shaders
+            .compute
             .iter()
             .map(|(name, (directive, module))| {
                 let shader = ComputeShaderResources::new(directive, module, device);
@@ -375,10 +375,10 @@ impl Runner {
         device: &Device,
         program: &Program,
         texture_format: TextureFormat,
-    ) -> FxHashMap<String, RenderShaderResources> {
+    ) -> FxHashMap<(PathBuf, String), RenderShaderResources> {
         program
             .modules
-            .render_shaders
+            .render
             .iter()
             .map(|(name, (directive, module))| {
                 let shader = RenderShaderResources::new(directive, module, texture_format, device);
@@ -391,7 +391,7 @@ impl Runner {
         device: &Device,
         program: &Program,
         buffers: &FxHashMap<String, Buffer>,
-        compute_shaders: &FxHashMap<String, ComputeShaderResources>,
+        compute_shaders: &FxHashMap<(PathBuf, String), ComputeShaderResources>,
     ) -> Vec<ShaderExecution> {
         program
             .files
@@ -402,7 +402,7 @@ impl Runner {
                     directive,
                     buffers,
                     device,
-                    compute_shaders[&directive.shader_name().slice]
+                    compute_shaders[&directive.item_ident(&program.root_path)]
                         .layout
                         .as_ref(),
                 )
@@ -414,7 +414,7 @@ impl Runner {
         device: &Device,
         program: &Program,
         buffers: &FxHashMap<String, Buffer>,
-        render_shaders: &FxHashMap<String, RenderShaderResources>,
+        render_shaders: &FxHashMap<(PathBuf, String), RenderShaderResources>,
     ) -> Vec<ShaderExecution> {
         program
             .files
@@ -425,7 +425,7 @@ impl Runner {
                     directive,
                     buffers,
                     device,
-                    render_shaders[&directive.shader_name().slice]
+                    render_shaders[&directive.item_ident(&program.root_path)]
                         .layout
                         .as_ref(),
                 )
@@ -436,7 +436,7 @@ impl Runner {
     fn run_compute_step(&mut self, mut pass: ComputePass<'_>) {
         for run in &self.compute_shader_executions {
             if !run.is_init || !self.is_initialized {
-                let shader = &self.compute_shaders[&run.shader_name];
+                let shader = &self.compute_shaders[&run.shader_ident];
                 pass.set_pipeline(&shader.pipeline);
                 if let Some(bind_group) = &run.bind_group {
                     pass.set_bind_group(0, bind_group, &[]);
@@ -454,7 +454,7 @@ impl Runner {
 
     fn run_draw_step(&self, mut pass: RenderPass<'_>) {
         for draw in &self.render_shader_executions {
-            let shader = &self.render_shaders[&draw.shader_name];
+            let shader = &self.render_shaders[&draw.shader_ident];
             pass.set_pipeline(&shader.pipeline);
             if let Some(bind_group) = &draw.bind_group {
                 pass.set_bind_group(0, bind_group, &[]);

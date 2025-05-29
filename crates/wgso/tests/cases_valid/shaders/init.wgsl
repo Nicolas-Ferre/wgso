@@ -1,4 +1,4 @@
-#shader<compute> init
+#mod<compute> init
 
 #import main
 

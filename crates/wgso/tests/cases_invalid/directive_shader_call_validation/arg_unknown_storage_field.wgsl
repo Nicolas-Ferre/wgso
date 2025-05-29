@@ -1,5 +1,5 @@
-#shader<compute> arg_unknown_storage_field
-#shader<render, u32, u32> arg_unknown_storage_field
+#mod<compute> arg_unknown_storage_field
+#mod<render, u32, u32> arg_unknown_storage_field
 
 #init arg_unknown_storage_field(param=buffer.field)
 #run arg_unknown_storage_field(param=buffer.field)

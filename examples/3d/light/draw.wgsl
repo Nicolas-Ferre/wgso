@@ -1,4 +1,4 @@
-#shader<render, Vertex, PointLight> light
+#mod<render, Vertex, PointLight> light
 
 #import ~.main
 #import camera.main

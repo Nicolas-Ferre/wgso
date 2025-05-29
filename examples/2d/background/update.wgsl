@@ -1,4 +1,4 @@
-#shader<compute> update_background
+#mod<compute> update_background
 
 #import ~.storage
 #import _.std.color

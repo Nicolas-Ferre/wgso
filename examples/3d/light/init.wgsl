@@ -1,4 +1,4 @@
-#shader<compute> init_light
+#mod<compute> init_light
 
 #import ~.storage
 #import _.std.color

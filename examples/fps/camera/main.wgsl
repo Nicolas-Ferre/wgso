@@ -1,5 +1,5 @@
-#init init_camera()
-#run update_camera()
+#init ~.init.init_camera()
+#run ~.update.update_camera()
 
 #import _.std.quaternion
 

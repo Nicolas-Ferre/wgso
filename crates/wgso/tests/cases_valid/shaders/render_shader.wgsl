@@ -1,4 +1,4 @@
-#shader<render, Vertex, Instance> test_render
+#mod<render, Vertex, Instance> test_render
 
 struct Vertex {
     position: vec2f,

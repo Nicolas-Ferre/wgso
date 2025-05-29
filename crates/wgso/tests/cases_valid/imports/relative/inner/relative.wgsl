@@ -1,4 +1,4 @@
-#shader<compute> use_relative_import
+#mod<compute> use_relative_import
 #run use_relative_import()
 
 #import ~.side

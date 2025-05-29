@@ -1,4 +1,4 @@
-#shader<compute> init_camera
+#mod<compute> init_camera
 
 #import ~.storage
 

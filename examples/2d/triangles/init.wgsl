@@ -1,4 +1,4 @@
-#shader<compute> init_triangles
+#mod<compute> init_triangles
 
 #import ~.storage
 

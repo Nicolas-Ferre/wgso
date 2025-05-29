@@ -1,4 +1,4 @@
-#shader<compute> init_plane
+#mod<compute> init_plane
 
 #import ~.storage
 #import _.std.vertex

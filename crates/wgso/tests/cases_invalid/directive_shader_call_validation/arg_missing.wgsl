@@ -1,5 +1,5 @@
-#shader<compute> arg_missing
-#shader<render, u32, u32> arg_missing
+#mod<compute> arg_missing
+#mod<render, u32, u32> arg_missing
 
 #init arg_missing()
 #run arg_missing()

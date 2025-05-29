@@ -1,4 +1,4 @@
-#shader<compute> init_cube_instances
+#mod<compute> init_cube_instances
 
 #import ~.storage
 #import _.std.random

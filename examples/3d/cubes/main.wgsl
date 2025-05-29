@@ -1,7 +1,7 @@
-#init init_cubes()
-#init init_cube_instances()
-#run update()
-#draw cube<cubes.vertices, cubes.instances>(camera=camera, material=cubes.material, light=light)
+#init ~.init.init_cubes()
+#init ~.init_instances.init_cube_instances()
+#run ~.update.update()
+#draw ~.draw.cube<cubes.vertices, cubes.instances>(camera=camera, material=cubes.material, light=light)
 
 #import _.std.vertex
 #import _.std.quaternion

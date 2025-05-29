@@ -5,7 +5,7 @@ use itertools::Itertools;
 use std::fmt::Debug;
 use std::iter;
 use std::ops::Range;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use wgso_parser::{Rule, Token};
 
@@ -75,9 +75,9 @@ impl Directive {
 
     pub(crate) fn kind(&self) -> DirectiveKind {
         match self.tokens[0].slice.as_str() {
-            "shader" => match self.tokens[2].slice.as_str() {
-                "compute" => DirectiveKind::ComputeShader,
-                "render" => DirectiveKind::RenderShader,
+            "mod" => match self.tokens[2].slice.as_str() {
+                "compute" => DirectiveKind::ComputeModule,
+                "render" => DirectiveKind::RenderModule,
                 _ => unreachable!("internal error: unrecognized shader directive"),
             },
             "init" => DirectiveKind::Init,
@@ -115,12 +115,44 @@ impl Directive {
             .parse::<T>()
             .expect("internal error: directive integers should be validated")
     }
+
+    fn segment_path(&self, root_path: &Path, is_last_segment_included: bool) -> PathBuf {
+        let segment_count = self.find_all_by_label("path_segment").count();
+        let is_relative = self
+            .find_all_by_label("path_segment")
+            .next()
+            .is_some_and(|segment| segment.slice == "~");
+        let root_path = if is_relative {
+            let file_path = self.path();
+            file_path.parent().unwrap_or(file_path).to_path_buf()
+        } else {
+            root_path.to_path_buf()
+        };
+        self.find_all_by_label("path_segment")
+            .enumerate()
+            .filter(|(index, segment)| *index != 0 || segment.slice != "~")
+            .filter(|(index, _)| is_last_segment_included || *index != segment_count - 1)
+            .fold(root_path, |path, (index, segment)| {
+                let last_index = if is_last_segment_included {
+                    segment_count - 1
+                } else {
+                    segment_count - 2
+                };
+                if index == last_index {
+                    path.join(format!("{}.wgsl", segment.slice))
+                } else if segment.slice == "~" {
+                    path.parent().map(Path::to_path_buf).unwrap_or(path)
+                } else {
+                    path.join(&segment.slice)
+                }
+            })
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DirectiveKind {
-    ComputeShader,
-    RenderShader,
+    ComputeModule,
+    RenderModule,
     Init,
     Run,
     Draw,

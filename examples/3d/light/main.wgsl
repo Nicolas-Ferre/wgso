@@ -1,5 +1,5 @@
-#init init_light()
-#draw light<cubes.vertices, light.point>(camera=camera)
+#init ~.init.init_light()
+#draw ~.draw.light<cubes.vertices, light.point>(camera=camera)
 
 const POINT_LIGHT_SIZE = vec3f(0.01, 0.01, 0.01);
 

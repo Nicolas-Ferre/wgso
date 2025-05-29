@@ -1,5 +1,5 @@
-#shader<compute> arg_alignment
-#shader<render, u32, u32> arg_alignment
+#mod<compute> arg_alignment
+#mod<render, u32, u32> arg_alignment
 
 #init arg_alignment(param=buffer_arg_alignment.field2)
 #run arg_alignment(param=buffer_arg_alignment.field2)

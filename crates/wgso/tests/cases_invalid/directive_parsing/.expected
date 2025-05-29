@@ -1,12 +1,12 @@
 error: expected `compute` or `render`
- --> ./tests/cases_invalid/directive_parsing/main.wgsl:1:9
+ --> ./tests/cases_invalid/directive_parsing/main.wgsl:1:6
   |
-1 | #shader<invalid> test
-  |         ^
+1 | #mod<invalid> test
+  |      ^
   |
 error: unexpected tokens
- --> ./tests/cases_invalid/directive_parsing/main.wgsl:2:23
+ --> ./tests/cases_invalid/directive_parsing/main.wgsl:2:20
   |
-2 | #shader<compute> test invalid
-  |                       ^^^^^^^
+2 | #mod<compute> test invalid
+  |                    ^^^^^^^
   |

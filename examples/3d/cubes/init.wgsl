@@ -1,4 +1,4 @@
-#shader<compute> init_cubes
+#mod<compute> init_cubes
 
 #import ~.storage
 #import _.std.quaternion

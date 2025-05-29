@@ -1,4 +1,4 @@
-#shader<compute> test
+#mod<compute> test
 
 var<storage, read_write> storage1: f32;
 var<storage, read_write> storage2: f32;
