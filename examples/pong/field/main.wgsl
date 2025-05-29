@@ -1,6 +1,5 @@
 #init init_field()
-#run update_field()
-#draw<1000> field<field.vertices, field.instance>(surface=surface)
+#draw<1000> field<field.vertices, field.instance>(global=global)
 
 #import _.std.vertex
 
@@ -12,5 +11,5 @@ struct FieldData {
 }
 
 struct Field {
-    time: f32,
+    _phantom: f32,
 }

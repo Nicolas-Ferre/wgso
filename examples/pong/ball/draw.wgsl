@@ -1,7 +1,7 @@
 #shader<render, Vertex, Ball> ball
 
 #import ~.main
-#import surface.main
+#import global.main
 #import field.main
 #import _.std.math
 #import _.std.storage_types
@@ -11,7 +11,7 @@ const COLOR = vec3f(61, 194, 255) / 255.;
 const GLOW_FACTOR = 0.005;
 const THICKNESS = 0.015;
 
-var<uniform> surface: SurfaceState;
+var<uniform> global: Global;
 
 struct Fragment {
     @builtin(position)
@@ -26,7 +26,7 @@ struct Fragment {
 fn vs_main(vertex: Vertex, instance: Ball) -> Fragment {
     let position = vertex.position.xy * FIELD_SIZE;
     return Fragment(
-        vec4f(position * surface_ratio(surface.size), Z, 1),
+        vec4f(position * surface_ratio(global.surface_size), Z, 1),
         position,
         instance.position,
     );

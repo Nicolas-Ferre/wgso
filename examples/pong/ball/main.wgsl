@@ -1,6 +1,6 @@
 #init init_ball()
 #run update_ball()
-#draw ball<ball.vertices, ball.instance>(surface=surface)
+#draw ball<ball.vertices, ball.instance>(global=global)
 
 #import _.std.vertex
 

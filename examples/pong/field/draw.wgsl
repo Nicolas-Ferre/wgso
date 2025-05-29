@@ -1,11 +1,11 @@
 #shader<render, Vertex, Field> field
 
 #import ~.main
-#import surface.main
+#import global.main
 #import _.std.math
 #import _.std.storage_types
 
-const Z = 0.1;
+const Z = 0.9;
 const SHAPE_FACTOR = 2.;
 const BORDER_GLOW_FACTOR = 0.002;
 const BORDER_COLOR_ROTATION_SPEED = PI / 2;
@@ -15,7 +15,7 @@ const SEPARATOR_HEIGHT = 0.9;
 const SEPARATOR_THICKNESS = 0.0025;
 const SEPARATOR_GLOW_FACTOR = 0.001;
 
-var<uniform> surface: SurfaceState;
+var<uniform> global: Global;
 
 struct Fragment {
     @builtin(position)
@@ -30,9 +30,9 @@ struct Fragment {
 fn vs_main(vertex: Vertex, instance: Field) -> Fragment {
     let position = vertex.position.xy * FIELD_SIZE * SHAPE_FACTOR;
     return Fragment(
-        vec4f(position * surface_ratio(surface.size), Z, 1),
+        vec4f(position * surface_ratio(global.surface_size), Z, 1),
         position,
-        instance.time,
+        global.elapsed_secs,
     );
 }
 

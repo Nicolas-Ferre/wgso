@@ -6,5 +6,6 @@
 @compute
 @workgroup_size(1, 1, 1)
 fn main() {
-    surface.size = std_.surface.size;
+    global.surface_size = std_.surface.size;
+    global.elapsed_secs += std_.time.frame_delta_secs;
 }

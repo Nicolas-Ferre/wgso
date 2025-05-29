@@ -8,5 +8,5 @@
 fn main() {
     ball.vertices = rectangle_vertices();
     ball.instance.position = vec2f(-0.1, -0.1);
-    ball.instance.velocity = vec2f(-0.5, 0.5);
+    ball.instance.velocity = vec2f(-0.5, 0.5)*2;
 }

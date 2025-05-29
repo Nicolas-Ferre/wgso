@@ -1,7 +1,8 @@
 #run update_surface()
 
-struct SurfaceState {
-    size: vec2u,
+struct Global {
+    surface_size: vec2u,
+    elapsed_secs: f32,
 }
 
 fn surface_ratio(surface_size: vec2u) -> vec2f {
