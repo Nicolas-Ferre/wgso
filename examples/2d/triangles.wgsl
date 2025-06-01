@@ -2,6 +2,7 @@
 #init ~.init()
 #run ~.update()
 #draw ~.render<triangles.vertices, triangles.instances>()
+#import _.std.math.constant
 #import _.std.vertex.type
 
 const TRIANGLE_COUNT = 3;
@@ -18,7 +19,7 @@ struct Triangle {
 }
 
 fn triangle_brightness(brightness_param: f32) -> f32 {
-    return (sin(brightness_param / 3.14 * 5) + 0.5) / 2 + 0.5;
+    return (sin(brightness_param / PI * 5) + 0.5) / 2 + 0.5;
 }
 
 #mod storage
@@ -38,8 +39,8 @@ fn main() {
         Vertex(vec3f(0.5, -0.5, 0), vec3f(0, 0, 1)),
     );
     triangles.instances = array(
-        Triangle(vec2f(0.25, -0.25), 3.14 / 4),
-        Triangle(vec2f(0., 0.), 3.14 / 8),
+        Triangle(vec2f(0.25, -0.25), PI / 4),
+        Triangle(vec2f(0., 0.), PI / 8),
         Triangle(vec2f(-0.25, 0.25), 0.),
     );
 }

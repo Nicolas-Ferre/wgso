@@ -5,7 +5,7 @@
 const POINT_LIGHT_SIZE = vec3f(0.01, 0.01, 0.01);
 
 struct Light {
-    ambiant: AmbiantLight,
+    ambient: AmbientLight,
     point: PointLight,
 }
 
@@ -14,7 +14,7 @@ struct PointLight {
     color: vec3f,
 }
 
-struct AmbiantLight {
+struct AmbientLight {
     strength: f32,
 }
 
@@ -30,7 +30,7 @@ var<storage, read_write> light: Light;
 @compute
 @workgroup_size(1, 1, 1)
 fn main() {
-    light.ambiant.strength = 0.05;
+    light.ambient.strength = 0.05;
     light.point.position = vec3f(0.6, 0.6, -0.5);
     light.point.color = WHITE.rgb;
 }

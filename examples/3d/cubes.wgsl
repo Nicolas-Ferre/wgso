@@ -135,6 +135,6 @@ fn fs_main(fragment: Fragment) -> @location(0) vec4f {
         camera.position,
         material.specular_power,
     );
-    let light_strength = light.ambiant.strength + diffuse_strength + specular_strength;
+    let light_strength = light.ambient.strength + diffuse_strength + specular_strength;
     return vec4f(fragment.color.rgb * light.point.color * light_strength, fragment.color.a);
 }

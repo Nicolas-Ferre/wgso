@@ -29,8 +29,7 @@ pub(crate) fn parse_file(
     let mut offset = 0;
     for line in code.lines() {
         if line.trim_start().starts_with('#') {
-            let current_offset = offset + line.len() - line.len();
-            match wgso_parser::parse(line, current_offset, path, rules) {
+            match wgso_parser::parse(line, offset, path, rules) {
                 Ok(tokens) => parsed_directives.push(Directive { tokens }),
                 Err(error) => errors.push(Error::DirectiveParsing(error)),
             }
