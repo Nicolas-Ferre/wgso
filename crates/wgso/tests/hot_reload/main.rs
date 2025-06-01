@@ -16,8 +16,7 @@ const EXPECTED_CHANGED_TARGET: &[u8] = &[
     0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, // row 3
 ];
 const PROGRAM_PATH: &str = "tests/case_hot_reload";
-const DRAW_WGSL_PATH: &str = "tests/case_hot_reload/draw.wgsl";
-const STORAGES_WGSL_PATH: &str = "tests/case_hot_reload/storages.wgsl";
+const PROGRAM_WGSL_PATH: &str = "tests/case_hot_reload/main.wgsl";
 
 static MUTEX: Mutex<()> = Mutex::new(());
 
@@ -28,11 +27,11 @@ fn reload_with_valid_program() {
     runner.reload_on_change().unwrap();
     runner.run_step().unwrap();
     assert_eq!(runner.read_target(), EXPECTED_DEFAULT_TARGET);
-    let initial_code = fs::read_to_string(DRAW_WGSL_PATH).unwrap();
+    let initial_code = fs::read_to_string(PROGRAM_WGSL_PATH).unwrap();
     let modified_code = initial_code.replace("vec4f(1, 1, 1, 1)", "vec4f(0, 0, 0, 1)");
-    let reloading_result = update_code(&mut runner, &modified_code, DRAW_WGSL_PATH);
+    let reloading_result = update_code(&mut runner, &modified_code, PROGRAM_WGSL_PATH);
     let run_result = runner.run_step();
-    fs::write(DRAW_WGSL_PATH, initial_code).unwrap();
+    fs::write(PROGRAM_WGSL_PATH, initial_code).unwrap();
     assert!(reloading_result.is_ok());
     assert!(run_result.is_ok());
     assert_eq!(runner.read_target(), EXPECTED_CHANGED_TARGET);
@@ -42,11 +41,11 @@ fn reload_with_valid_program() {
 fn reload_with_invalid_program() {
     let _lock = MUTEX.lock().unwrap();
     let mut runner = Runner::new(PROGRAM_PATH, None, Some((4, 3))).unwrap();
-    let initial_code = fs::read_to_string(DRAW_WGSL_PATH).unwrap();
+    let initial_code = fs::read_to_string(PROGRAM_WGSL_PATH).unwrap();
     let modified_code = initial_code.replace("vec4f(1, 1, 1, 1)", "vec4f(1, 1, 1)");
-    let reloading_result = update_code(&mut runner, &modified_code, DRAW_WGSL_PATH);
+    let reloading_result = update_code(&mut runner, &modified_code, PROGRAM_WGSL_PATH);
     let run_result = runner.run_step();
-    fs::write(DRAW_WGSL_PATH, initial_code).unwrap();
+    fs::write(PROGRAM_WGSL_PATH, initial_code).unwrap();
     assert!(reloading_result.is_err());
     assert!(run_result.is_ok());
     assert_eq!(runner.read_target(), EXPECTED_DEFAULT_TARGET);
@@ -56,11 +55,12 @@ fn reload_with_invalid_program() {
 fn reload_with_wgpu_error() {
     let _lock = MUTEX.lock().unwrap();
     let mut runner = Runner::new(PROGRAM_PATH, None, Some((4, 3))).unwrap();
-    let initial_code = fs::read_to_string(DRAW_WGSL_PATH).unwrap();
-    let modified_code = initial_code.replace("#import ~.main", "#import ~.storages");
-    let reloading_result = update_code(&mut runner, &modified_code, DRAW_WGSL_PATH);
+    let initial_code = fs::read_to_string(PROGRAM_WGSL_PATH).unwrap();
+    let modified_code =
+        initial_code.replace("struct Fragment {", "#import ~.storage\nstruct Fragment {");
+    let reloading_result = update_code(&mut runner, &modified_code, PROGRAM_WGSL_PATH);
     let run_result = runner.run_step();
-    fs::write(DRAW_WGSL_PATH, initial_code).unwrap();
+    fs::write(PROGRAM_WGSL_PATH, initial_code).unwrap();
     assert!(reloading_result.is_err());
     assert!(run_result.is_ok());
     assert_eq!(runner.read_target(), EXPECTED_DEFAULT_TARGET);
@@ -70,11 +70,11 @@ fn reload_with_wgpu_error() {
 fn reload_with_changed_storage() {
     let _lock = MUTEX.lock().unwrap();
     let mut runner = Runner::new(PROGRAM_PATH, None, Some((4, 3))).unwrap();
-    let initial_code = fs::read_to_string(STORAGES_WGSL_PATH).unwrap();
+    let initial_code = fs::read_to_string(PROGRAM_WGSL_PATH).unwrap();
     let modified_code = initial_code.replace("State", "ModifiedState");
-    let reloading_result = update_code(&mut runner, &modified_code, STORAGES_WGSL_PATH);
+    let reloading_result = update_code(&mut runner, &modified_code, PROGRAM_WGSL_PATH);
     let run_result = runner.run_step();
-    fs::write(STORAGES_WGSL_PATH, initial_code).unwrap();
+    fs::write(PROGRAM_WGSL_PATH, initial_code).unwrap();
     assert_eq!(
         reloading_result
             .expect_err("reloading should return an error")

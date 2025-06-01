@@ -1,5 +1,5 @@
-use crate::directives::DirectiveKind;
-use crate::program::file::File;
+use crate::directives::{Directive, DirectiveKind};
+use crate::program::section::Section;
 use crate::program::type_;
 use crate::program::type_::Type;
 use crate::Error;
@@ -14,15 +14,15 @@ pub(crate) const BINDING_GROUP: u32 = 0;
 #[derive(Debug)]
 pub(crate) struct WgslModule {
     module: Module,
-    pub(crate) files: Vec<Arc<File>>,
+    pub(crate) sections: Vec<Arc<Section>>,
 }
 
 #[allow(clippy::cast_possible_truncation)]
 impl WgslModule {
-    pub(crate) fn new(code: &str, files: Vec<Arc<File>>) -> Result<Self, Error> {
+    pub(crate) fn new(code: &str, sections: Vec<Arc<Section>>) -> Result<Self, Error> {
         naga::front::wgsl::parse_str(code)
-            .map_err(|error| Error::WgslParsing(files.clone(), error))
-            .map(|module| Self { module, files })
+            .map_err(|error| Error::WgslParsing(sections.clone(), error))
+            .map(|module| Self { module, sections })
             .and_then(Self::check_unsupported_features)
     }
 
@@ -34,54 +34,51 @@ impl WgslModule {
     }
 
     pub(crate) fn configure_buffer_types(&mut self) {
-        for file in &self.files {
-            let location_offset = Self::configure_buffer_type(&mut self.module, file, true, 0);
-            Self::configure_buffer_type(&mut self.module, file, false, location_offset);
+        let directive = &self.sections[0].directive;
+        if directive.kind() == DirectiveKind::RenderShader {
+            let location_offset = Self::configure_buffer_type(&mut self.module, directive, true, 0);
+            Self::configure_buffer_type(&mut self.module, directive, false, location_offset);
         }
     }
 
     fn configure_buffer_type(
         module: &mut Module,
-        file: &File,
+        shader_directive: &Directive,
         is_vertex: bool,
         location_offset: usize,
     ) -> usize {
         let mut max_location_count = 0;
-        let render_shader_directives =
-            crate::directives::find_all_by_kind(&file.directives, DirectiveKind::RenderShader);
-        for directive in render_shader_directives {
-            let type_token = if is_vertex {
-                directive.vertex_type()
-            } else {
-                directive.instance_type()
-            };
-            let type_name = type_::normalize_type_name(&type_token.slice);
-            for (type_handle, type_) in module.types.clone().iter() {
-                if type_name != Type::new(module, type_, 0).label {
-                    continue;
-                }
-                let mut type_ = type_.clone();
-                let TypeInner::Struct { members, .. } = &mut type_.inner else {
-                    continue;
-                };
-                let location_count = members.len();
-                for (index, member) in members.iter_mut().enumerate() {
-                    let naga::Binding::Location { location, .. } =
-                        member.binding.get_or_insert(naga::Binding::Location {
-                            location: (index + location_offset) as u32,
-                            interpolation: None,
-                            sampling: None,
-                            blend_src: None,
-                        })
-                    else {
-                        unreachable!("internal error: vertex location should be valid ")
-                    };
-                    *location = (index + location_offset) as u32;
-                }
-                module.types.replace(type_handle, type_);
-                max_location_count = max_location_count.max(location_count);
-                break;
+        let type_token = if is_vertex {
+            shader_directive.vertex_type()
+        } else {
+            shader_directive.instance_type()
+        };
+        let type_name = type_::normalize_type_name(&type_token.slice);
+        for (type_handle, type_) in module.types.clone().iter() {
+            if type_name != Type::new(module, type_, 0).label {
+                continue;
             }
+            let mut type_ = type_.clone();
+            let TypeInner::Struct { members, .. } = &mut type_.inner else {
+                continue;
+            };
+            let location_count = members.len();
+            for (index, member) in members.iter_mut().enumerate() {
+                let naga::Binding::Location { location, .. } =
+                    member.binding.get_or_insert(naga::Binding::Location {
+                        location: (index + location_offset) as u32,
+                        interpolation: None,
+                        sampling: None,
+                        blend_src: None,
+                    })
+                else {
+                    unreachable!("internal error: vertex location should be valid ")
+                };
+                *location = (index + location_offset) as u32;
+            }
+            module.types.replace(type_handle, type_);
+            max_location_count = max_location_count.max(location_count);
+            break;
         }
         max_location_count
     }
@@ -111,7 +108,7 @@ impl WgslModule {
             Ok(self)
         } else {
             Err(Error::UnsupportedWgslFeature(
-                self.files[0].path.clone(),
+                self.sections[0].path().into(),
                 "override constants are not supported by WGSO".to_string(),
             ))
         }
@@ -189,7 +186,7 @@ impl WgslModule {
             .validate(&self.module)
         {
             Ok(module_info) => Ok(module_info),
-            Err(error) => Err(Error::WgslValidation(self.files.clone(), error)),
+            Err(error) => Err(Error::WgslValidation(self.sections.clone(), error)),
         }
     }
 }

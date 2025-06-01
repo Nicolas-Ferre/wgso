@@ -1,6 +1,6 @@
-use crate::directives::{imports, shader_calls, shader_defs};
+use crate::program::section::Sections;
 use crate::program::type_::Type;
-use crate::Error;
+use crate::{directives, Error};
 use file::Files;
 use itertools::Itertools;
 use module::Modules;
@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 
 pub(crate) mod file;
 pub(crate) mod module;
+pub(crate) mod section;
 pub(crate) mod type_;
 mod wgsl;
 
@@ -18,6 +19,7 @@ pub struct Program {
     pub errors: Vec<Error>,
     pub(crate) root_path: PathBuf,
     pub(crate) files: Files,
+    pub(crate) sections: Sections,
     pub(crate) modules: Modules,
 }
 
@@ -34,42 +36,48 @@ impl Program {
     pub(crate) fn parse(root_path: impl AsRef<Path>) -> Self {
         let root_path = root_path.as_ref();
         let mut errors = vec![];
-        let directive_rules = crate::directives::load_rules();
+        let directive_rules = directives::load_rules();
         let files = Files::new(root_path, &directive_rules, &mut errors);
         if !errors.is_empty() {
             return Self {
                 errors,
                 root_path: root_path.into(),
                 files,
+                sections: Sections::default(),
                 modules: Modules::default(),
             };
         }
-        imports::check(&files.directives, &files, root_path, &mut errors);
-        shader_defs::check(&files.directives, &mut errors);
-        shader_calls::check(&files.directives, &mut errors);
+        directives::defs::check(&files, &mut errors);
+        let sections = Sections::new(&files);
+        for section in sections.iter() {
+            directives::calls::check(section.directives(), &files, root_path, &mut errors);
+        }
         if !errors.is_empty() {
             return Self {
                 errors,
                 root_path: root_path.into(),
                 files,
+                sections,
                 modules: Modules::default(),
             };
         }
-        let modules = Modules::new(root_path, &files, &mut errors);
+        let modules = Modules::new(root_path, &sections, &mut errors);
         if !errors.is_empty() {
             return Self {
                 errors,
                 root_path: root_path.into(),
                 files,
+                sections,
                 modules,
             };
         }
-        shader_defs::check_params(&modules, &mut errors);
-        shader_calls::check_args(&files, &modules, &mut errors);
+        directives::defs::check_params(&modules, &mut errors);
+        directives::calls::check_args(root_path, &sections, &modules, &mut errors);
         Self {
             errors,
             root_path: root_path.into(),
             files,
+            sections,
             modules,
         }
     }

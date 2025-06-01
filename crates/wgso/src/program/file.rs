@@ -1,4 +1,4 @@
-use crate::directives::{Directive, DirectiveKind};
+use crate::directives::Directive;
 use crate::Error;
 use fxhash::FxHashMap;
 use itertools::Itertools;
@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::vec::IntoIter;
 use walkdir::{DirEntry, WalkDir};
-use wgso_parser::Rule;
+use wgso_parser::{ParsingError, Rule};
 
 #[derive(Debug)]
 pub(crate) struct Files {
@@ -60,39 +60,6 @@ impl Files {
         self.files.contains_key(path)
     }
 
-    pub(crate) fn run_directives(&self) -> impl Iterator<Item = &Directive> {
-        self.directives
-            .iter()
-            .filter(|directive| {
-                directive.kind() == DirectiveKind::Run || directive.kind() == DirectiveKind::Init
-            })
-            .enumerate()
-            .sorted_unstable_by_key(|(index, directive)| {
-                (
-                    directive.kind() != DirectiveKind::Init,
-                    -directive.priority(),
-                    directive.shader_name().path.clone(),
-                    usize::MAX - index,
-                )
-            })
-            .map(|(_, directive)| directive)
-    }
-
-    pub(crate) fn draw_directives(&self) -> impl Iterator<Item = &Directive> {
-        self.directives
-            .iter()
-            .filter(|directive| directive.kind() == DirectiveKind::Draw)
-            .enumerate()
-            .sorted_unstable_by_key(|(index, directive)| {
-                (
-                    -directive.priority(),
-                    directive.shader_name().path.clone(),
-                    usize::MAX - index,
-                )
-            })
-            .map(|(_, directive)| directive)
-    }
-
     fn is_wgsl_file(file: &DirEntry) -> bool {
         !file.file_type().is_dir() && file.path().extension() == Some(OsStr::new("wgsl"))
     }
@@ -108,16 +75,44 @@ pub(crate) struct File {
 impl File {
     fn new(path: &Path, directive_rules: &[Rule], errors: &mut Vec<Error>) -> Option<Self> {
         match fs::read_to_string(path) {
-            Ok(code) => Some(Self {
-                path: path.into(),
-                directives: crate::directives::parse_file(&code, path, directive_rules, errors),
-                code,
-            }),
+            Ok(code) => {
+                let directives =
+                    crate::directives::parse_file(&code, path, directive_rules, errors);
+                Self::check_file_header(path, &code, errors);
+                Some(Self {
+                    path: path.into(),
+                    directives,
+                    code,
+                })
+            }
             // coverage: off (not easy to test)
             Err(error) => {
                 errors.push(Error::Io(path.into(), error));
                 None
             }
         } // coverage: on
+    }
+
+    fn check_file_header(path: &Path, code: &str, errors: &mut Vec<Error>) {
+        let mut offset = 0;
+        for line in code.lines() {
+            let trimmed_line = line.trim_start();
+            if let Some(directive) = trimmed_line.strip_prefix("#") {
+                if directive.trim_start().starts_with("mod")
+                    || directive.trim_start().starts_with("shader")
+                {
+                    return;
+                }
+            }
+            if !trimmed_line.is_empty() && !trimmed_line.starts_with("//") {
+                errors.push(Error::DirectiveParsing(ParsingError {
+                    path: path.into(),
+                    span: offset..offset,
+                    message: "file should start with `#mod` or `#shader` directive".into(),
+                }));
+                return;
+            }
+            offset += line.len() + 1;
+        }
     }
 }

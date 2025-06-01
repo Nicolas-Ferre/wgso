@@ -1,10 +1,16 @@
-//! Vertex definition of common models.
+/// Vertex type.
+#mod type
 
 /// Vertex data.
 struct Vertex {
     position: vec3f,
     normal: vec3f,
 }
+
+
+/// Vertex definition of common models.
+#mod model
+#import ~.type
 
 /// Returns the vertices of a rectangle.
 ///

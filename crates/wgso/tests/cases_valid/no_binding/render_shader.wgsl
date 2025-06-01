@@ -1,5 +1,5 @@
 #shader<render, Vertex, Instance> test_render
-#draw test_render<vertices, instances>()
+#draw ~.test_render<vertices, instances>()
 
 var<storage, read> vertices: array<Vertex, 3>;
 var<storage, read> instances: array<Instance, 1>;

@@ -1,5 +1,5 @@
 #shader<compute> test
-#run test(param=buffer)
+#run ~.test(param=buffer)
 
 var<storage, read_write> buffer: u32;
 

@@ -2,11 +2,12 @@ use crate::directives::{Directive, DirectiveKind};
 use crate::program::module::Module;
 use crate::Program;
 use fxhash::FxHashMap;
+use std::path::PathBuf;
 use wgpu::{BindGroup, BindGroupLayout, BindingResource, Buffer, BufferBinding, Device};
 
 #[derive(Debug)]
 pub(crate) struct ShaderExecution {
-    pub(crate) shader_name: String,
+    pub(crate) shader_ident: (PathBuf, String),
     pub(crate) bind_group: Option<BindGroup>,
     pub(crate) is_init: bool,
     pub(crate) directive: Directive,
@@ -21,11 +22,11 @@ impl ShaderExecution {
         layout: Option<&BindGroupLayout>,
     ) -> Self {
         let directive_kind = run_directive.kind();
-        let shader_name = run_directive.shader_name();
+        let item_ident = run_directive.item_ident(&program.root_path);
         let shader_module = if run_directive.kind() == DirectiveKind::Draw {
-            &program.modules.render_shaders[&shader_name.slice].1
+            &program.modules.render[&item_ident]
         } else {
-            &program.modules.compute_shaders[&shader_name.slice].1
+            &program.modules.compute[&item_ident]
         };
         let bind_group = layout.as_ref().map(|layout| {
             Self::create_bind_group(
@@ -38,7 +39,7 @@ impl ShaderExecution {
             )
         });
         Self {
-            shader_name: shader_name.slice.clone(),
+            shader_ident: item_ident,
             bind_group,
             is_init: directive_kind == DirectiveKind::Init,
             directive: run_directive.clone(),

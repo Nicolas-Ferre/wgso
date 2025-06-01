@@ -1,5 +1,5 @@
 use crate::directives::{Directive, DirectiveKind};
-use crate::program::file::{File, Files};
+use crate::program::section::{Section, Sections};
 use crate::program::type_;
 use crate::program::type_::Type;
 use crate::program::wgsl::{Binding, BindingKind, WgslModule};
@@ -14,15 +14,15 @@ use std::sync::Arc;
 #[derive(Debug, Default)]
 pub(crate) struct Modules {
     pub(crate) storages: FxHashMap<String, Arc<Type>>,
-    pub(crate) compute_shaders: FxHashMap<String, (Directive, Arc<Module>)>,
-    pub(crate) render_shaders: FxHashMap<String, (Directive, Arc<Module>)>,
+    pub(crate) compute: FxHashMap<(PathBuf, String), Arc<Module>>,
+    pub(crate) render: FxHashMap<(PathBuf, String), Arc<Module>>,
 }
 
 impl Modules {
-    pub(crate) fn new(root_path: &Path, files: &Files, errors: &mut Vec<Error>) -> Self {
-        let modules = files
+    pub(crate) fn new(root_path: &Path, sections: &Sections, errors: &mut Vec<Error>) -> Self {
+        let modules = sections
             .iter()
-            .filter_map(|file| match Module::new(root_path, file, files) {
+            .filter_map(|section| match Module::new(root_path, section, sections) {
                 Ok(module) => Some(Arc::new(module)),
                 Err(error) => {
                     errors.push(error);
@@ -32,8 +32,8 @@ impl Modules {
             .collect::<Vec<_>>();
         Self {
             storages: Self::storages(&modules, errors),
-            compute_shaders: Self::shaders(&modules, DirectiveKind::ComputeShader),
-            render_shaders: Self::shaders(&modules, DirectiveKind::RenderShader),
+            compute: Self::shaders(&modules, DirectiveKind::ComputeShader),
+            render: Self::shaders(&modules, DirectiveKind::RenderShader),
         }
     }
 
@@ -49,8 +49,8 @@ impl Modules {
                         let existing = existing.get();
                         if existing.1 != binding.type_ {
                             errors.push(Error::StorageConflict(
-                                existing.0.wgsl.files[0].path.clone(),
-                                module.wgsl.files[0].path.clone(),
+                                existing.0.wgsl.sections[0].path().into(),
+                                module.wgsl.sections[0].path().into(),
                                 name.clone(),
                             ));
                         }
@@ -67,14 +67,11 @@ impl Modules {
     fn shaders(
         modules: &[Arc<Module>],
         kind: DirectiveKind,
-    ) -> FxHashMap<String, (Directive, Arc<Module>)> {
+    ) -> FxHashMap<(PathBuf, String), Arc<Module>> {
         modules
             .iter()
-            .flat_map(|module| {
-                crate::directives::find_all_by_kind(&module.wgsl.files[0].directives, kind)
-                    .map(|directive| (directive.clone(), module.clone()))
-            })
-            .map(|(directive, module)| (directive.shader_name().slice.clone(), (directive, module)))
+            .filter(|module| module.main_directive().kind() == kind)
+            .map(|module| (module.wgsl.sections[0].ident(), module.clone()))
             .collect()
     }
 }
@@ -88,9 +85,13 @@ pub(crate) struct Module {
 }
 
 impl Module {
-    pub(crate) fn new(root_path: &Path, file: &Arc<File>, files: &Files) -> Result<Self, Error> {
-        let (code, module_files) = Self::extract_code(root_path, file, files);
-        let mut wgsl = WgslModule::new(&code, module_files)?;
+    pub(crate) fn new(
+        root_path: &Path,
+        section: &Arc<Section>,
+        sections: &Sections,
+    ) -> Result<Self, Error> {
+        let (code, sections) = Self::extract_code(root_path, section, sections);
+        let mut wgsl = WgslModule::new(&code, sections)?;
         let bindings = wgsl.configure_bindings();
         wgsl.configure_buffer_types();
         Ok(Self {
@@ -138,18 +139,29 @@ impl Module {
         self.types.get(&type_name)
     }
 
-    fn extract_code(root_path: &Path, file: &Arc<File>, files: &Files) -> (String, Vec<Arc<File>>) {
-        let files: Vec<_> = Self::extract_file_paths(root_path, file, files)
+    pub(crate) fn main_directive(&self) -> &Directive {
+        &self.wgsl.sections[0].directive
+    }
+
+    fn extract_code(
+        root_path: &Path,
+        section: &Arc<Section>,
+        sections: &Sections,
+    ) -> (String, Vec<Arc<Section>>) {
+        let imported_sections: Vec<_> = Self::extract_section_idents(root_path, section, sections)
             .into_iter()
-            .map(|path| files.get(&path).clone())
-            .sorted_unstable_by_key(|current_file| {
-                (current_file.path != file.path, file.path.clone())
+            .map(|ident| sections.get(&ident).clone())
+            .sorted_unstable_by_key(|current_section| {
+                current_section.path() != section.path()
+                    || current_section.directive.section_name().slice
+                        != section.directive.section_name().slice
             })
             .collect();
-        let code = files
+        let code = imported_sections
             .iter()
-            .map(|file| {
-                file.code
+            .map(|section| {
+                section
+                    .code()
                     .lines()
                     .map(|line| {
                         if line.trim_start().starts_with('#') {
@@ -161,24 +173,28 @@ impl Module {
                     .join("")
             })
             .join("");
-        (code, files)
+        (code, imported_sections)
     }
 
-    fn extract_file_paths(root_path: &Path, file: &Arc<File>, files: &Files) -> Vec<PathBuf> {
-        let mut paths: FxHashSet<_> = iter::once(file.path.clone()).collect();
+    fn extract_section_idents(
+        root_path: &Path,
+        section: &Arc<Section>,
+        sections: &Sections,
+    ) -> Vec<(PathBuf, String)> {
+        let mut idents: FxHashSet<_> = iter::once(section.ident()).collect();
         let mut last_path_count = 0;
-        while last_path_count < paths.len() {
-            last_path_count = paths.len();
-            for path in paths.clone() {
-                let import_directives = crate::directives::find_all_by_kind(
-                    &files.get(&path).directives,
-                    DirectiveKind::Import,
-                );
+        while last_path_count < idents.len() {
+            last_path_count = idents.len();
+            for ident in idents.clone() {
+                let import_directives = sections
+                    .get(&ident)
+                    .directives()
+                    .filter(|directive| directive.kind() == DirectiveKind::Import);
                 for directive in import_directives {
-                    paths.insert(directive.import_path(root_path));
+                    idents.insert(directive.item_ident(root_path));
                 }
             }
         }
-        paths.into_iter().collect()
+        idents.into_iter().collect()
     }
 }
