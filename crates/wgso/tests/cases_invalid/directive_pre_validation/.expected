@@ -1,46 +1,70 @@
-error: same name `duplicated1` used for two compute shaders
- --> ./tests/cases_invalid/directive_pre_validation/duplicated_shader_name.wgsl:1:15
+error: duplicated module name `duplicated1` found in file './tests/cases_invalid/directive_pre_validation/duplicated_shader_name.wgsl'
+ --> ./tests/cases_invalid/directive_pre_validation/duplicated_shader_name.wgsl:1:18
   |
-1 | #mod<compute> duplicated1
-  |               ^^^^^^^^^^^ first definition
+1 | #shader<compute> duplicated1
+  |                  ^^^^^^^^^^^ first definition
   |
- ::: ./tests/cases_invalid/directive_pre_validation/duplicated_shader_name.wgsl:2:15
+ ::: ./tests/cases_invalid/directive_pre_validation/duplicated_shader_name.wgsl:2:18
   |
-2 | #mod<compute> duplicated1
-  |               ^^^^^^^^^^^ second definition
+2 | #shader<compute> duplicated1
+  |                  ^^^^^^^^^^^ second definition
   |
-error: same name `duplicated2` used for two render shaders
- --> ./tests/cases_invalid/directive_pre_validation/duplicated_shader_name.wgsl:3:27
+error: duplicated module name `duplicated1` found in file './tests/cases_invalid/directive_pre_validation/duplicated_shader_name.wgsl'
+ --> ./tests/cases_invalid/directive_pre_validation/duplicated_shader_name.wgsl:2:18
   |
-3 | #mod<render, Vertex, f32> duplicated2
-  |                           ^^^^^^^^^^^ first definition
+2 | #shader<compute> duplicated1
+  |                  ^^^^^^^^^^^ first definition
   |
- ::: ./tests/cases_invalid/directive_pre_validation/duplicated_shader_name.wgsl:4:27
+ ::: ./tests/cases_invalid/directive_pre_validation/duplicated_shader_name.wgsl:3:30
   |
-4 | #mod<render, Vertex, f32> duplicated2
-  |                           ^^^^^^^^^^^ second definition
+3 | #shader<render, Vertex, f32> duplicated1
+  |                              ^^^^^^^^^^^ second definition
   |
-error: file at './tests/cases_invalid/directive_pre_validation/invalid/module.wgsl' does not exist
- --> ./tests/cases_invalid/directive_pre_validation/import.wgsl:1:2
+error: `missing` module not found in file './tests/cases_invalid/directive_pre_validation/import.wgsl'
+ --> ./tests/cases_invalid/directive_pre_validation/import.wgsl:2:9
   |
-1 | #import invalid.module
-  |  ^^^^^^^^^^^^^^^^^^^^^
+2 | #import import.missing
+  |         ^^^^^^^^^^^^^^
   |
-error: shader not found
- --> ./tests/cases_invalid/directive_pre_validation/unknown_shader_name.wgsl:1:7
+error: './tests/cases_invalid/directive_pre_validation/missing.wgsl' file does not exist
+ --> ./tests/cases_invalid/directive_pre_validation/import.wgsl:3:9
   |
-1 | #init ~.unknown_shader_name.duplicated2()
-  |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+3 | #import missing.file
+  |         ^^^^^^^^^^^^
   |
-error: shader not found
- --> ./tests/cases_invalid/directive_pre_validation/unknown_shader_name.wgsl:2:6
+error: `missing` module not found in file './tests/cases_invalid/directive_pre_validation/duplicated_shader_name.wgsl'
+ --> ./tests/cases_invalid/directive_pre_validation/unknown_shader_name.wgsl:2:7
   |
-2 | #run ~.unknown_shader_name.duplicated2()
-  |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2 | #init duplicated_shader_name.missing()
+  |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   |
-error: shader not found
+error: './tests/cases_invalid/directive_pre_validation/missing.wgsl' file does not exist
  --> ./tests/cases_invalid/directive_pre_validation/unknown_shader_name.wgsl:3:7
   |
-3 | #draw ~.unknown_shader_name.duplicated1<vertex_buffer, instance_buffer>()
-  |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+3 | #init missing.file()
+  |       ^^^^^^^^^^^^
+  |
+error: `missing` module not found in file './tests/cases_invalid/directive_pre_validation/duplicated_shader_name.wgsl'
+ --> ./tests/cases_invalid/directive_pre_validation/unknown_shader_name.wgsl:4:6
+  |
+4 | #run duplicated_shader_name.missing()
+  |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+error: './tests/cases_invalid/directive_pre_validation/missing.wgsl' file does not exist
+ --> ./tests/cases_invalid/directive_pre_validation/unknown_shader_name.wgsl:5:6
+  |
+5 | #run missing.file()
+  |      ^^^^^^^^^^^^
+  |
+error: `missing` module not found in file './tests/cases_invalid/directive_pre_validation/duplicated_shader_name.wgsl'
+ --> ./tests/cases_invalid/directive_pre_validation/unknown_shader_name.wgsl:6:7
+  |
+6 | #draw duplicated_shader_name.missing<vertex_buffer, instance_buffer>()
+  |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+error: './tests/cases_invalid/directive_pre_validation/missing.wgsl' file does not exist
+ --> ./tests/cases_invalid/directive_pre_validation/unknown_shader_name.wgsl:7:7
+  |
+7 | #draw missing.file<vertex_buffer, instance_buffer>()
+  |       ^^^^^^^^^^^^
   |

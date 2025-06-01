@@ -1,1 +1,3 @@
+#mod main
+
 var error;

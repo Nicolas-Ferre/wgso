@@ -6,9 +6,9 @@ error: same name `duplicated` used for two storage variables
  |
  |
 error: declaration of `error` needs a type specifier or initializer
- --> ./tests/cases_invalid/wgsl_compilation/imported_error.wgsl:1:5
+ --> ./tests/cases_invalid/wgsl_compilation/imported_error.wgsl:3:5
   |
-1 | var error;
+3 | var error;
   |     ^^^^^ needs a type specifier or initializer
   |
 error: override constants are not supported by WGSO
@@ -16,11 +16,11 @@ error: override constants are not supported by WGSO
  |
  |
 error: Function [0] 'increment' is invalid
- --> ./tests/cases_invalid/wgsl_compilation/validation.wgsl:3:1
+ --> ./tests/cases_invalid/wgsl_compilation/validation.wgsl:5:1
   |
-3 | / fn increment(value: ptr<storage, u32>) {
-4 | |     *value += 1;
+5 | / fn increment(value: ptr<storage, u32>) {
+6 | |     *value += 1;
   | |________________^ naga::ir::Function [0]
   |
   = info: Argument 'value' at index 0 is a pointer of space Storage { access: StorageAccess(LOAD) }, which can't be passed into functions.
-  = info: The error comes from file './tests/cases_invalid/wgsl_compilation/validation.wgsl'
+  = info: The error comes from `main` module in file './tests/cases_invalid/wgsl_compilation/validation.wgsl'

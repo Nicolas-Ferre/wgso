@@ -24,9 +24,9 @@ impl ShaderExecution {
         let directive_kind = run_directive.kind();
         let item_ident = run_directive.item_ident(&program.root_path);
         let shader_module = if run_directive.kind() == DirectiveKind::Draw {
-            &program.modules.render[&item_ident].1
+            &program.modules.render[&item_ident]
         } else {
-            &program.modules.compute[&item_ident].1
+            &program.modules.compute[&item_ident]
         };
         let bind_group = layout.as_ref().map(|layout| {
             Self::create_bind_group(

@@ -18,7 +18,8 @@ pub(crate) struct ComputeShaderResources {
 }
 
 impl ComputeShaderResources {
-    pub(crate) fn new(directive: &Directive, module: &Module, device: &Device) -> Self {
+    pub(crate) fn new(module: &Module, device: &Device) -> Self {
+        let directive = module.main_directive();
         let layout = (module.binding_count() > 0)
             .then(|| create_bind_group_layout(directive, module, device, ShaderStages::COMPUTE));
         let pipeline = Self::create_pipeline(module, directive, device, layout.as_ref());
@@ -58,12 +59,8 @@ pub(crate) struct RenderShaderResources {
 }
 
 impl RenderShaderResources {
-    pub(crate) fn new(
-        directive: &Directive,
-        module: &Module,
-        texture_format: TextureFormat,
-        device: &Device,
-    ) -> Self {
+    pub(crate) fn new(module: &Module, texture_format: TextureFormat, device: &Device) -> Self {
+        let directive = module.main_directive();
         let layout = (module.binding_count() > 0).then(|| {
             create_bind_group_layout(directive, module, device, ShaderStages::VERTEX_FRAGMENT)
         });
