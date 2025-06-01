@@ -1,12 +1,18 @@
-error: expected `compute` or `render`
- --> ./tests/cases_invalid/directive_parsing/main.wgsl:1:6
+error: file should start with `#mod` or `#shader` directive
+ --> ./tests/cases_invalid/directive_parsing/invalid_header.wgsl:4:1
   |
-1 | #mod<invalid> test
-  |      ^
+4 | var a: u32; // not ok
+  | ^
+  |
+error: expected `compute` or `render`
+ --> ./tests/cases_invalid/directive_parsing/main.wgsl:1:9
+  |
+1 | #shader<invalid> test
+  |         ^
   |
 error: unexpected tokens
- --> ./tests/cases_invalid/directive_parsing/main.wgsl:2:20
+ --> ./tests/cases_invalid/directive_parsing/main.wgsl:2:23
   |
-2 | #mod<compute> test invalid
-  |                    ^^^^^^^
+2 | #shader<compute> test invalid
+  |                       ^^^^^^^
   |

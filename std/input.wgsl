@@ -1,6 +1,6 @@
-//! Utilities to retrieve input state.
-
-#import ~.math
+/// Utilities to retrieve input state.
+#mod state
+#import ~.~.math.util
 
 /// The state of an input (e.g. a button).
 alias InputState = u32;
@@ -44,6 +44,10 @@ fn input_direction(left: InputState, right: InputState, up: InputState, down: In
 fn input_axis(left: InputState, right: InputState) -> f32 {
     return select(0., -1., is_pressed(left)) + select(0., 1., is_pressed(right));
 }
+
+
+/// Keyboard constants.
+#mod keyboard
 
 /// <kbd>`</kbd> on a US keyboard. This is also called a backtick or grave.
 /// This is the <kbd>半角</kbd>/<kbd>全角</kbd>/<kbd>漢字</kbd>
@@ -483,6 +487,10 @@ const KB_F33 = 191;
 const KB_F34 = 192;
 /// General-purpose function key.
 const KB_F35 = 193;
+
+
+/// Keyboard constants.
+#mod mouse
 
 /// Left mouse button.
 const MS_BUTTON_LEFT = 0;

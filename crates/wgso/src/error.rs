@@ -1,8 +1,9 @@
-use crate::program::file::File;
+use crate::program::section::Section;
 use crate::Program;
 use annotate_snippets::{Level, Renderer, Snippet};
 use naga::valid::ValidationError;
 use naga::WithSpan;
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::{error, io};
@@ -19,15 +20,13 @@ pub enum Error {
     /// A WGPU validation error.
     WgpuValidation(String),
     /// A Naga parsing error.
-    WgslParsing(Vec<Arc<File>>, ParseError),
+    WgslParsing(Vec<Arc<Section>>, ParseError),
     /// A Naga validation error.
-    WgslValidation(Vec<Arc<File>>, WithSpan<ValidationError>),
+    WgslValidation(Vec<Arc<Section>>, WithSpan<ValidationError>),
     /// A directive parsing error.
     DirectiveParsing(ParsingError),
     /// Two shaders have been found with the same name.
-    ///
-    /// Last value is the type of shader.
-    ShaderConflict(Token, Token, &'static str),
+    ModuleConflict(Token, Token),
     /// Two storages have been found with the same name.
     StorageConflict(PathBuf, PathBuf, String),
     /// WGSL code contains a feature unsupported by WGSO.
@@ -42,13 +41,15 @@ impl Error {
         match self {
             Self::Io(path, error) => Self::io_message(path, error),
             Self::WgpuValidation(error) => Self::wgpu_validation_message(error),
-            Self::WgslParsing(files, error) => Self::wgsl_parsing_message(program, files, error),
-            Self::WgslValidation(files, error) => {
-                Self::wgsl_validation_message(program, files, error)
+            Self::WgslParsing(sections, error) => {
+                Self::wgsl_parsing_message(program, sections, error)
+            }
+            Self::WgslValidation(sections, error) => {
+                Self::wgsl_validation_message(program, sections, error)
             }
             Self::DirectiveParsing(error) => Self::directive_parsing_message(program, error),
-            Self::ShaderConflict(first, second, type_) => {
-                Self::shader_conflict_message(program, first, second, type_)
+            Self::ModuleConflict(first, second) => {
+                Self::module_conflict_message(program, first, second)
             }
             Self::StorageConflict(first, second, name) => {
                 Self::storage_conflict_message(program, first, second, name)
@@ -66,47 +67,58 @@ impl Error {
             | Self::StorageConflict(path, _, _)
             | Self::UnsupportedWgslFeature(path, _) => Some(path),
             Self::DirectiveParsing(error) => Some(&error.path),
-            Self::WgslParsing(module, error) => Some(Self::wgsl_parsing_error_path(module, error)),
-            Self::WgslValidation(module, error) => Some(Self::wgsl_validation_error_path(module, error)),
-            Self::ShaderConflict(first, _, _) => Some(&first.path),
+            Self::WgslParsing(sections, error) => Some(Self::wgsl_parsing_error_path(sections, error)),
+            Self::WgslValidation(sections, error) => Some(Self::wgsl_validation_error_path(sections, error)),
+            Self::ModuleConflict(first, _) => Some(&first.path),
             Self::WgpuValidation(_)|Self::ChangedStorageStructure => None, // no-coverage (never called in practice)
         }
     }
 
-    fn wgsl_parsing_error_path<'a>(files: &'a [Arc<File>], error: &'a ParseError) -> &'a Path {
-        Self::merged_file(
-            files,
+    fn wgsl_parsing_error_path<'a>(
+        sections: &'a [Arc<Section>],
+        error: &'a ParseError,
+    ) -> &'a Path {
+        Self::merged_section(
+            sections,
             error
                 .labels()
                 .next()
                 .map_or(0, |(span, _)| span.to_range().unwrap_or(0..0).start),
         )
         .0
+        .path()
     }
 
     fn wgsl_validation_error_path<'a>(
-        files: &'a [Arc<File>],
+        sections: &'a [Arc<Section>],
         error: &'a WithSpan<ValidationError>,
     ) -> &'a Path {
-        Self::merged_file(
-            files,
+        Self::merged_section(
+            sections,
             error
                 .spans()
                 .next()
                 .map_or(0, |(span, _)| span.to_range().unwrap_or(0..0).start),
         )
         .0
+        .path()
     }
 
-    fn merged_file(files: &[Arc<File>], offset: usize) -> (&Path, usize, usize) {
+    fn merged_section(sections: &[Arc<Section>], offset: usize) -> (&Section, usize) {
         let mut current_offset = 0;
-        for (index, file) in files.iter().enumerate() {
-            if offset < current_offset + file.code.len() || index == files.len() - 1 {
-                return (&file.path, current_offset, file.code.len());
+        for (index, section) in sections.iter().enumerate() {
+            if offset < current_offset + section.code().len() || index == sections.len() - 1 {
+                return (section, current_offset);
             }
-            current_offset += file.code.len();
+            current_offset += section.code().len();
         }
         unreachable!("internal error: invalid span")
+    }
+
+    fn section_to_file_span(span: Range<usize>, section: &Section, offset: usize) -> Range<usize> {
+        (section.span.start + span.start - offset).min(section.span.start + section.code().len())
+            ..(section.span.start + span.end - offset)
+                .min(section.span.start + section.code().len())
     }
 
     fn io_message(path: &Path, error: &io::Error) -> String {
@@ -116,17 +128,21 @@ impl Error {
         )
     }
 
-    fn wgsl_parsing_message(program: &Program, files: &[Arc<File>], error: &ParseError) -> String {
+    fn wgsl_parsing_message(
+        program: &Program,
+        sections: &[Arc<Section>],
+        error: &ParseError,
+    ) -> String {
         let mut message = Level::Error.title(error.message());
         let paths: Vec<_> = error
             .labels()
             .map(|(naga_span, _)| {
                 let span = naga_span.to_range().unwrap_or(0..0);
-                let (path, offset, max_len) = Self::merged_file(files, span.start);
-                let path_str = path.display().to_string();
+                let (section, offset) = Self::merged_section(sections, span.start);
+                let path_str = section.path().display().to_string();
                 (
-                    (span.start - offset).min(max_len)..(span.end - offset).min(max_len),
-                    path,
+                    Self::section_to_file_span(span, section, offset),
+                    section.path(),
                     path_str,
                 )
             })
@@ -144,19 +160,19 @@ impl Error {
 
     fn wgsl_validation_message(
         program: &Program,
-        files: &[Arc<File>],
+        sections: &[Arc<Section>],
         error: &WithSpan<ValidationError>,
     ) -> String {
         let paths: Vec<_> = error
             .spans()
             .map(|(naga_span, label)| {
                 let span = naga_span.to_range().unwrap_or(0..0);
-                let (path, offset, max_len) = Self::merged_file(files, span.start);
-                let path_str = path.display().to_string();
+                let (section, offset) = Self::merged_section(sections, span.start);
+                let path_str = section.path().display().to_string();
                 (
                     label,
-                    (span.start - offset).min(max_len)..(span.end - offset).min(max_len),
-                    path,
+                    Self::section_to_file_span(span, section, offset),
+                    section.path(),
                     path_str,
                 )
             })
@@ -178,8 +194,9 @@ impl Error {
         format!(
             "{}",
             Renderer::styled().render(message.footer(Level::Info.title(&format!(
-                "The error comes from file '{}'",
-                files[0].path.display()
+                "The error comes from `{}` module in file '{}'",
+                sections[0].directive.section_name().slice,
+                sections[0].path().display(),
             ))))
         )
     }
@@ -202,19 +219,15 @@ impl Error {
         )
     }
 
-    fn shader_conflict_message(
-        program: &Program,
-        first: &Token,
-        second: &Token,
-        type_: &str,
-    ) -> String {
+    fn module_conflict_message(program: &Program, first: &Token, second: &Token) -> String {
         format!(
             "{}",
             Renderer::styled().render(
                 Level::Error
                     .title(&format!(
-                        "same name `{}` used for two {type_} shaders",
-                        first.slice
+                        "duplicated module name `{}` found in file '{}'",
+                        first.slice,
+                        first.path.display()
                     ))
                     .snippet(
                         Snippet::source(&program.files.get(&first.path).code)

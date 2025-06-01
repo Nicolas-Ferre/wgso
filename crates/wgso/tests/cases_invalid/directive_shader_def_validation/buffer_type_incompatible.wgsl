@@ -1,4 +1,4 @@
-#mod<render, Incompatible, Incompatible> buffer_type_incompatible
+#shader<render, Incompatible, Incompatible> buffer_type_incompatible
 
 struct Incompatible {
     compatible_field: u32,

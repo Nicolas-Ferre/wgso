@@ -1,7 +1,6 @@
-#mod<compute> duplicated1
-#mod<compute> duplicated1
-#mod<render, Vertex, f32> duplicated2
-#mod<render, Vertex, f32> duplicated2
+#shader<compute> duplicated1
+#shader<compute> duplicated1
+#shader<render, Vertex, f32> duplicated1
 
 struct Vertex {
     field: f32,

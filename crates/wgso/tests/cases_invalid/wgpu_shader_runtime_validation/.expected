@@ -1,5 +1,5 @@
 error: Validation Error
 
 Caused by:
-  In Device::create_bind_group_layout, label = '# mod < compute > test'
+  In Device::create_bind_group_layout, label = '# shader < compute > test'
     Too many bindings of type StorageBuffers in Stage ShaderStages(COMPUTE), limit is 8, count was 9. Check the limit `max_storage_buffers_per_shader_stage` passed to `Adapter::request_device`

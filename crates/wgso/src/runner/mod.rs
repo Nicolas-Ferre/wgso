@@ -364,8 +364,8 @@ impl Runner {
             .modules
             .compute
             .iter()
-            .map(|(name, (directive, module))| {
-                let shader = ComputeShaderResources::new(directive, module, device);
+            .map(|(name, module)| {
+                let shader = ComputeShaderResources::new(module, device);
                 (name.clone(), shader)
             })
             .collect()
@@ -380,8 +380,8 @@ impl Runner {
             .modules
             .render
             .iter()
-            .map(|(name, (directive, module))| {
-                let shader = RenderShaderResources::new(directive, module, texture_format, device);
+            .map(|(name, module)| {
+                let shader = RenderShaderResources::new(module, texture_format, device);
                 (name.clone(), shader)
             })
             .collect()
@@ -394,7 +394,7 @@ impl Runner {
         compute_shaders: &FxHashMap<(PathBuf, String), ComputeShaderResources>,
     ) -> Vec<ShaderExecution> {
         program
-            .files
+            .sections
             .run_directives()
             .map(|directive| {
                 ShaderExecution::new(
@@ -417,7 +417,7 @@ impl Runner {
         render_shaders: &FxHashMap<(PathBuf, String), RenderShaderResources>,
     ) -> Vec<ShaderExecution> {
         program
-            .files
+            .sections
             .draw_directives()
             .map(|directive| {
                 ShaderExecution::new(

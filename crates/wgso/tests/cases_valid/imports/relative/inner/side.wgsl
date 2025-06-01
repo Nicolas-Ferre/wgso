@@ -1,1 +1,0 @@
-const CONSTANT2 = 3;

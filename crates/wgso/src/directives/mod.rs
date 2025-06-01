@@ -3,15 +3,13 @@
 use crate::Error;
 use itertools::Itertools;
 use std::fmt::Debug;
-use std::iter;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use wgso_parser::{Rule, Token};
 
-pub(crate) mod imports;
-pub(crate) mod shader_calls;
-pub(crate) mod shader_defs;
+pub(crate) mod calls;
+pub(crate) mod defs;
 
 pub(crate) fn load_rules() -> Vec<Rule> {
     wgso_parser::load_rules(include_bytes!(concat!(
@@ -30,9 +28,9 @@ pub(crate) fn parse_file(
     let mut parsed_directives = vec![];
     let mut offset = 0;
     for line in code.lines() {
-        if let Some(directive) = line.trim_start().strip_prefix("#") {
-            let current_offset = offset + line.len() - directive.len();
-            match wgso_parser::parse(directive, current_offset, path, rules) {
+        if line.trim_start().starts_with('#') {
+            let current_offset = offset + line.len() - line.len();
+            match wgso_parser::parse(line, current_offset, path, rules) {
                 Ok(tokens) => parsed_directives.push(Directive { tokens }),
                 Err(error) => errors.push(Error::DirectiveParsing(error)),
             }
@@ -42,15 +40,6 @@ pub(crate) fn parse_file(
     parsed_directives
 }
 
-pub(crate) fn find_all_by_kind(
-    directives: &[Directive],
-    kind: DirectiveKind,
-) -> impl Iterator<Item = &Directive> {
-    directives
-        .iter()
-        .filter(move |directive| directive.kind() == kind)
-}
-
 #[derive(Debug, Clone)]
 pub(crate) struct Directive {
     tokens: Vec<Token>,
@@ -58,8 +47,9 @@ pub(crate) struct Directive {
 
 impl Directive {
     pub(crate) fn code(&self) -> String {
-        iter::once("#")
-            .chain(self.tokens.iter().map(|token| token.slice.as_str()))
+        self.tokens
+            .iter()
+            .map(|token| token.slice.as_str())
             .join(" ")
     }
 
@@ -74,10 +64,11 @@ impl Directive {
     }
 
     pub(crate) fn kind(&self) -> DirectiveKind {
-        match self.tokens[0].slice.as_str() {
-            "mod" => match self.tokens[2].slice.as_str() {
-                "compute" => DirectiveKind::ComputeModule,
-                "render" => DirectiveKind::RenderModule,
+        match self.tokens[1].slice.as_str() {
+            "mod" => DirectiveKind::Mod,
+            "shader" => match self.tokens[3].slice.as_str() {
+                "compute" => DirectiveKind::ComputeShader,
+                "render" => DirectiveKind::RenderShader,
                 _ => unreachable!("internal error: unrecognized shader directive"),
             },
             "init" => DirectiveKind::Init,
@@ -88,8 +79,19 @@ impl Directive {
         }
     }
 
-    pub(crate) fn shader_name(&self) -> &Token {
-        self.find_one_by_label("shader_name")
+    pub(crate) fn section_name(&self) -> &Token {
+        self.find_one_by_label("section_name")
+    }
+
+    pub(crate) fn item_ident(&self, root_path: &Path) -> (PathBuf, String) {
+        let path = self.segment_path(root_path);
+        let name = self
+            .find_all_by_label("path_segment")
+            .last()
+            .expect("internal error: cannot find item name")
+            .slice
+            .clone();
+        (path, name)
     }
 
     fn find_one_by_label(&self, label: &str) -> &Token {
@@ -116,29 +118,23 @@ impl Directive {
             .expect("internal error: directive integers should be validated")
     }
 
-    fn segment_path(&self, root_path: &Path, is_last_segment_included: bool) -> PathBuf {
+    fn segment_path(&self, root_path: &Path) -> PathBuf {
         let segment_count = self.find_all_by_label("path_segment").count();
         let is_relative = self
             .find_all_by_label("path_segment")
             .next()
             .is_some_and(|segment| segment.slice == "~");
         let root_path = if is_relative {
-            let file_path = self.path();
-            file_path.parent().unwrap_or(file_path).to_path_buf()
+            self.path().into()
         } else {
             root_path.to_path_buf()
         };
         self.find_all_by_label("path_segment")
             .enumerate()
-            .filter(|(index, segment)| *index != 0 || segment.slice != "~")
-            .filter(|(index, _)| is_last_segment_included || *index != segment_count - 1)
+            .filter(|(index, _)| *index != 0 || !is_relative)
+            .filter(|(index, _)| *index != segment_count - 1)
             .fold(root_path, |path, (index, segment)| {
-                let last_index = if is_last_segment_included {
-                    segment_count - 1
-                } else {
-                    segment_count - 2
-                };
-                if index == last_index {
+                if index == segment_count - 2 {
                     path.join(format!("{}.wgsl", segment.slice))
                 } else if segment.slice == "~" {
                     path.parent().map(Path::to_path_buf).unwrap_or(path)
@@ -151,8 +147,9 @@ impl Directive {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DirectiveKind {
-    ComputeModule,
-    RenderModule,
+    Mod,
+    ComputeShader,
+    RenderShader,
     Init,
     Run,
     Draw,
