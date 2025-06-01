@@ -56,7 +56,8 @@ fn reload_with_wgpu_error() {
     let _lock = MUTEX.lock().unwrap();
     let mut runner = Runner::new(PROGRAM_PATH, None, Some((4, 3))).unwrap();
     let initial_code = fs::read_to_string(PROGRAM_WGSL_PATH).unwrap();
-    let modified_code = initial_code.replace("#import ~.main", "#import ~.storages");
+    let modified_code =
+        initial_code.replace("struct Fragment {", "#import ~.storage\nstruct Fragment {");
     let reloading_result = update_code(&mut runner, &modified_code, PROGRAM_WGSL_PATH);
     let run_result = runner.run_step();
     fs::write(PROGRAM_WGSL_PATH, initial_code).unwrap();
