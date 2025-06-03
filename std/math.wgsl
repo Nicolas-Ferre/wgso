@@ -4,9 +4,8 @@
 /// Archimedes’ constant (π).
 const PI = 3.14159265358979323846264338327950288;
 
-
-//! Math utils.
-#mod util
+//! Vector utils.
+#mod vector
 #import ~.constant
 
 /// Normalize a `vec2f` value.
@@ -23,21 +22,13 @@ fn normalize_vec3f_or_zero(value: vec3f) -> vec3f {
     return value / max(length(value), 1e-6);
 }
 
-/// Normalize a `vec4f` value.
-///
-/// If the length of the vector is zero, then `vec4f(0, 0, 0, 0)` is returned.
-fn normalize_vec4f_or_zero(value: vec4f) -> vec4f {
-    return value / max(length(value), 1e-6);
-}
-
 /// Returns the angle in radians between two vectors.
 ///
 /// Returned angle is between `0` and `2π`.
-fn vec2_angle(direction1: vec2<f32>, direction2: vec2<f32>) -> f32 {
+fn angle_vec2f(direction1: vec2f, direction2: vec2f) -> f32 {
     let angle = atan2(direction2.y, direction2.x) - atan2(direction1.y, direction1.x);
     return select(angle + 2 * PI, angle, angle >= 0.0);
 }
-
 
 /// Quaternion utilities.
 #mod quaternion
@@ -76,7 +67,6 @@ fn quat_inverse(quat: vec4f) -> vec4f {
     let squared_norm = dot(quat, quat);
     return vec4f(-quat.xyz, quat.w) / squared_norm;
 }
-
 
 /// Common matrices to apply transformations.
 #mod matrix
@@ -139,7 +129,6 @@ fn rotation_mat(quat: vec4f) -> mat4x4f {
         0,                          0,                          0,                          1,
     );
 }
-
 
 /// Random number generators.
 #mod random

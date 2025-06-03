@@ -1,6 +1,6 @@
 /// Utilities to retrieve input state.
 #mod state
-#import ~.~.math.util
+#import ~.~.math.vector
 
 /// The state of an input (e.g. a button).
 alias InputState = u32;
@@ -44,7 +44,6 @@ fn input_direction(left: InputState, right: InputState, up: InputState, down: In
 fn input_axis(left: InputState, right: InputState) -> f32 {
     return select(0., -1., is_pressed(left)) + select(0., 1., is_pressed(right));
 }
-
 
 /// Keyboard constants.
 #mod keyboard
@@ -487,7 +486,6 @@ const KB_F33 = 191;
 const KB_F34 = 192;
 /// General-purpose function key.
 const KB_F35 = 193;
-
 
 /// Keyboard constants.
 #mod mouse

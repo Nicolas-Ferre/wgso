@@ -7,7 +7,6 @@ struct Vertex {
     normal: vec3f,
 }
 
-
 /// Vertex definition of common models.
 #mod model
 #import ~.type

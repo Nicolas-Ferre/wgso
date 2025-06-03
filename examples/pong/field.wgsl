@@ -1,9 +1,38 @@
-#shader<render, Vertex, Field> field
+#mod main
+#init ~.init()
+#draw<1000> ~.render<field.vertices, field.instance>(global=global)
+#import _.std.vertex.type
 
+const FIELD_SIZE = vec2f(1.9, 1.2);
+
+struct FieldData {
+    vertices: array<Vertex, 6>,
+    instance: Field,
+}
+
+struct Field {
+    _phantom: f32,
+}
+
+#mod storage
+#import ~.main
+
+var<storage, read_write> field: FieldData;
+
+#shader<compute> init
+#import ~.storage
+#import _.std.vertex.model
+
+@compute
+@workgroup_size(1, 1, 1)
+fn main() {
+    field.vertices = rectangle_vertices();
+}
+
+#shader<render, Vertex, Field> render
 #import ~.main
 #import global.main
-#import _.std.math
-#import _.std.storage_types
+#import _.std.state.type
 
 const Z = 0.9;
 const SHAPE_FACTOR = 2.;
@@ -42,7 +71,7 @@ fn fs_main(fragment: Fragment) -> @location(0) vec4f {
 }
 
 fn border_color(fragment: Fragment) -> vec3f {
-    let angle = vec2_angle(fragment.world_position, vec2f(1.));
+    let angle = angle_vec2f(fragment.world_position, vec2f(1.));
     let rotated_angle = angle + fragment.time * BORDER_COLOR_ROTATION_SPEED;
     let dist = abs(rect_signed_dist(fragment.world_position, FIELD_SIZE + vec2f(BORDER_THICKNESS)));
     let brightness = brightness(dist, BORDER_THICKNESS, BORDER_GLOW_FACTOR);

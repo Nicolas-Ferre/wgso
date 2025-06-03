@@ -68,7 +68,6 @@ struct MouseWheel {
     delta_unit: u32,
 }
 
-
 /// Storage used retrieve or send information to the CPU.
 #mod storage
 #import ~.type
