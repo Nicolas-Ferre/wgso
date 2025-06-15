@@ -1,8 +1,9 @@
+use crate::program::file::SourceFolder;
 use crate::runner::shaders::RenderShaderResources;
 use crate::runner::std::StdState;
 use crate::runner::target::{Target, TargetConfig, TargetSpecialized, TextureTarget, WindowTarget};
 use crate::{Error, Program};
-use ::std::path::{Path, PathBuf};
+use ::std::path::PathBuf;
 use futures::executor;
 use fxhash::FxHashMap;
 use shader_execution::ShaderExecution;
@@ -49,12 +50,12 @@ impl Runner {
     ///
     /// An error is returned if the program initialization has failed.
     pub fn new(
-        folder_path: impl AsRef<Path>,
+        source: impl SourceFolder,
         event_loop: Option<&ActiveEventLoop>,
         size: Option<(u32, u32)>,
     ) -> Result<Self, Program> {
-        let folder_path = folder_path.as_ref();
-        let program = Program::parse(folder_path);
+        let folder_path = source.path();
+        let program = Program::parse(source);
         if !program.errors.is_empty() {
             return Err(program.with_sorted_errors());
         }
@@ -116,7 +117,7 @@ impl Runner {
             buffers,
             is_initialized: false,
             instance,
-            watcher: RunnerWatcher::new(folder_path),
+            watcher: RunnerWatcher::new(&folder_path),
         };
         if runner.load_shaders(None) {
             Ok(runner)
@@ -292,7 +293,7 @@ impl Runner {
         if !self.watcher.detect_changes() {
             return Ok(());
         }
-        let mut program = Program::parse(&self.program.root_path);
+        let mut program = Program::parse(self.program.root_path.as_path());
         if !program.errors.is_empty() {
             return Err(program.with_sorted_errors());
         }

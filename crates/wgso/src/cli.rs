@@ -2,7 +2,7 @@
 
 use crate::{Program, Runner};
 use clap::Parser;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{fs, process};
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
@@ -95,9 +95,19 @@ impl RunArgs {
 
     /// Runs a WGSO program on Android.
     #[cfg(target_os = "android")]
-    pub fn run_android(self, android_app: android_activity::AndroidApp) {
+    pub fn run_android(
+        self,
+        android_app: android_activity::AndroidApp,
+        source: impl crate::SourceFolder + 'static,
+    ) {
         use winit::platform::android::EventLoopBuilderExtAndroid;
-        let mut runner = WindowRunner::new(self);
+        let mut runner = WindowRunner {
+            args: self,
+            create_runner_fn: Some(Box::new(move |event_loop| {
+                Runner::new(source.clone(), Some(event_loop), None)
+            })),
+            runner: None,
+        };
         ANDROID_APP.get_or_init(|| android_app.clone());
         EventLoop::builder()
             .with_android_app(android_app)
@@ -119,15 +129,17 @@ pub struct AnalyzeArgs {
 impl AnalyzeArgs {
     #[allow(clippy::similar_names)]
     fn run(self) {
-        match Runner::new(&self.path, None, None) {
+        match Runner::new(Path::new(&self.path), None, None) {
             Ok(runner) => println!("{runner:#?}"),
             Err(program) => exit_on_error(&program),
         }
     }
 }
-#[derive(Debug)]
+
 struct WindowRunner {
     args: RunArgs,
+    #[allow(clippy::type_complexity)]
+    create_runner_fn: Option<Box<dyn Fn(&ActiveEventLoop) -> Result<Runner, Program>>>,
     runner: Option<Runner>,
 }
 
@@ -189,14 +201,23 @@ impl ApplicationHandler for WindowRunner {
 
 impl WindowRunner {
     fn new(args: RunArgs) -> Self {
-        Self { args, runner: None }
+        Self {
+            args,
+            create_runner_fn: None,
+            runner: None,
+        }
     }
 
     fn refresh_surface(&mut self, event_loop: &ActiveEventLoop) {
         if let Some(runner) = &mut self.runner {
             runner.refresh_surface();
         } else {
-            match Runner::new(&self.args.path, Some(event_loop), None) {
+            let runner = if let Some(create_fn) = &self.create_runner_fn {
+                create_fn(event_loop)
+            } else {
+                Runner::new(self.args.path.as_path(), Some(event_loop), None)
+            };
+            match runner {
                 Ok(runner) => self.runner = Some(runner),
                 Err(program) => exit_on_error(&program),
             }

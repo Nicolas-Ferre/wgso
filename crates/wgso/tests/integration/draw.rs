@@ -1,8 +1,9 @@
+use std::path::Path;
 use wgso::Runner;
 
 #[test]
 fn test_empty_surface() {
-    let runner = Runner::new("tests/cases_valid/shaders", None, Some((4, 3))).unwrap();
+    let runner = Runner::new(Path::new("tests/cases_valid/shaders"), None, Some((4, 3))).unwrap();
     assert_eq!(
         runner.read_target(),
         vec![
