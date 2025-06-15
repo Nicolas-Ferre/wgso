@@ -9,7 +9,7 @@
 pub extern "Rust" fn android_main(app: android_activity::AndroidApp) {
     static PROJECT_DIR: include_dir::Dir<'_> = include_dir::include_dir!("$PROGRAM_PATH");
     let args = wgso::RunArgs {
-        path: PROJECT_DIR.path().into(),
+        path: "".into(),
         buffer: vec![],
         fps: false,
     };
