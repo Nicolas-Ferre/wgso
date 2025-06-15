@@ -9,5 +9,6 @@ mod runner;
 
 pub use cli::*;
 pub use error::*;
+pub use program::file::*;
 pub use program::*;
 pub use runner::*;

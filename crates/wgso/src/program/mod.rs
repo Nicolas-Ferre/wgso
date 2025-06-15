@@ -1,3 +1,4 @@
+use crate::program::file::SourceFolder;
 use crate::program::section::Sections;
 use crate::program::type_::Type;
 use crate::{directives, Error};
@@ -33,15 +34,15 @@ impl Program {
             .join("\n")
     }
 
-    pub(crate) fn parse(root_path: impl AsRef<Path>) -> Self {
-        let root_path = root_path.as_ref();
+    pub(crate) fn parse(source: impl SourceFolder) -> Self {
+        let root_path = source.path();
         let mut errors = vec![];
         let directive_rules = directives::load_rules();
-        let files = Files::new(root_path, &directive_rules, &mut errors);
+        let files = Files::new(source, &directive_rules, &mut errors);
         if !errors.is_empty() {
             return Self {
                 errors,
-                root_path: root_path.into(),
+                root_path,
                 files,
                 sections: Sections::default(),
                 modules: Modules::default(),
@@ -50,32 +51,32 @@ impl Program {
         directives::defs::check(&files, &mut errors);
         let sections = Sections::new(&files);
         for section in sections.iter() {
-            directives::calls::check(section.directives(), &files, root_path, &mut errors);
+            directives::calls::check(section.directives(), &files, &root_path, &mut errors);
         }
         if !errors.is_empty() {
             return Self {
                 errors,
-                root_path: root_path.into(),
+                root_path,
                 files,
                 sections,
                 modules: Modules::default(),
             };
         }
-        let modules = Modules::new(root_path, &sections, &mut errors);
+        let modules = Modules::new(&root_path, &sections, &mut errors);
         if !errors.is_empty() {
             return Self {
                 errors,
-                root_path: root_path.into(),
+                root_path,
                 files,
                 sections,
                 modules,
             };
         }
         directives::defs::check_params(&modules, &mut errors);
-        directives::calls::check_args(root_path, &sections, &modules, &mut errors);
+        directives::calls::check_args(&root_path, &sections, &modules, &mut errors);
         Self {
             errors,
-            root_path: root_path.into(),
+            root_path,
             files,
             sections,
             modules,

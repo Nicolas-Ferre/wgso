@@ -13,7 +13,7 @@ fn run_invalid_code(#[files("./tests/cases_invalid/*")] path: PathBuf) {
             .map(|a| a.as_os_str().to_str().unwrap())
             .join("/")
     ));
-    let errors = match Runner::new(&path, None, None) {
+    let errors = match Runner::new(path.as_path(), None, None) {
         Ok(mut runner) => runner
             .run_step()
             .expect_err("invalid code has successfully compiled")
