@@ -1,16 +1,15 @@
 #mod main
 #init ~.init()
 #run ~.update()
-#draw ~.render<ball.vertices, ball.instance>(global=global, collisions=ball.collisions)
-#import _.std.vertex.type
+#draw<500> ~.render<vertices.rectangle, ball.instance>(surface=surface, collisions=ball.collisions)
 
 const BALL_RADIUS = 0.03;
-const BALL_DEFAULT_SPEED = 1.0;
-const PREVIOUS_COLLISION_COUNT = 3;
+const BALL_DEFAULT_SPEED = 1.5;
+const BALL_COLOR = vec3f(0, 251, 255) / 255.;
+const BALL_PREVIOUS_COLLISION_COUNT = 3;
 
 struct BallData {
-    collisions: array<BallCollision, PREVIOUS_COLLISION_COUNT>,
-    vertices: array<Vertex, 6>,
+    collisions: array<BallCollision, BALL_PREVIOUS_COLLISION_COUNT>,
     instance: BallInstance,
 }
 
@@ -31,12 +30,10 @@ var<storage, read_write> ball: BallData;
 
 #shader<compute> init
 #import ~.storage
-#import _.std.vertex.model
 
 @compute
 @workgroup_size(1, 1, 1)
 fn main() {
-    ball.vertices = rectangle_vertices();
     ball.instance.position = vec2f(-0.1, -0.1);
     ball.instance.velocity = normalize(vec2f(-1, 1)) * BALL_DEFAULT_SPEED;
     ball.collisions[0].position = ball.instance.position;
@@ -44,25 +41,70 @@ fn main() {
 
 #shader<compute> update
 #import ~.storage
+#import collision_effect.storage
 #import field.main
+#import paddle.storage
 #import _.std.state.storage
+
+const COLLISION_DIRECTION_X_WEIGHT = 0.1;
 
 @compute
 @workgroup_size(1, 1, 1)
 fn main() {
-    const HALF_LIMIT = FIELD_SIZE / 2 - BALL_RADIUS;
-    let instance = &ball.instance;
-    instance.position += instance.velocity * std_.time.frame_delta_secs;
-    instance.velocity = select(instance.velocity, -instance.velocity, abs(instance.position) > HALF_LIMIT);
-    if any(abs(instance.position) > HALF_LIMIT) {
-        add_collision(instance.position);
-    }
-    instance.position = clamp(instance.position, -HALF_LIMIT, HALF_LIMIT);
+    resolve_wall_collisions();
+    resolve_paddle_collisions(0);
+    resolve_paddle_collisions(1);
 }
 
-fn add_collision(collision_position: vec2f) {
-    for (var i = 0; i < PREVIOUS_COLLISION_COUNT - 1; i++) {
-        let index = PREVIOUS_COLLISION_COUNT - 1 - i;
+fn resolve_wall_collisions() {
+    const HALF_LIMIT = FIELD_SIZE / 2 - BALL_RADIUS;
+    let ball = &ball.instance;
+    ball.position += ball.velocity * std_.time.frame_delta_secs;
+    ball.velocity = select(ball.velocity, -ball.velocity, abs(ball.position) > HALF_LIMIT);
+    let fixed_position = clamp(ball.position, -HALF_LIMIT, HALF_LIMIT);
+    if any(abs(ball.position) > HALF_LIMIT) {
+        register_collision(fixed_position);
+        add_collision_particles(fixed_position, (ball.position - fixed_position) * vec2f(-1, 1));
+    }
+    ball.position = fixed_position;
+}
+
+fn resolve_paddle_collisions(paddle_index: u32) {
+    let paddle = &paddles.instances[paddle_index];
+    let ball = &ball.instance;
+    let collision_normal = aabb_collision_normal(paddle.position, PADDLE_SIZE, ball.position, vec2f(BALL_RADIUS * 2));
+    if any(collision_normal != vec2f(0, 0)) {
+        let direction = sign(-ball.velocity.x);
+        ball.velocity = length(ball.velocity) * normalize(vec2f(
+            direction * COLLISION_DIRECTION_X_WEIGHT,
+            ball.position.y - paddle.position.y,
+        ));
+        if collision_normal.x != 0 {
+            ball.position.x = paddle.position.x + collision_normal.x * (PADDLE_SIZE.x / 2 + BALL_RADIUS);
+        } else {
+            ball.position.y = paddle.position.y + collision_normal.y * (PADDLE_SIZE.y / 2 + BALL_RADIUS);
+        }
+        register_collision(ball.position);
+        add_collision_particles(ball.position, vec2f(direction, 0.0));
+    }
+}
+
+fn aabb_collision_normal(pos1: vec2f, size1: vec2f, pos2: vec2f, size2: vec2f) -> vec2f {
+    let delta = pos2 - pos1;
+    let overlap = (size1 + size2) / 2 - abs(delta);
+    if any(overlap <= vec2f(0)) {
+        return vec2f(0, 0); // no collision
+    }
+    if overlap.x < overlap.y {
+        return vec2f(sign(delta.x), 0);
+    } else {
+        return vec2f(0, sign(delta.y));
+    }
+}
+
+fn register_collision(collision_position: vec2f) {
+    for (var i = 0; i < BALL_PREVIOUS_COLLISION_COUNT - 1; i++) {
+        let index = BALL_PREVIOUS_COLLISION_COUNT - 1 - i;
         ball.collisions[index].position = ball.collisions[index - 1].position;
     }
     ball.collisions[0].position = collision_position;
@@ -70,20 +112,20 @@ fn add_collision(collision_position: vec2f) {
 
 #shader<render, Vertex, BallInstance> render
 #import ~.main
-#import global.main
+#import surface.main
 #import field.main
 #import _.std.math.vector
 #import _.std.math.matrix
+#import _.std.vertex.type
 
-const Z = 0.0;
+const Z = 0.5;
 const MOTION_Z = 0.1;
 const MOTION_BRIGHNESS = 0.2;
-const COLOR = vec3f(0, 251, 255) / 255.;
 const GLOW_FACTOR = 0.005;
 const THICKNESS = 0.005;
 
-var<uniform> global: Global;
-var<uniform> collisions: array<BallCollision, PREVIOUS_COLLISION_COUNT>;
+var<uniform> surface: SurfaceData;
+var<uniform> collisions: array<BallCollision, BALL_PREVIOUS_COLLISION_COUNT>;
 
 struct Fragment {
     @builtin(position)
@@ -98,9 +140,9 @@ struct Fragment {
 fn vs_main(vertex: Vertex, instance: BallInstance) -> Fragment {
     let position = vertex.position.xy * FIELD_SIZE;
     return Fragment(
-        vec4f(position * surface_ratio(global.surface_size), Z, 1),
+        vec4f(position * surface_ratio(surface.size), Z, 1),
         position,
-        instance.position.xy,
+        instance.position,
     );
 }
 
@@ -114,7 +156,7 @@ fn ball_color(fragment: Fragment) -> vec4f {
     let exterior_brighness = step(0, dist) * exp(-dist / GLOW_FACTOR);
     let interior_brighness = step(THICKNESS, -dist) * exp((dist + THICKNESS) / GLOW_FACTOR);
     let middle_brightness = step(-dist, THICKNESS) * step(dist, 0);
-    return vec4f(COLOR, 1.) * max(exterior_brighness, max(interior_brighness, middle_brightness));
+    return vec4f(BALL_COLOR, 1.) * max(exterior_brighness, max(interior_brighness, middle_brightness));
 }
 
 fn trail_color(fragment: Fragment) -> vec4f {
@@ -122,7 +164,7 @@ fn trail_color(fragment: Fragment) -> vec4f {
     var brightness = 0.;
     var accumulated_dist = 0.;
     if distance(fragment.world_position, fragment.ball_position) > BALL_RADIUS {
-        for (var i = 0; i < PREVIOUS_COLLISION_COUNT; i++) {
+        for (var i = 0; i < BALL_PREVIOUS_COLLISION_COUNT; i++) {
             let bound1 = collisions[i].position;
             if all(bound1 == vec2f(0, 0)) {
                 continue;
@@ -131,11 +173,11 @@ fn trail_color(fragment: Fragment) -> vec4f {
             let width_dist = TRAIL_WIDTH - segment_signed_dist(fragment.world_position, bound1, bound2);
             let length_dist = accumulated_dist + distance(fragment.world_position, bound2);
             let is_trail = width_dist >= 0 && width_dist < TRAIL_WIDTH;
-            brightness = max(brightness, select(0., 1., is_trail) * pow(1 * width_dist / length_dist, 2));
+            brightness = max(brightness, select(0., 1., is_trail) * pow(width_dist / length_dist, 2));
             accumulated_dist += distance(bound1, bound2);
         }
     }
-    return vec4f(COLOR, 1) * brightness;
+    return vec4f(BALL_COLOR, 1) * brightness;
 }
 
 fn circle_signed_dist(position: vec2f, radius: f32) -> f32 {

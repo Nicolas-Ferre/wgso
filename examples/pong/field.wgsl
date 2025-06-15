@@ -1,17 +1,17 @@
 #mod main
-#init ~.init()
-#draw<1000> ~.render<field.vertices, field.instance>(global=global)
-#import _.std.vertex.type
+#run ~.update()
+#draw<1000> ~.render<vertices.rectangle, field.instance>(surface=surface)
+#import _.std.math.constant
 
 const FIELD_SIZE = vec2f(1.9, 1.2);
+const FIELD_BORDER_COLOR_SPEED = PI / 2;
 
 struct FieldData {
-    vertices: array<Vertex, 6>,
     instance: Field,
 }
 
 struct Field {
-    _phantom: f32,
+    color_angle: f32,
 }
 
 #mod storage
@@ -19,32 +19,35 @@ struct Field {
 
 var<storage, read_write> field: FieldData;
 
-#shader<compute> init
+#shader<compute> update
 #import ~.storage
-#import _.std.vertex.model
+#import _.std.state.storage
 
 @compute
 @workgroup_size(1, 1, 1)
 fn main() {
-    field.vertices = rectangle_vertices();
+    field.instance.color_angle += std_.time.frame_delta_secs * FIELD_BORDER_COLOR_SPEED;
+    if field.instance.color_angle > 2 * PI {
+        field.instance.color_angle -= 2 * PI;
+    }
 }
 
 #shader<render, Vertex, Field> render
 #import ~.main
-#import global.main
+#import surface.main
 #import _.std.state.type
+#import _.std.vertex.type
 
 const Z = 0.9;
-const SHAPE_FACTOR = 2.;
+const SHAPE_FACTOR = 4.;
 const BORDER_GLOW_FACTOR = 0.002;
-const BORDER_COLOR_ROTATION_SPEED = PI / 2;
 const BORDER_THICKNESS = 0.02;
 const SEPARATOR_COLOR = vec3f(1, 1, 1);
 const SEPARATOR_HEIGHT = 0.9;
 const SEPARATOR_THICKNESS = 0.0025;
 const SEPARATOR_GLOW_FACTOR = 0.001;
 
-var<uniform> global: Global;
+var<uniform> surface: SurfaceData;
 
 struct Fragment {
     @builtin(position)
@@ -52,16 +55,16 @@ struct Fragment {
     @location(0)
     world_position: vec2f,
     @location(1)
-    time: f32,
+    color_angle: f32,
 }
 
 @vertex
 fn vs_main(vertex: Vertex, instance: Field) -> Fragment {
     let position = vertex.position.xy * FIELD_SIZE * SHAPE_FACTOR;
     return Fragment(
-        vec4f(position * surface_ratio(global.surface_size), Z, 1),
+        vec4f(position * surface_ratio(surface.size), Z, 1),
         position,
-        global.elapsed_secs,
+        instance.color_angle,
     );
 }
 
@@ -72,7 +75,7 @@ fn fs_main(fragment: Fragment) -> @location(0) vec4f {
 
 fn border_color(fragment: Fragment) -> vec3f {
     let angle = angle_vec2f(fragment.world_position, vec2f(1.));
-    let rotated_angle = angle + fragment.time * BORDER_COLOR_ROTATION_SPEED;
+    let rotated_angle = angle + fragment.color_angle;
     let dist = abs(rect_signed_dist(fragment.world_position, FIELD_SIZE + vec2f(BORDER_THICKNESS)));
     let brightness = brightness(dist, BORDER_THICKNESS, BORDER_GLOW_FACTOR);
     let color = color(rotated_angle);
