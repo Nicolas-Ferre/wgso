@@ -136,22 +136,22 @@ fn rotation_mat(quat: vec4f) -> mat4x4f {
 /// Generates a random `u32` value between `min` and `max`.
 ///
 /// This function is based on [`random()`](random) function.
-fn random_u32(seed: ptr<function, u32>, min: u32, max: u32) -> u32 {
-    return random(seed) % max(abs(max - min), 1) + min(min, max);
+fn random_u32(seed: ptr<function, u32>, min_val: u32, max_val: u32) -> u32 {
+    return random(seed) % max(abs(max_val - min_val), 1) + min(min_val, max_val);
 }
 
 /// Generates a random `i32` value between `min` and `max`.
 ///
 /// This function is based on [`random()`](random) function.
-fn random_i32(seed: ptr<function, u32>, min: i32, max: i32) -> i32 {
-    return bitcast<i32>(random(seed)) % max(abs(max - min), 1) + min(min, max);
+fn random_i32(seed: ptr<function, u32>, min_val: i32, max_val: i32) -> i32 {
+    return bitcast<i32>(random(seed)) % max(abs(max_val - min_val), 1) + min(min_val, max_val);
 }
 
 /// Generates a random `f32` value between `min` and `max`.
 ///
 /// This function is based on [`random()`](random) function.
-fn random_f32(seed: ptr<function, u32>, min: f32, max: f32) -> f32 {
-    return f32(random(seed)) * abs(max - min) / f32(1 << 31) + min(min, max);
+fn random_f32(seed: ptr<function, u32>, min_val: f32, max_val: f32) -> f32 {
+    return f32(random(seed)) * abs(max_val - min_val) / f32(1 << 31) + min(min_val, max_val);
 }
 
 /// Generates a random `u32` value between 0 and 2^31 based on a `seed`.

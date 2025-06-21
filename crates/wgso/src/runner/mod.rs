@@ -1,8 +1,10 @@
+use crate::program::file::SourceFolder;
 use crate::runner::shaders::RenderShaderResources;
 use crate::runner::std::StdState;
 use crate::runner::target::{Target, TargetConfig, TargetSpecialized, TextureTarget, WindowTarget};
 use crate::{Error, Program};
-use ::std::path::{Path, PathBuf};
+use ::std::path::PathBuf;
+use ::std::sync::Arc;
 use futures::executor;
 use fxhash::FxHashMap;
 use shader_execution::ShaderExecution;
@@ -14,9 +16,9 @@ use wgpu::{
     TextureFormat, TextureViewDescriptor,
 };
 use winit::dpi::PhysicalSize;
-use winit::event_loop::ActiveEventLoop;
+use winit::window::Window;
 
-mod gpu;
+pub(crate) mod gpu;
 mod shader_execution;
 mod shaders;
 mod std;
@@ -49,12 +51,26 @@ impl Runner {
     ///
     /// An error is returned if the program initialization has failed.
     pub fn new(
-        folder_path: impl AsRef<Path>,
-        event_loop: Option<&ActiveEventLoop>,
+        source: impl SourceFolder + Send,
+        window: Option<Arc<Window>>,
         size: Option<(u32, u32)>,
     ) -> Result<Self, Program> {
-        let folder_path = folder_path.as_ref();
-        let program = Program::parse(folder_path);
+        executor::block_on(Self::new_async(source, window, size))
+    }
+
+    /// Creates a new runner from a WGSO program directory.
+    ///
+    /// # Errors
+    ///
+    /// An error is returned if the program initialization has failed.
+    #[allow(clippy::future_not_send)]
+    pub async fn new_async(
+        source: impl SourceFolder + Send,
+        window: Option<Arc<Window>>,
+        size: Option<(u32, u32)>,
+    ) -> Result<Self, Program> {
+        let folder_path = source.path();
+        let program = Program::parse(source);
         if !program.errors.is_empty() {
             return Err(program.with_sorted_errors());
         }
@@ -62,17 +78,17 @@ impl Runner {
             size: size.unwrap_or((800, 600)),
         };
         let instance = gpu::create_instance();
-        let window_surface = event_loop.map(|event_loop| {
+        let window_surface = window.map(|window| {
             // coverage: off (window cannot be tested)
-            let window = gpu::create_window(event_loop, target.size);
             let surface = gpu::create_surface(&instance, window.clone());
             (window, surface)
         }); // coverage: on
         let adapter = gpu::create_adapter(
             &instance,
             window_surface.as_ref().map(|(_, surface)| surface),
-        );
-        let (device, queue) = gpu::create_device(&adapter);
+        )
+        .await;
+        let (device, queue) = gpu::create_device(&adapter).await;
         let surface_config = window_surface.as_ref().map(|(_, surface)| {
             // coverage: off (window cannot be tested)
             gpu::create_surface_config(&adapter, &device, surface, target.size)
@@ -116,9 +132,9 @@ impl Runner {
             buffers,
             is_initialized: false,
             instance,
-            watcher: RunnerWatcher::new(folder_path),
+            watcher: RunnerWatcher::new(&folder_path),
         };
-        if runner.load_shaders(None) {
+        if runner.load_shaders(None).await {
             Ok(runner)
         } else {
             Err(runner.program.with_sorted_errors())
@@ -260,7 +276,7 @@ impl Runner {
             // coverage: off (window cannot be tested)
             TargetSpecialized::Window(target) => {
                 let texture = target.create_surface_texture();
-                let view = gpu::create_surface_view(&texture);
+                let view = gpu::create_surface_view(&texture, target.surface_config.format);
                 let pass = gpu::create_render_pass(&mut encoder, &view, &self.target.depth_buffer);
                 self.run_draw_step(pass);
                 self.queue.submit(Some(encoder.finish()));
@@ -275,12 +291,21 @@ impl Runner {
             }
         }
         self.std_state.update(self.target.config.size);
+        #[cfg(not(target_arch = "wasm32"))]
         if let Some(error) = executor::block_on(self.device.pop_error_scope()) {
             self.program.errors.push(gpu::convert_error(error));
-            Err(&self.program)
-        } else {
-            Ok(())
+            return Err(&self.program);
         }
+        #[cfg(target_arch = "wasm32")]
+        {
+            let error = self.device.pop_error_scope();
+            wasm_bindgen_futures::spawn_local(async move {
+                if let Some(error) = error.await {
+                    log::error!("{}", error);
+                }
+            });
+        }
+        Ok(())
     }
 
     /// Reloads the runner if a file in the program directory has been updated.
@@ -292,7 +317,7 @@ impl Runner {
         if !self.watcher.detect_changes() {
             return Ok(());
         }
-        let mut program = Program::parse(&self.program.root_path);
+        let mut program = Program::parse(self.program.root_path.as_path());
         if !program.errors.is_empty() {
             return Err(program.with_sorted_errors());
         }
@@ -300,7 +325,7 @@ impl Runner {
             program.errors.push(Error::ChangedStorageStructure);
             return Err(program.with_sorted_errors());
         }
-        if self.load_shaders(Some(&mut program)) {
+        if executor::block_on(self.load_shaders(Some(&mut program))) {
             self.program = program;
             Ok(())
         } else {
@@ -315,7 +340,8 @@ impl Runner {
         self.write("std_.mouse", &self.std_state.mouse.data());
     }
 
-    fn load_shaders(&mut self, program: Option<&mut Program>) -> bool {
+    #[allow(clippy::future_not_send)]
+    async fn load_shaders(&mut self, program: Option<&mut Program>) -> bool {
         let program = program.unwrap_or(&mut self.program);
         self.device.push_error_scope(ErrorFilter::Validation);
         let compute_shaders = Self::create_compute_shaders(&self.device, program);
@@ -329,7 +355,7 @@ impl Runner {
         );
         let render_shader_executions =
             Self::create_render_shader_draws(&self.device, program, &self.buffers, &render_shaders);
-        if let Some(error) = executor::block_on(self.device.pop_error_scope()) {
+        if let Some(error) = self.device.pop_error_scope().await {
             program.errors.push(gpu::convert_error(error));
             false
         } else {

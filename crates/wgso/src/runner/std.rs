@@ -1,4 +1,4 @@
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use web_time::{Instant, SystemTime};
 use winit::dpi::PhysicalPosition;
 use winit::event::{ElementState, MouseButton, MouseScrollDelta};
 use winit::keyboard::KeyCode;
@@ -35,7 +35,7 @@ impl Default for StdTimeState {
             frame_delta_secs: 0.0,
             frame_index: 0,
             start_secs: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
+                .duration_since(SystemTime::UNIX_EPOCH)
                 .map_or(0, |d| d.as_secs() as u32),
             last_frame_end: Instant::now(),
         }
