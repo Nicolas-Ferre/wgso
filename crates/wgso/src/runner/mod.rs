@@ -63,6 +63,7 @@ impl Runner {
     /// # Errors
     ///
     /// An error is returned if the program initialization has failed.
+    #[allow(clippy::future_not_send)]
     pub async fn new_async(
         source: impl SourceFolder + Send,
         window: Option<Arc<Window>>,
@@ -339,6 +340,7 @@ impl Runner {
         self.write("std_.mouse", &self.std_state.mouse.data());
     }
 
+    #[allow(clippy::future_not_send)]
     async fn load_shaders(&mut self, program: Option<&mut Program>) -> bool {
         let program = program.unwrap_or(&mut self.program);
         self.device.push_error_scope(ErrorFilter::Validation);

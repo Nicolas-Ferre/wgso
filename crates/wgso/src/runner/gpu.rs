@@ -43,6 +43,7 @@ pub(crate) fn create_instance() -> Instance {
     })
 }
 
+#[allow(clippy::future_not_send)]
 pub(crate) async fn create_adapter(
     instance: &Instance,
     window_surface: Option<&Surface<'_>>,
@@ -58,6 +59,7 @@ pub(crate) async fn create_adapter(
         .expect("no supported graphic adapter found")
 }
 
+#[allow(clippy::future_not_send)]
 pub(crate) async fn create_device(adapter: &Adapter) -> (Device, Queue) {
     let device_descriptor = DeviceDescriptor {
         label: Some("wgso:device"),
