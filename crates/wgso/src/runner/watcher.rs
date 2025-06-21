@@ -1,12 +1,12 @@
-#[cfg(not(target_os = "android"))]
+#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 #[derive(Debug)]
 pub(crate) struct RunnerWatcher {
     _watcher: notify::RecommendedWatcher,
     watcher_events: std::sync::mpsc::Receiver<notify::Result<notify::Event>>,
-    next_update: Option<std::time::Instant>,
+    next_update: Option<web_time::Instant>,
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 impl RunnerWatcher {
     const SECONDS_BEFORE_RELOADING: u64 = 2;
 
@@ -32,13 +32,13 @@ impl RunnerWatcher {
         });
         if is_updated {
             self.next_update = Some(
-                std::time::Instant::now()
+                web_time::Instant::now()
                     + std::time::Duration::from_secs(Self::SECONDS_BEFORE_RELOADING),
             );
         }
         if self
             .next_update
-            .is_some_and(|next_update| std::time::Instant::now() >= next_update)
+            .is_some_and(|next_update| web_time::Instant::now() >= next_update)
         {
             self.next_update = None;
             true
@@ -48,11 +48,11 @@ impl RunnerWatcher {
     }
 }
 
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android", target_arch = "wasm32"))]
 #[derive(Debug)]
 pub(crate) struct RunnerWatcher {}
 
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android", target_arch = "wasm32"))]
 impl RunnerWatcher {
     pub(crate) fn new(_folder_path: &std::path::Path) -> Self {
         Self {}

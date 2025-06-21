@@ -52,7 +52,11 @@ Then the example can be run with the following commands:
       ```
 - Android:
     - ```shell
-      PROGRAM_PATH=<example absolute path> cargo apk run --manifest-path=crates/wgso/Cargo.toml --release --example wgso_android
+      PROGRAM_PATH=<example absolute path> cargo apk run --manifest-path=crates/wgso/Cargo.toml --example wgso_android --release
+      ```
+- Web (browser should support WebGPU):
+    - ```shell
+      PROGRAM_PATH=<example absolute path> cargo run-wasm --example wgso_web --release
       ```
 
 ## 📜 License

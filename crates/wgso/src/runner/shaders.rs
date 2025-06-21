@@ -130,7 +130,7 @@ impl RenderShaderResources {
                 module: &module,
                 entry_point: None,
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: texture_format,
+                    format: texture_format.add_srgb_suffix(),
                     blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],

@@ -1,15 +1,14 @@
 use crate::Error;
-use futures::executor;
 use std::sync::Arc;
 use wgpu::{
     Adapter, BackendOptions, Backends, BindGroupLayout, Buffer, BufferDescriptor, BufferUsages,
-    Color, CommandEncoder, CommandEncoderDescriptor, ComputePass, ComputePassDescriptor, Device,
-    DeviceDescriptor, Extent3d, Features, Instance, InstanceFlags, Limits, LoadOp, MemoryHints,
-    Operations, PipelineLayout, PipelineLayoutDescriptor, PowerPreference, Queue, RenderPass,
-    RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,
-    RequestAdapterOptions, StoreOp, Surface, SurfaceConfiguration, SurfaceTexture, Texture,
-    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
-    TextureViewDescriptor, Trace,
+    Color, CommandEncoder, CommandEncoderDescriptor, CompositeAlphaMode, ComputePass,
+    ComputePassDescriptor, Device, DeviceDescriptor, Extent3d, Features, Instance, InstanceFlags,
+    Limits, LoadOp, MemoryHints, Operations, PipelineLayout, PipelineLayoutDescriptor,
+    PowerPreference, Queue, RenderPass, RenderPassColorAttachment,
+    RenderPassDepthStencilAttachment, RenderPassDescriptor, RequestAdapterOptions, StoreOp,
+    Surface, SurfaceConfiguration, SurfaceTexture, Texture, TextureDescriptor, TextureDimension,
+    TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, Trace,
 };
 use winit::dpi::PhysicalSize;
 use winit::event_loop::ActiveEventLoop;
@@ -44,17 +43,22 @@ pub(crate) fn create_instance() -> Instance {
     })
 }
 
-pub(crate) fn create_adapter(instance: &Instance, window_surface: Option<&Surface<'_>>) -> Adapter {
+pub(crate) async fn create_adapter(
+    instance: &Instance,
+    window_surface: Option<&Surface<'_>>,
+) -> Adapter {
     let adapter_request = RequestAdapterOptions {
         power_preference: PowerPreference::default(),
         force_fallback_adapter: false,
         compatible_surface: window_surface,
     };
-    executor::block_on(instance.request_adapter(&adapter_request))
+    instance
+        .request_adapter(&adapter_request)
+        .await
         .expect("no supported graphic adapter found")
 }
 
-pub(crate) fn create_device(adapter: &Adapter) -> (Device, Queue) {
+pub(crate) async fn create_device(adapter: &Adapter) -> (Device, Queue) {
     let device_descriptor = DeviceDescriptor {
         label: Some("wgso:device"),
         required_features: Features::default(),
@@ -62,7 +66,9 @@ pub(crate) fn create_device(adapter: &Adapter) -> (Device, Queue) {
         memory_hints: MemoryHints::Performance,
         trace: Trace::Off,
     };
-    executor::block_on(adapter.request_device(&device_descriptor))
+    adapter
+        .request_device(&device_descriptor)
+        .await
         .expect("error when retrieving graphic device")
 }
 
@@ -194,17 +200,29 @@ pub(crate) fn create_surface_config(
     surface: &Surface<'_>,
     size: (u32, u32),
 ) -> SurfaceConfiguration {
-    let config = surface
-        .get_default_config(adapter, size.0, size.1)
-        .expect("not supported surface");
+    let format = surface.get_capabilities(adapter).formats[0];
+    let config = SurfaceConfiguration {
+        usage: TextureUsages::RENDER_ATTACHMENT,
+        #[cfg(target_os = "android")]
+        format: format.add_srgb_suffix(),
+        #[cfg(not(target_os = "android"))]
+        format: format.remove_srgb_suffix(),
+        width: size.0,
+        height: size.1,
+        present_mode: surface.get_capabilities(adapter).present_modes[0],
+        desired_maximum_frame_latency: 2,
+        alpha_mode: CompositeAlphaMode::Auto,
+        view_formats: vec![format.add_srgb_suffix()],
+    };
     surface.configure(device, &config);
     config
 }
 
-pub(crate) fn create_surface_view(texture: &SurfaceTexture) -> TextureView {
-    texture
-        .texture
-        .create_view(&TextureViewDescriptor::default())
+pub(crate) fn create_surface_view(texture: &SurfaceTexture, format: TextureFormat) -> TextureView {
+    texture.texture.create_view(&TextureViewDescriptor {
+        format: Some(format.add_srgb_suffix()),
+        ..Default::default()
+    })
 }
 
 // coverage: on
