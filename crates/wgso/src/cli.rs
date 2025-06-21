@@ -1,16 +1,18 @@
 #![allow(clippy::print_stdout, clippy::use_debug)]
 
+use crate::runner::gpu;
 use crate::{Program, Runner};
 use clap::Parser;
+use futures::channel::oneshot::{Receiver, Sender};
+use std::fmt::Display;
+use std::fs;
 use std::path::{Path, PathBuf};
-use std::{fs, process};
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
 use winit::event::{DeviceEvent, DeviceId, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::keyboard::PhysicalKey;
 use winit::window::WindowId;
-
 // coverage: off (not easy to test)
 
 #[cfg(target_os = "android")]
@@ -57,14 +59,15 @@ impl InstallArgs {
             let dep_folder_path = self.path.join("_");
             if dep_folder_path.is_dir() {
                 if let Err(error) = fs::remove_dir_all(&dep_folder_path) {
-                    println!("Cannot clear {} folder: {error}", dep_folder_path.display());
-                    process::exit(1);
+                    exit_on_error(format!(
+                        "Cannot clear {} folder: {error}",
+                        dep_folder_path.display()
+                    ));
                 }
             }
         }
         if let Err(error) = wgso_deps::retrieve_dependencies(self.path.join("wgso.yaml")) {
-            println!("{error}");
-            process::exit(1);
+            exit_on_error(error);
         }
     }
 }
@@ -84,8 +87,16 @@ pub struct RunArgs {
 }
 
 impl RunArgs {
+    const DEFAULT_SIZE: (u32, u32) = (800, 600);
+
     fn run(self) {
-        let mut runner = WindowRunner::new(self);
+        let path = self.path.clone();
+        let mut runner = WindowRunner::new(self, move |event_loop, sender| {
+            let window = gpu::create_window(event_loop, Self::DEFAULT_SIZE);
+            sender
+                .send(Runner::new(path.as_path(), Some(window), None))
+                .expect("Cannot send created runner");
+        });
         EventLoop::builder()
             .build()
             .expect("event loop initialization failed")
@@ -93,21 +104,49 @@ impl RunArgs {
             .expect("event loop failed");
     }
 
+    /// Runs a WGSO program on Web.
+    #[cfg(target_arch = "wasm32")]
+    pub fn run_web(self, source: impl crate::SourceFolder + Send + 'static) {
+        use winit::platform::web::{EventLoopExtWebSys, WindowExtWebSys};
+        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+        let _ = console_log::init_with_level(log::Level::Info);
+        let runner = WindowRunner::new(self, move |event_loop, sender| {
+            let window = gpu::create_window(event_loop, Self::DEFAULT_SIZE);
+            if let Some(canvas) = window.canvas() {
+                canvas.set_id("wgso");
+                web_sys::window()
+                    .and_then(|win| win.document())
+                    .and_then(|doc| doc.body())
+                    .and_then(|body| body.append_child(&web_sys::Element::from(canvas)).ok())
+                    .expect("cannot append canvas to document body");
+            }
+            let source = source.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                sender
+                    .send(Runner::new_async(source, Some(window), None).await)
+                    .expect("Cannot send created runner");
+            });
+        });
+        EventLoop::builder()
+            .build()
+            .expect("event loop initialization failed")
+            .spawn_app(runner);
+    }
+
     /// Runs a WGSO program on Android.
     #[cfg(target_os = "android")]
     pub fn run_android(
         self,
         android_app: android_activity::AndroidApp,
-        source: impl crate::SourceFolder + 'static,
+        source: impl crate::SourceFolder + Send + 'static,
     ) {
         use winit::platform::android::EventLoopBuilderExtAndroid;
-        let mut runner = WindowRunner {
-            args: self,
-            create_runner_fn: Some(Box::new(move |event_loop| {
-                Runner::new(source.clone(), Some(event_loop), None)
-            })),
-            runner: None,
-        };
+        let mut runner = WindowRunner::new(self, move |event_loop, sender| {
+            let window = gpu::create_window(event_loop, Self::DEFAULT_SIZE);
+            sender
+                .send(Runner::new(source.clone(), Some(window), None))
+                .expect("Cannot send created runner");
+        });
         ANDROID_APP.get_or_init(|| android_app.clone());
         EventLoop::builder()
             .with_android_app(android_app)
@@ -131,7 +170,7 @@ impl AnalyzeArgs {
     fn run(self) {
         match Runner::new(Path::new(&self.path), None, None) {
             Ok(runner) => println!("{runner:#?}"),
-            Err(program) => exit_on_error(&program),
+            Err(program) => exit_on_error(program.render_errors()),
         }
     }
 }
@@ -139,8 +178,9 @@ impl AnalyzeArgs {
 struct WindowRunner {
     args: RunArgs,
     #[allow(clippy::type_complexity)]
-    create_runner_fn: Option<Box<dyn Fn(&ActiveEventLoop) -> Result<Runner, Program>>>,
+    create_runner_fn: Box<dyn Fn(&ActiveEventLoop, Sender<Result<Runner, Program>>)>,
     runner: Option<Runner>,
+    runner_receiver: Option<Receiver<Result<Runner, Program>>>,
 }
 
 impl ApplicationHandler for WindowRunner {
@@ -155,6 +195,15 @@ impl ApplicationHandler for WindowRunner {
         _window_id: WindowId,
         event: WindowEvent,
     ) {
+        if let Some(receiver) = &mut self.runner_receiver {
+            if let Ok(Some(runner)) = receiver.try_recv() {
+                match runner {
+                    Ok(runner) => self.runner = Some(runner),
+                    Err(program) => exit_on_error(program.render_errors()),
+                }
+                self.runner_receiver = None;
+            }
+        }
         if let Some(runner) = &mut self.runner {
             match event {
                 WindowEvent::RedrawRequested => self.update(),
@@ -200,11 +249,15 @@ impl ApplicationHandler for WindowRunner {
 }
 
 impl WindowRunner {
-    fn new(args: RunArgs) -> Self {
+    fn new(
+        args: RunArgs,
+        create_runner_fn: impl Fn(&ActiveEventLoop, Sender<Result<Runner, Program>>) + 'static,
+    ) -> Self {
         Self {
             args,
-            create_runner_fn: None,
+            create_runner_fn: Box::new(create_runner_fn),
             runner: None,
+            runner_receiver: None,
         }
     }
 
@@ -212,15 +265,9 @@ impl WindowRunner {
         if let Some(runner) = &mut self.runner {
             runner.refresh_surface();
         } else {
-            let runner = if let Some(create_fn) = &self.create_runner_fn {
-                create_fn(event_loop)
-            } else {
-                Runner::new(self.args.path.as_path(), Some(event_loop), None)
-            };
-            match runner {
-                Ok(runner) => self.runner = Some(runner),
-                Err(program) => exit_on_error(&program),
-            }
+            let (sender, receiver) = futures::channel::oneshot::channel();
+            self.runner_receiver = Some(receiver);
+            (self.create_runner_fn)(event_loop, sender);
         }
     }
 
@@ -230,7 +277,7 @@ impl WindowRunner {
                 println!("{}", program.render_errors());
             }
             if let Err(program) = runner.run_step() {
-                exit_on_error(program);
+                exit_on_error(program.render_errors());
             }
             if self.args.fps {
                 println!("FPS: {}", (1. / runner.delta_secs()).round());
@@ -248,7 +295,10 @@ impl WindowRunner {
     }
 }
 
-fn exit_on_error(program: &Program) {
-    println!("{}", program.render_errors());
-    process::exit(1);
+fn exit_on_error(error: impl Display) {
+    println!("{error}");
+    #[cfg(not(target_arch = "wasm32"))]
+    std::process::exit(1);
+    #[cfg(target_arch = "wasm32")]
+    log::error!("{error}");
 }

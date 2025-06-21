@@ -1,13 +1,13 @@
 use crate::program::section::Section;
 use crate::Program;
 use annotate_snippets::{Level, Renderer, Snippet};
+use naga::front::wgsl::ParseError;
 use naga::valid::ValidationError;
 use naga::WithSpan;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::{error, io};
-use wgpu::naga::front::wgsl::ParseError;
 use wgso_parser::{ParsingError, Token};
 
 /// A WGSO error.
