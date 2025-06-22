@@ -79,7 +79,7 @@ struct Touch {
     fingers: array<Finger, MAX_FINGER_COUNT>,
 }
 
-/// Mouse wheel state.
+/// Finger state.
 struct Finger {
     state: InputState,
     /// The finger position in pixels from top-left corner of the surface.
