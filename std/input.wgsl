@@ -489,7 +489,7 @@ const KB_F34 = 192;
 const KB_F35 = 193;
 
 
-/// Keyboard constants.
+/// Mouse constants.
 #mod mouse
 
 /// Left mouse button.

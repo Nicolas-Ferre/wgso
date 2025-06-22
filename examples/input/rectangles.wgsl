@@ -3,6 +3,8 @@
 #run ~.update()
 #draw ~.render<rectangles.vertices, rectangles.keyboard>(ratio=rectangles.ratio)
 #draw ~.render<rectangles.vertices, rectangles.mouse>(ratio=rectangles.ratio)
+#draw ~.render<rectangles.vertices, rectangles.fingers>(ratio=rectangles.ratio)
+#import _.std.state.type
 #import _.std.vertex.type
 
 const RECT_SIZE = vec2f(0.3, 0.3);
@@ -13,6 +15,7 @@ struct Rectangles {
     vertices: array<Vertex, 6>,
     keyboard: Rect,
     mouse: Rect,
+    fingers: array<Rect, MAX_FINGER_COUNT>,
 }
 
 struct Rect {
@@ -59,6 +62,7 @@ fn main() {
     rectangles.ratio = f32(std_.surface.size.x) / f32(std_.surface.size.y);
     update_keyboard();
     update_mouse();
+    update_touch();
 }
 
 fn update_keyboard() {
@@ -79,8 +83,7 @@ fn update_keyboard() {
 }
 
 fn update_mouse() {
-    rectangles.mouse.position = (std_.mouse.position / vec2f(std_.surface.size) - vec2f(0.5, 0.5))
-        * vec2f(2, -2) / ratio_2d(rectangles.ratio);
+    rectangles.mouse.position = surface_to_world_position(std_.mouse.position);
     let enter_state = std_.mouse.buttons[MS_BUTTON_LEFT];
     if is_just_pressed(enter_state) {
         rectangles.mouse.color = BLUE;
@@ -93,6 +96,26 @@ fn update_mouse() {
     rectangles.mouse.color.r += std_.mouse.wheel.delta.y * wheel_factor;
     rectangles.mouse.color.b += std_.mouse.wheel.delta.x * wheel_factor;
     rectangles.mouse.color = clamp(rectangles.mouse.color, vec4f(0, 0, 0, 0), vec4f(1, 1, 1, 1));
+}
+
+fn update_touch() {
+    for (var i = 0u; i < MAX_FINGER_COUNT; i++) {
+        let finger = &std_.touch.fingers[i];
+        let rectangle = &rectangles.fingers[i];
+        rectangle.position = surface_to_world_position(finger.position);
+        if is_just_pressed(finger.state) {
+            rectangle.color = BLUE;
+        } else if is_just_released(finger.state) {
+            rectangle.color = INVISIBLE;
+        } else if is_pressed(finger.state) {
+            rectangle.color = RED;
+        }
+    }
+}
+
+fn surface_to_world_position(surface_position: vec2f) -> vec2f {
+    return (surface_position / vec2f(std_.surface.size) - vec2f(0.5, 0.5))
+        * vec2f(2, -2) / ratio_2d(rectangles.ratio);
 }
 
 #shader<render, Vertex, Rect> render
@@ -119,5 +142,8 @@ fn vs_main(vertex: Vertex, instance: Rect) -> Fragment {
 
 @fragment
 fn fs_main(fragment: Fragment) -> @location(0) vec4f {
+    if fragment.color.a < 0.5 {
+        discard;
+    }
     return fragment.color;
 }
