@@ -338,6 +338,7 @@ impl Runner {
         self.write("std_.surface", &self.std_state.surface.data());
         self.write("std_.keyboard", &self.std_state.keyboard.data());
         self.write("std_.mouse", &self.std_state.mouse.data());
+        self.write("std_.touch", &self.std_state.touch.data());
     }
 
     #[allow(clippy::future_not_send)]

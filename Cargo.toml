@@ -41,7 +41,7 @@ wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = ["Location"] }
 web-time = "1.1"
 winit = "0.30"
-zip = "2"
+zip = "4"
 
 naga = { version = "25.0", features = ["wgsl-in", "wgsl-out"] }
 wgpu = "25.0"
