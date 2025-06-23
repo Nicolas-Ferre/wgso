@@ -6,8 +6,10 @@
 const KEYBOARD_KEY_COUNT = 193;
 /// The number of recognized standard mouse buttons.
 const MOUSE_BUTTON_COUNT = 5;
-/// The number of recognized special mouse buttons.
-const MOUSE_SPECIAL_BUTTON_COUNT = 32;
+/// The maximum number of recognized special mouse buttons.
+const MAX_MOUSE_SPECIAL_BUTTON_COUNT = 32;
+/// The maximum number of recognized fingers.
+const MAX_FINGER_COUNT = 10;
 
 /// Main storage type of the standard library.
 struct Std {
@@ -19,6 +21,8 @@ struct Std {
     keyboard: Keyboard,
     /// Mouse state retrieved from the CPU.
     mouse: Mouse,
+    /// Touch state retrieved from the CPU.
+    touch: Touch,
 }
 
 /// Time information.
@@ -52,10 +56,10 @@ struct Mouse {
     /// Index is one of `MS_BUTTON_*`.
     buttons: array<InputState, MOUSE_BUTTON_COUNT>,
     /// The state of special mouse buttons.
-    special_buttons: array<InputState, MOUSE_SPECIAL_BUTTON_COUNT>,
+    special_buttons: array<InputState, MAX_MOUSE_SPECIAL_BUTTON_COUNT>,
     /// The mouse position in pixels from top-left corner of the surface.
     position: vec2f,
-    /// The mouse delta in pixels.
+    /// The mouse delta since last frame in pixels.
     delta: vec2f,
     /// The mouse wheel state.
     wheel: MouseWheel,
@@ -63,9 +67,25 @@ struct Mouse {
 
 /// Mouse wheel state.
 struct MouseWheel {
+    /// Mouse wheel delta since last frame.
     delta: vec2f,
     /// Either `MS_WHEEL_LINES` or `MS_WHEEL_PIXELS`.
     delta_unit: u32,
+}
+
+/// Touch state.
+struct Touch {
+    /// The state of fingers.
+    fingers: array<Finger, MAX_FINGER_COUNT>,
+}
+
+/// Finger state.
+struct Finger {
+    state: InputState,
+    /// The finger position in pixels from top-left corner of the surface.
+    position: vec2f,
+    /// The finger delta since last frame in pixels.
+    delta: vec2f,
 }
 
 /// Storage used retrieve or send information to the CPU.

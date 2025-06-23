@@ -1,6 +1,6 @@
 use web_time::{Instant, SystemTime};
 use winit::dpi::PhysicalPosition;
-use winit::event::{ElementState, MouseButton, MouseScrollDelta};
+use winit::event::{ElementState, MouseButton, MouseScrollDelta, Touch, TouchPhase};
 use winit::keyboard::KeyCode;
 
 #[derive(Debug, Default)]
@@ -9,6 +9,7 @@ pub(crate) struct StdState {
     pub(crate) surface: SurfaceState,
     pub(crate) keyboard: StdKeyboardState,
     pub(crate) mouse: StdMouseState,
+    pub(crate) touch: StdTouchState,
 }
 
 impl StdState {
@@ -16,6 +17,7 @@ impl StdState {
         self.surface.update(surface_size);
         self.keyboard.update();
         self.mouse.update();
+        self.touch.update();
         self.time.update();
     }
 }
@@ -124,7 +126,6 @@ const MOUSE_MAX_SPECIAL_BUTTON_COUNT: usize = 32;
 pub(crate) struct StdMouseState {
     buttons: [InputState; MOUSE_BUTTON_COUNT],
     special_buttons: [InputState; MOUSE_MAX_SPECIAL_BUTTON_COUNT],
-    special_button_count: usize,
     position: (f32, f32),
     delta: (f32, f32),
     wheel_delta: (f32, f32),
@@ -136,7 +137,6 @@ impl Default for StdMouseState {
         Self {
             buttons: [InputState::default(); MOUSE_BUTTON_COUNT],
             special_buttons: [InputState::default(); MOUSE_MAX_SPECIAL_BUTTON_COUNT],
-            special_button_count: 0,
             position: (0., 0.),
             delta: (0., 0.),
             wheel_delta: (0., 0.),
@@ -178,22 +178,17 @@ impl StdMouseState {
                 ElementState::Released => self.buttons[button_index].release(),
             },
             (_, Some(button_id)) => {
-                if let Some(button) = self.special_buttons[..self.special_button_count]
-                    .iter_mut()
-                    .find(|state| state.id() == button_id)
-                {
-                    match state {
-                        ElementState::Pressed => button.press(),
-                        ElementState::Released => button.release(),
-                    }
-                } else if self.special_button_count < MOUSE_MAX_SPECIAL_BUTTON_COUNT {
-                    let button = &mut self.special_buttons[self.special_button_count];
+                let button = if let Some(button) = self.existing_special_button(button_id) {
+                    Some(button)
+                } else {
+                    self.new_special_button()
+                };
+                if let Some(button) = button {
                     button.set_id(button_id);
                     match state {
                         ElementState::Pressed => button.press(),
                         ElementState::Released => button.release(),
                     }
-                    self.special_button_count += 1;
                 }
             }
             _ => unreachable!("internal error: invalid button"),
@@ -228,14 +223,114 @@ impl StdMouseState {
     }
 
     fn update(&mut self) {
-        for key in &mut self.buttons {
-            key.refresh();
+        for button in &mut self.buttons {
+            button.refresh();
         }
-        for key in &mut self.special_buttons {
-            key.refresh();
+        for button in &mut self.special_buttons {
+            button.refresh();
         }
         self.delta = (0., 0.);
         self.wheel_delta = (0., 0.);
+    }
+
+    fn existing_special_button(&mut self, button_id: u16) -> Option<&mut InputState> {
+        self.special_buttons
+            .iter_mut()
+            .find(|state| state.id() == button_id)
+    }
+
+    fn new_special_button(&mut self) -> Option<&mut InputState> {
+        self.special_buttons.iter_mut().find(|state| {
+            !state.bit(InputState::IS_PRESSED_BIT) && !state.bit(InputState::IS_JUST_RELEASED_BIT)
+        })
+    }
+}
+
+const MAX_FINGER_COUNT: usize = 10;
+
+#[derive(Debug, Default)]
+pub(crate) struct StdTouchState {
+    fingers: [Finger; MAX_FINGER_COUNT],
+}
+
+impl StdTouchState {
+    pub(crate) fn data(&self) -> Vec<u8> {
+        self.fingers.iter().flat_map(Finger::data).collect()
+    }
+
+    #[allow(clippy::cast_possible_truncation)]
+    pub(crate) fn update_finger(&mut self, touch: Touch) {
+        let finger_id = (touch.id % u64::from(u16::MAX)) as u16;
+        let finger = if let Some(finger) = self.existing_finger(finger_id) {
+            Some(finger)
+        } else {
+            self.new_finger()
+        };
+        if let Some(finger) = finger {
+            finger.state.set_id(finger_id);
+            match touch.phase {
+                TouchPhase::Started => {
+                    finger.position = (touch.location.x as f32, touch.location.y as f32);
+                    finger.state.press();
+                }
+                TouchPhase::Moved => {
+                    let position = (touch.location.x as f32, touch.location.y as f32);
+                    finger.delta = (
+                        position.0 - finger.position.0,
+                        position.1 - finger.position.1,
+                    );
+                    finger.position = position;
+                }
+                TouchPhase::Ended | TouchPhase::Cancelled => {
+                    finger.state.release();
+                }
+            }
+        }
+    }
+
+    fn update(&mut self) {
+        for finger in &mut self.fingers {
+            finger.refresh();
+        }
+    }
+
+    fn existing_finger(&mut self, finger_id: u16) -> Option<&mut Finger> {
+        self.fingers
+            .iter_mut()
+            .find(|finger| finger.state.id() == finger_id)
+    }
+
+    fn new_finger(&mut self) -> Option<&mut Finger> {
+        self.fingers.iter_mut().find(|finger| {
+            !finger.state.bit(InputState::IS_PRESSED_BIT)
+                && !finger.state.bit(InputState::IS_JUST_RELEASED_BIT)
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+struct Finger {
+    state: InputState,
+    position: (f32, f32),
+    delta: (f32, f32),
+}
+
+impl Finger {
+    pub(crate) fn data(&self) -> Vec<u8> {
+        self.state
+            .data()
+            .into_iter()
+            .chain([0, 0, 0, 0])
+            .chain(self.position.0.to_ne_bytes())
+            .chain(self.position.1.to_ne_bytes())
+            .chain(self.delta.0.to_ne_bytes())
+            .chain(self.delta.1.to_ne_bytes())
+            .collect()
+    }
+
+    fn refresh(&mut self) {
+        self.state.refresh();
+        self.delta = (0., 0.);
     }
 }
 

@@ -223,6 +223,7 @@ impl ApplicationHandler for WindowRunner {
                 WindowEvent::MouseWheel { delta, .. } => {
                     runner.std_state.mouse.update_wheel_delta(delta);
                 }
+                WindowEvent::Touch(touch) => runner.std_state.touch.update_finger(touch),
                 _ => (),
             }
         }
