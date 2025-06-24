@@ -1,12 +1,12 @@
 #mod main
 #run ~.update()
-#draw<0> ~.render<vertices.rectangle, collision_effects.particles>(surface=surface)
+#draw<0> ~.render<vertices.rectangle, collision_effects.instances>(surface=surface)
 
 const COLLISION_MAX_PARTICLE_COUNT = 180;
 const PARTICLE_COUNT_PER_COLLISION = 30;
 
-struct CollisionEffects {
-    particles: array<CollisionParticle, COLLISION_MAX_PARTICLE_COUNT>,
+struct CollisionParticles {
+    instances: array<CollisionParticle, COLLISION_MAX_PARTICLE_COUNT>,
 }
 
 struct CollisionParticle {
@@ -22,23 +22,25 @@ struct CollisionParticle {
 #import _.std.math.random
 #import _.std.math.vector
 
-var<storage, read_write> collision_effects: CollisionEffects;
+var<storage, read_write> collision_effects: CollisionParticles;
 
 fn add_collision_particles(position: vec2f, normal: vec2f) {
     let first_index = next_collision_particle_index();
+    let normal_angle = angle_vec2f(vec2f(0, 1), normal);
     var seed = 0u;
+    let min_angle = select(normal_angle - PI / 4, 0., all(normal == vec2f(0, 0)));
+    let max_angle = select(normal_angle + PI / 4, 2. * PI, all(normal == vec2f(0, 0)));
     for (var i = first_index; i < first_index + PARTICLE_COUNT_PER_COLLISION; i++) {
-        let normal_angle = angle_vec2f(vec2f(0, 1), normal);
-        let angle = random_f32(&seed, normal_angle - PI / 4, normal_angle + PI / 4);
+        let angle = random_f32(&seed, min_angle, max_angle);
         let speed = random_f32(&seed, 0.1, 1.);
         let velocity = rotation_mat(quat(vec3f(0, 0, 1), angle)) * vec4f(0, speed, 0, 1);
-        collision_effects.particles[i] = CollisionParticle(position, velocity.xy, 1.);
+        collision_effects.instances[i] = CollisionParticle(position, velocity.xy, 1.);
     }
 }
 
 fn next_collision_particle_index() -> u32 {
     for (var i = 0u; i < COLLISION_MAX_PARTICLE_COUNT; i++) {
-        if collision_effects.particles[i].brightness <= 0 {
+        if collision_effects.instances[i].brightness <= 0 {
             return i;
         }
     }
@@ -56,7 +58,7 @@ const DECELERATION = 2;
 @compute
 @workgroup_size(THREAD_COUNT, 1, 1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    let particle = &collision_effects.particles[global_id.x];
+    let particle = &collision_effects.instances[global_id.x];
     particle.position += particle.velocity * std_.time.frame_delta_secs;
     particle.velocity -= DECELERATION * particle.velocity * std_.time.frame_delta_secs;
     particle.brightness -= BRIGHTNESS_REDUCTION_SPEED * std_.time.frame_delta_secs;
@@ -97,9 +99,9 @@ fn vs_main(
         return Fragment(vec4f(-10, -10, 0, 1), vec2f(), vec2f(), 0);
     }
     let position = vertex.position.xy * RADIUS * 2 + instance.position;
-    let Z = (1 - f32(instance_index) / f32(COLLISION_MAX_PARTICLE_COUNT)) * (MAX_Z - MIN_Z) + MIN_Z;
+    let z = (1 - f32(instance_index) / f32(COLLISION_MAX_PARTICLE_COUNT)) * (MAX_Z - MIN_Z) + MIN_Z;
     return Fragment(
-        vec4f(position * surface_ratio(surface.size), Z, 1),
+        vec4f(position * surface_ratio(surface.size), z, 1),
         position,
         instance.position,
         instance.brightness,

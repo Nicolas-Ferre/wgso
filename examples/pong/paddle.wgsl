@@ -21,14 +21,18 @@ struct Paddle {
 
 var<storage, read_write> paddles: Paddles;
 
+fn reset_paddles() {
+    paddles.instances[0].position = vec2f(-PADDLE_X_POSITION, 0);
+    paddles.instances[1].position = vec2f(PADDLE_X_POSITION, 0);
+}
+
 #shader<compute> init
 #import ~.storage
 
 @compute
 @workgroup_size(1, 1, 1)
 fn main() {
-    paddles.instances[0].position.x = -PADDLE_X_POSITION;
-    paddles.instances[1].position.x = PADDLE_X_POSITION;
+    reset_paddles();
 }
 
 #shader<compute> update
