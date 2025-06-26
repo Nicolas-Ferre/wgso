@@ -1,7 +1,7 @@
 #mod main
 #init ~.init()
 #run ~.update()
-#draw<500> ~.render<vertices.rectangle, ball.instance>(surface=surface, collisions=ball.collisions)
+#draw<500> ~.render<vertices.rectangle, ball.instance>(surface=std_.surface, collisions=ball.collisions)
 
 const BALL_RADIUS = 0.03;
 const BALL_DEFAULT_SPEED = 1.5;
@@ -48,10 +48,10 @@ fn main() {
 
 #shader<compute> update
 #import ~.storage
-#import collision_particle.storage
+#import ~.~.particles.storage
 #import field.main
-#import paddle.storage
-#import score.storage
+#import paddles.storage
+#import scores.storage
 #import _.std.state.storage
 
 const COLLISION_DIRECTION_X_WEIGHT = 0.1;
@@ -142,6 +142,7 @@ fn register_collision(collision_position: vec2f) {
 #import field.main
 #import _.std.math.vector
 #import _.std.math.matrix
+#import _.std.state.type
 #import _.std.vertex.type
 
 const Z = 0.5;
@@ -150,7 +151,7 @@ const MOTION_BRIGHNESS = 0.2;
 const GLOW_FACTOR = 0.005;
 const THICKNESS = 0.005;
 
-var<uniform> surface: SurfaceData;
+var<uniform> surface: Surface;
 var<uniform> collisions: array<BallCollision, BALL_PREVIOUS_COLLISION_COUNT>;
 
 struct Fragment {

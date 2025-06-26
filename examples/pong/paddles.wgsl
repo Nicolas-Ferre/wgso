@@ -1,7 +1,7 @@
 #mod main
 #init ~.init()
 #run ~.update()
-#draw<200> ~.render<vertices.rectangle, paddles.instances>(surface=surface)
+#draw<200> ~.render<vertices.rectangle, paddles.instances>(surface=std_.surface)
 
 const PADDLE_COUNT = 2;
 const PADDLE_X_POSITION = 0.8;
@@ -57,8 +57,9 @@ fn move_paddle(paddle_index: u32, up_key: u32, down_key: u32) {
 
 #shader<render, Vertex, Paddle> render
 #import ~.main
-#import ball.main
+#import ball.main.main
 #import surface.main
+#import _.std.state.type
 #import _.std.vertex.type
 
 const Z = 0.2;
@@ -66,7 +67,7 @@ const GLOW_FACTOR = 0.003;
 const THICKNESS = 0.008;
 const COLOR = BALL_COLOR;
 
-var<uniform> surface: SurfaceData;
+var<uniform> surface: Surface;
 
 struct Fragment {
     @builtin(position)

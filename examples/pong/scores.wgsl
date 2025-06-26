@@ -1,7 +1,7 @@
 #mod main
 #init ~.init()
 #run ~.update()
-#draw<900> ~.render_segment<vertices.rectangle, scores.segments>(surface=surface)
+#draw<900> ~.render_segment<vertices.rectangle, scores.segments>(surface=std_.surface)
 
 const SEGMENT_COUNT_PER_DIGIT = 7;
 const DIGIT_COUNT_PER_SCORE = 2;
@@ -86,6 +86,7 @@ fn update_digit(first_index: u32, value: u32) {
 #shader<render, Vertex, ScoreSegment> render_segment
 #import ~.main
 #import surface.main
+#import _.std.state.type
 #import _.std.vertex.type
 
 const MIN_Z = 0.7;
@@ -94,7 +95,7 @@ const ENABLED_COLOR = vec3f(1., 0.1, 0.1);
 const DISABLED_COLOR = ENABLED_COLOR * 0.03;
 const GLOW_FACTOR = 0.003;
 
-var<uniform> surface: SurfaceData;
+var<uniform> surface: Surface;
 
 struct Fragment {
     @builtin(position)

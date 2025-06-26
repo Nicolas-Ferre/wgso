@@ -15,6 +15,7 @@ const MAX_FINGER_COUNT = 10;
 struct Std {
     /// Time information retrieved from the CPU.
     time: Time,
+    _phantom: array<f32, 61>,
     /// Surface properties.
     surface: Surface,
     /// Keyboard state retrieved from the CPU.

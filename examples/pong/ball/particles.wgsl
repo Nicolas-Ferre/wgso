@@ -1,6 +1,6 @@
 #mod main
 #run ~.update()
-#draw<0> ~.render<vertices.rectangle, collision_effects.instances>(surface=surface)
+#draw<0> ~.render<vertices.rectangle, collision_effects.instances>(surface=std_.surface)
 
 const COLLISION_MAX_PARTICLE_COUNT = 180;
 const PARTICLE_COUNT_PER_COLLISION = 30;
@@ -67,16 +67,17 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
 #shader<render, Vertex, CollisionParticle> render
 #import ~.main
-#import ball.main
+#import ball.main.main
 #import surface.main
-#import _.std.vertex.type
 #import _.std.color.constant
+#import _.std.state.type
+#import _.std.vertex.type
 
 const MIN_Z = 0.;
 const MAX_Z = 0.1;
 const RADIUS = 0.01;
 
-var<uniform> surface: SurfaceData;
+var<uniform> surface: Surface;
 
 struct Fragment {
     @builtin(position)

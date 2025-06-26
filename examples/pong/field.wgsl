@@ -1,6 +1,6 @@
 #mod main
 #run ~.update()
-#draw<1000> ~.render<vertices.rectangle, field.instance>(surface=surface)
+#draw<1000> ~.render<vertices.rectangle, field.instance>(surface=std_.surface)
 #import _.std.math.constant
 
 const FIELD_SIZE = vec2f(1.9, 1.2);
@@ -47,7 +47,7 @@ const SEPARATOR_HEIGHT = 0.9;
 const SEPARATOR_THICKNESS = 0.0025;
 const SEPARATOR_GLOW_FACTOR = 0.001;
 
-var<uniform> surface: SurfaceData;
+var<uniform> surface: Surface;
 
 struct Fragment {
     @builtin(position)
