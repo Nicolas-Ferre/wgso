@@ -4,6 +4,12 @@
 /// Archimedes’ constant (π).
 const PI = 3.14159265358979323846264338327950288;
 
+/// Minimum `f32` value.
+const F32_MIN = -3.40282347E+38;
+
+/// Maximum `f32` value.
+const F32_MAX = 3.40282347E+38;
+
 //! Vector utils.
 #mod vector
 #import ~.constant
@@ -70,31 +76,6 @@ fn quat_inverse(quat: vec4f) -> vec4f {
 
 /// Common matrices to apply transformations.
 #mod matrix
-#import ~.quaternion
-
-/// Returns a projection matrix.
-///
-/// `ratio` is the ratio between screen width and height.
-/// `fov` is in radians.
-fn proj_mat(ratio: f32, fov: f32, far: f32, near: f32) -> mat4x4f {
-    let focal_length = 1 / (2 * tan(fov / 2));
-    return transpose(mat4x4f(
-        focal_length, 0, 0, 0,
-        0, focal_length * ratio, 0, 0,
-        0, 0, far / (far - near), -far * near / (far - near),
-        0, 0, 1, 0,
-    ));
-}
-
-/// Returns a model transformation matrix.
-fn model_mat(position: vec3f, scale: vec3f, rotation: vec4f) -> mat4x4f {
-    return translation_mat(position) * rotation_mat(rotation) * scale_mat(scale);
-}
-
-/// Returns a view transformation matrix.
-fn view_mat(position: vec3f, rotation: vec4f) -> mat4x4f {
-    return rotation_mat(quat_inverse(rotation)) * translation_mat(-position);
-}
 
 /// Returns a translation matrix.
 fn translation_mat(translation: vec3f) -> mat4x4f {
@@ -128,6 +109,36 @@ fn rotation_mat(quat: vec4f) -> mat4x4f {
         2 * x * z - 2 * y * w,      2 * y * z + 2 * x * w,      1 - 2 * x * x - 2 * y * y,  0,
         0,                          0,                          0,                          1,
     );
+}
+
+/// Utilities to calculate distances.
+#mod distance
+
+/// Calculates signed distance between a rectangle and a point at a given `position`.
+///
+/// The rectangle has a given `size` and is centered in `vec2f(0, 0)`.
+fn rect_signed_dist(position: vec2f, size: vec2f) -> f32 {
+    let distance = abs(position) - size / 2;
+    let exterior_dist = length(max(distance, vec2f(0.0)));
+    let interior_dist = min(max(distance.x, distance.y), 0.0);
+    return exterior_dist + interior_dist;
+}
+
+/// Calculates signed distance between a circle and a point at a given `position`.
+///
+/// The circle has a given `radius` and is centered in `vec2f(0, 0)`.
+fn circle_signed_dist(position: vec2f, radius: f32) -> f32 {
+    return length(position) - radius;
+}
+
+/// Calculates signed distance between a segment and a point at a given `position`.
+///
+/// The segment has `segment_point1` and `segment_point2` endpoints.
+fn segment_signed_dist(position: vec2f, segment_point1: vec2f, segment_point2: vec2f) -> f32 {
+    let distance1 = position - segment_point1;
+    let distance2 = segment_point2 - segment_point1;
+    let factor = clamp(dot(distance1, distance2) / dot(distance2, distance2), 0., 1.);
+    return length(distance1 - distance2 * factor);
 }
 
 /// Random number generators.

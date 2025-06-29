@@ -1,44 +1,37 @@
 #mod main
-#run ~.update()
-#draw<1000> ~.render<vertices.rectangle, field.instance>(surface=std_.surface)
-#import _.std.math.constant
-
-const FIELD_SIZE = vec2f(1.9, 1.2);
-const FIELD_BORDER_COLOR_SPEED = PI / 2;
-
-struct FieldData {
-    instance: Field,
-}
 
 struct Field {
     color_angle: f32,
+    z: f32,
 }
 
-#mod storage
+#mod state
 #import ~.main
-
-var<storage, read_write> field: FieldData;
-
-#shader<compute> update
-#import ~.storage
 #import _.std.state.storage
 
-@compute
-@workgroup_size(1, 1, 1)
-fn main() {
-    field.instance.color_angle += std_.time.frame_delta_secs * FIELD_BORDER_COLOR_SPEED;
-    if field.instance.color_angle > 2 * PI {
-        field.instance.color_angle -= 2 * PI;
+const _FIELD_BORDER_COLOR_SPEED = PI / 2;
+
+fn init_field(z: f32) -> Field {
+    return Field(0, z);
+}
+
+fn update_field(field: Field) -> Field {
+    var updated = field;
+    updated.color_angle += std_.time.frame_delta_secs * _FIELD_BORDER_COLOR_SPEED;
+    if updated.color_angle > 2 * PI {
+        updated.color_angle -= 2 * PI;
     }
+    return updated;
 }
 
 #shader<render, Vertex, Field> render
 #import ~.main
-#import surface.main
+#import config.constant
+#import _.std.math.distance
 #import _.std.state.type
+#import _.std.vertex.transform
 #import _.std.vertex.type
 
-const Z = 0.9;
 const SHAPE_FACTOR = 4.;
 const BORDER_GLOW_FACTOR = 0.002;
 const BORDER_THICKNESS = 0.02;
@@ -60,9 +53,10 @@ struct Fragment {
 
 @vertex
 fn vs_main(vertex: Vertex, instance: Field) -> Fragment {
+    let scale_factor = scale_factor(surface.size, VISIBLE_AREA_MIN_SIZE);
     let position = vertex.position.xy * FIELD_SIZE * SHAPE_FACTOR;
     return Fragment(
-        vec4f(position * surface_ratio(surface.size), Z, 1),
+        vec4f(position * scale_factor, instance.z, 1),
         position,
         instance.color_angle,
     );
@@ -101,18 +95,4 @@ fn color(angle: f32) -> vec3f {
     const d = vec3f(0.00, 0.33, 0.67);
     let normalized_angle = angle / (2. * PI);
     return a + b * cos(6.283185 * (c * normalized_angle + d));
-}
-
-fn rect_signed_dist(frag_position: vec2f, size: vec2f) -> f32 {
-    let distance = abs(frag_position) - size / 2;
-    let exterior_dist = length(max(distance, vec2f(0.0)));
-    let interior_dist = min(max(distance.x, distance.y), 0.0);
-    return exterior_dist + interior_dist;
-}
-
-fn segment_signed_dist(frag_position: vec2f, vertex1: vec2f, vertex2: vec2f) -> f32 {
-    let distance1 = frag_position - vertex1;
-    let distance2 = vertex2 - vertex1;
-    let factor = clamp(dot(distance1, distance2) / dot(distance2, distance2), 0., 1.);
-    return length(distance1 - distance2 * factor);
 }
