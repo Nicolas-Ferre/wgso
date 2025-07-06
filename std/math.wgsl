@@ -5,10 +5,10 @@
 const PI = 3.14159265358979323846264338327950288;
 
 /// Minimum `f32` value.
-const F32_MIN = -3.40282347E+38;
+const F32_MIN = -3.40282300E+38;
 
 /// Maximum `f32` value.
-const F32_MAX = 3.40282347E+38;
+const F32_MAX = 3.40282300E+38;
 
 //! Vector utils.
 #mod vector
@@ -76,6 +76,14 @@ fn quat_inverse(quat: vec4f) -> vec4f {
 
 /// Common matrices to apply transformations.
 #mod matrix
+
+fn mat4x4f_to_array(mat_: mat4x4f) -> array<vec4f, 4> {
+    return array(mat_[0], mat_[1], mat_[2], mat_[3]);
+}
+
+fn array_to_mat4x4f(array_: array<vec4f, 4>) -> mat4x4f {
+    return mat4x4f(array_[0], array_[1], array_[2], array_[3]);
+}
 
 /// Returns a translation matrix.
 fn translation_mat(translation: vec3f) -> mat4x4f {

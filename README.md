@@ -29,8 +29,7 @@ Before you consider using this tool, please keep in mind that:
 - Linux
 - macOS (limited support because the maintainer doesn't have access to a physical device)
 - Android
-
-It is planned to also support WASM targets in the future.
+- Web (browser should support WebGPU)
 
 WGSO may also work on some other platforms, but they have not been tested.
 
@@ -58,6 +57,23 @@ Then the example can be run with the following commands:
     - ```shell
       PROGRAM_PATH=<example absolute path> cargo run-wasm --example wgso_web --release
       ```
+
+## 💥 Known issues
+
+- Android: structs can sometimes have alignment issues which cause incorrect read of fields. Adding
+  placeholder fields should resolve the problem. For example:
+
+```wgsl
+struct MyObject {
+    position: vec3f,
+    _phantom: vec2f, // needed to make sure my_object.size and my_object.state return correct values
+    size: f32,
+    state: u32,
+}
+```
+
+- Android: passing a mat4x4f as argument of a function may cause a segment fault. Passing the matrix
+  as an `array<vec4f, 4>` argument or 4 `vec4f` arguments should fix the problem.
 
 ## 📜 License
 

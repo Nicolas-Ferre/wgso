@@ -51,7 +51,7 @@ struct Fragment {
 @vertex
 fn vs_main(vertex: Vertex, instance: PlaneInstance) -> Fragment {
     let projection = proj_mat(camera.surface_ratio, camera.fov, camera.far, camera.near);
-    let view = view_mat(camera.position, camera.rotation);
+    let view = view_mat(camera.position, vec3f(1, 1, 1), camera.rotation);
     let model = model_mat(PLANE_POSITION, vec3f(instance.size, 1), quat(vec3f(1, 0, 0), PI / 2));
     let clip_position = projection * view * model * vec4f(vertex.position, 1);
     return Fragment(clip_position, instance.color);

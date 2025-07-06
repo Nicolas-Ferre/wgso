@@ -115,6 +115,6 @@ fn model_mat(position: vec3f, scale: vec3f, rotation: vec4f) -> mat4x4f {
 }
 
 /// Returns a view transformation matrix.
-fn view_mat(position: vec3f, rotation: vec4f) -> mat4x4f {
-    return rotation_mat(quat_inverse(rotation)) * translation_mat(-position);
+fn view_mat(position: vec3f, scale: vec3f, rotation: vec4f) -> mat4x4f {
+    return scale_mat(1. / scale) * rotation_mat(quat_inverse(rotation)) * translation_mat(-position);
 }

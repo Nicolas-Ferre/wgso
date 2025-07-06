@@ -32,7 +32,7 @@ fn update_field(field: Field) -> Field {
 #import _.std.vertex.transform
 #import _.std.vertex.type
 
-const SHAPE_FACTOR = 4.;
+const SHAPE_FACTOR = 10.;
 const BORDER_GLOW_FACTOR = 0.002;
 const BORDER_THICKNESS = 0.02;
 const SEPARATOR_COLOR = vec3f(1, 1, 1);

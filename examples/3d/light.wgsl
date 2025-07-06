@@ -38,7 +38,7 @@ fn main() {
 #shader<render, Vertex, PointLight> render
 #import ~.main
 #import camera.main
-#import _.std.math.matrix
+#import _.std.vertex.transform
 #import _.std.vertex.type
 
 var<uniform> camera: Camera;
@@ -53,7 +53,7 @@ struct Fragment {
 @vertex
 fn vs_main(vertex: Vertex, instance: PointLight) -> Fragment {
     let projection = proj_mat(camera.surface_ratio, camera.fov, camera.far, camera.near);
-    let view = view_mat(camera.position, camera.rotation);
+    let view = view_mat(camera.position, vec3f(1, 1, 1), camera.rotation);
     let model = model_mat(instance.position, POINT_LIGHT_SIZE, DEFAULT_QUAT);
     let position = projection * view * model * vec4f(vertex.position, 1);
     return Fragment(position, instance.color);

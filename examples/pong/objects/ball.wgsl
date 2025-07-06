@@ -55,7 +55,8 @@ fn apply_ball_paddle_collision(ball: Ball, paddle_position: vec2f, collision: Co
         direction * _BALL_PADDLE_ANGLE_FACTOR,
         updated.position.y - paddle_position.y,
     ));
-    let oriented_penetration = vec2f(collision.penetration.x, collision.penetration.y);
+    let penetration_x = sign(updated.velocity.x) * abs(collision.penetration.x);
+    let oriented_penetration = vec2f(penetration_x, collision.penetration.y);
     updated.position += vec3f(oriented_penetration, 0);
     updated = _add_trail_position(updated, updated.position.xy);
     return updated;

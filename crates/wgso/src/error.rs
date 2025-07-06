@@ -155,7 +155,11 @@ impl Error {
                     .annotation(Level::Error.span(span.clone()).label(label)),
             );
         }
-        format!("{}", Renderer::styled().render(message))
+        format!("{}", Renderer::styled().render(message.footer(Level::Info.title(&format!(
+            "The error comes from `{}` module in file '{}'",
+            sections[0].directive.section_name().slice,
+            sections[0].path().display(),
+        )))))
     }
 
     fn wgsl_validation_message(

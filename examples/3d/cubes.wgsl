@@ -92,7 +92,7 @@ fn main(@builtin(local_invocation_index) index: u32) {
 #import camera.main
 #import light.main
 #import _.std.color.lighting
-#import _.std.math.matrix
+#import _.std.vertex.transform
 #import _.std.vertex.type
 
 var<uniform> camera: Camera;
@@ -113,7 +113,7 @@ struct Fragment {
 @vertex
 fn vs_main(vertex: Vertex, instance: Cube) -> Fragment {
     let projection = proj_mat(camera.surface_ratio, camera.fov, camera.far, camera.near);
-    let view = view_mat(camera.position, camera.rotation);
+    let view = view_mat(camera.position, vec3f(1, 1, 1), camera.rotation);
     let model = model_mat(instance.position, CUBE_SIZE, instance.rotation);
     let clip_position = projection * view * model * vec4f(vertex.position, 1);
     let world_position = model * vec4f(vertex.position, 1);

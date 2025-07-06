@@ -1,5 +1,5 @@
 #mod main
-#import components.digit.main
+#import objects.digit.main
 
 const NUMBER_HEIGHT = 0.18;
 const NUMBER_SPACING_X = 0.14;
@@ -13,7 +13,7 @@ struct Number {
 
 #mod state
 #import ~.main
-#import components.digit.state
+#import objects.digit.state
 
 fn init_number(position: vec3f, value: u32) -> Number {
     var number = Number(value, array<DigitSegment, SEGMENT_COUNT_PER_NUMBER>());

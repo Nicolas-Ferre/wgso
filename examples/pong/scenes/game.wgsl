@@ -2,13 +2,13 @@
 #init ~.init()
 #run ~.update()
 #run ~.update_particles()
-#draw components.field.render<game.rectangle_vertices, game.field>(surface=std_.surface)
-#draw components.digit.render<game.rectangle_vertices, game.left_score.segments>(surface=std_.surface)
-#draw components.digit.render<game.rectangle_vertices, game.right_score.segments>(surface=std_.surface)
-#draw components.paddle.render<game.rectangle_vertices, game.left_paddle>(surface=std_.surface)
-#draw components.paddle.render<game.rectangle_vertices, game.right_paddle>(surface=std_.surface)
-#draw components.ball.render<game.rectangle_vertices, game.ball>(surface=std_.surface)
-#draw components.particle.render<game.rectangle_vertices, game.particles>(surface=std_.surface)
+#draw objects.field.render<vertices.rectangle, game.field>(surface=std_.surface)
+#draw objects.digit.render<vertices.rectangle, game.left_score.segments>(surface=std_.surface)
+#draw objects.digit.render<vertices.rectangle, game.right_score.segments>(surface=std_.surface)
+#draw objects.paddle.render<vertices.rectangle, game.left_paddle>(surface=std_.surface)
+#draw objects.paddle.render<vertices.rectangle, game.right_paddle>(surface=std_.surface)
+#draw objects.ball.render<vertices.rectangle, game.ball>(surface=std_.surface)
+#draw objects.particle.render<vertices.rectangle, game.particles>(surface=std_.surface)
 
 const FIELD_Z = 0.9;
 const LEFT_SCORE_Z = 0.8;
@@ -18,18 +18,19 @@ const BALL_Z = 0.5;
 const PARTICLE_Z = 0.4;
 
 #mod storage
-#import components.ball.state
-#import components.field.state
-#import components.number.state
-#import components.paddle.state
-#import components.particle.state
-#import _.std.vertex.type
+#import ~.main
+#import objects.ball.state
+#import objects.field.state
+#import objects.number.state
+#import objects.paddle.state
+#import objects.particle.state
 
 const PARTICLE_COUNT_PER_COLLISION = 30;
 const MAX_PARTICLE_COUNT = PARTICLE_COUNT_PER_COLLISION * 6;
+const LEFT_SCORE_POSITION = vec2f(-0.2, 0.35);
+const RIGHT_SCORE_POSITION = vec2f(0.2, 0.35);
 
 struct Game {
-    rectangle_vertices: array<Vertex, 6>,
     field: Field,
     ball: Ball,
     left_paddle: Paddle,
@@ -38,15 +39,25 @@ struct Game {
     right_score: Number,
     particles: array<Particle, MAX_PARTICLE_COUNT>,
     next_particle_index: u32,
+    is_multiplayer: u32,
 }
 
 var<storage, read_write> game: Game;
+
+fn enable_game(is_multiplayer: bool) {
+    game.field.z = FIELD_Z;
+    game.ball.position.z = BALL_Z;
+    game.left_score = init_number(vec3f(LEFT_SCORE_POSITION, LEFT_SCORE_Z), game.left_score.value);
+    game.right_score = init_number(vec3f(RIGHT_SCORE_POSITION, RIGHT_SCORE_Z), game.right_score.value);
+    game.left_paddle.position.z = PADDLE_Z;
+    game.right_paddle.position.z = PADDLE_Z;
+    game.is_multiplayer = u32(is_multiplayer);
+}
 
 #shader<compute> init
 #import ~.main
 #import ~.storage
 #import _.std.math.random
-#import _.std.vertex.model
 #import _.std.state.storage
 
 const PADDLE_POSITION_X = 0.8;
@@ -57,15 +68,15 @@ fn main() {
     var seed = std_.time.start_secs;
     let ball_direction = 2 * random_f32(&seed, 0, 1) - 1;
     game = Game(
-        rectangle_vertices(),
-        init_field(FIELD_Z),
-        init_ball(BALL_Z, vec2f(ball_direction, 0)),
-        init_paddle(-PADDLE_POSITION_X, PADDLE_Z),
-        init_paddle(PADDLE_POSITION_X, PADDLE_Z),
-        init_number(vec3f(), 0),
-        init_number(vec3f(), 0),
+        init_field(-1),
+        init_ball(-1, vec2f(ball_direction, 0)),
+        init_paddle(-PADDLE_POSITION_X, -1),
+        init_paddle(PADDLE_POSITION_X, -1),
+        init_number(vec3f(0, 0, -1), 0),
+        init_number(vec3f(0, 0, -1), 0),
         array<Particle, MAX_PARTICLE_COUNT>(),
         0,
+        u32(false),
     );
 }
 
@@ -75,20 +86,28 @@ fn main() {
 #import config.constant
 #import _.std.physics.collision
 
-const LEFT_SCORE_POSITION = vec3f(-0.2, 0.35, LEFT_SCORE_Z);
-const RIGHT_SCORE_POSITION = vec3f(0.2, 0.35, RIGHT_SCORE_Z);
-
 @compute
 @workgroup_size(1, 1, 1)
 fn main() {
+    if game.field.z < 0 {
+        return;
+    }
     game.field = update_field(game.field);
-    game.left_paddle = update_paddle(game.left_paddle, FIELD_SIZE.y / 2, KB_KEY_W, KB_KEY_S);
-    game.right_paddle = update_paddle(game.right_paddle, FIELD_SIZE.y / 2, KB_ARROW_UP, KB_ARROW_DOWN);
+    update_paddles();
     game.ball = update_ball(game.ball);
     check_ball_collisions();
     check_score_update();
-    game.left_score = init_number(LEFT_SCORE_POSITION, game.left_score.value);
-    game.right_score = init_number(RIGHT_SCORE_POSITION, game.right_score.value);
+    game.left_score = init_number(vec3f(LEFT_SCORE_POSITION, LEFT_SCORE_Z), game.left_score.value);
+    game.right_score = init_number(vec3f(RIGHT_SCORE_POSITION, RIGHT_SCORE_Z), game.right_score.value);
+}
+
+fn update_paddles() {
+    game.left_paddle = update_player_paddle(game.left_paddle, FIELD_SIZE.y / 2, KB_KEY_W, KB_KEY_S, F32_MIN, 0);
+    if bool(game.is_multiplayer) {
+        game.right_paddle = update_player_paddle(game.right_paddle, FIELD_SIZE.y / 2, KB_ARROW_UP, KB_ARROW_DOWN, 0, F32_MAX);
+    } else {
+        game.right_paddle = update_bot_paddle(game.right_paddle, FIELD_SIZE.y / 2, game.ball.position.y);
+    }
 }
 
 fn check_ball_collisions() {
@@ -129,7 +148,7 @@ fn is_ball_colliding_with_wall() -> bool {
 }
 
 fn ball_paddle_collision(paddle: Paddle) -> Collision {
-    return _aabb_collision(
+    return aabb_collision(
         paddle.position.xy, PADDLE_SIZE,
         game.ball.position.xy, vec2f(BALL_RADIUS * 2),
     );
