@@ -12,50 +12,57 @@ struct DigitSegment {
     is_enabled: u32,
 }
 
-#mod state
+#mod compute
 #import ~.main
 
-const _SEGMENT_HORIZONTAL_SIZE = vec2f(0.35, 0.035);
-const _SEGMENT_VERTICAL_SIZE = vec2f(0.035, 0.35);
+const SEGMENT_HORIZONTAL_SIZE = vec2f(0.35, 0.035);
+const SEGMENT_VERTICAL_SIZE = vec2f(0.035, 0.35);
 
 fn init_digit(position: vec3f, height: f32, value: u32) -> Digit {
-    var digit = Digit();
-    digit.segments[0].position = vec3f(0, -0.5, 0.0009) * height + position;
-    digit.segments[1].position = vec3f(0, 0, 0.0008) * height + position;
-    digit.segments[2].position = vec3f(-0.25, -0.25, 0.0007) * height + position;
-    digit.segments[3].position = vec3f(0.25, -0.25, 0.0006) * height + position;
-    digit.segments[4].position = vec3f(0, 0.5, 0.0005) * height + position;
-    digit.segments[5].position = vec3f(-0.25, 0.25, 0.0004) * height + position;
-    digit.segments[6].position = vec3f(0.25, 0.25, 0.0003) * height + position;
-    digit.segments[0].size = _SEGMENT_HORIZONTAL_SIZE * height;
-    digit.segments[1].size = _SEGMENT_HORIZONTAL_SIZE * height;
-    digit.segments[2].size = _SEGMENT_VERTICAL_SIZE * height;
-    digit.segments[3].size = _SEGMENT_VERTICAL_SIZE * height;
-    digit.segments[4].size = _SEGMENT_HORIZONTAL_SIZE * height;
-    digit.segments[5].size = _SEGMENT_VERTICAL_SIZE * height;
-    digit.segments[6].size = _SEGMENT_VERTICAL_SIZE * height;
-    digit.segments[0].is_enabled =
-        u32(value == 0 || value == 2 || value == 3 || value == 5 || value == 6 || value == 8 || value == 9);
-    digit.segments[1].is_enabled =
-        u32(value == 2 || value == 3 || value == 4 || value == 5 || value == 6 || value == 8 || value == 9);
-    digit.segments[2].is_enabled =
-        u32(value == 0 || value == 2 || value == 6 || value == 8);
-    digit.segments[3].is_enabled =
-        u32(value == 0 || value == 1 || value == 3 || value == 4 || value == 5 || value == 6 || value == 7 || value == 8 || value == 9);
-    digit.segments[4].is_enabled =
-        u32(value == 0 || value == 2 || value == 3 || value == 5 || value == 6 || value == 7 || value == 8 || value == 9);
-    digit.segments[5].is_enabled =
-        u32(value == 0 || value == 4 || value == 5 || value == 6 || value == 8 || value == 9);
-    digit.segments[6].is_enabled =
-        u32(value == 0 || value == 1 || value == 2 || value == 3 || value == 4 || value == 7 || value == 8 || value == 9);
-    return digit;
+    var top = DigitSegment();
+    top.position = vec3f(0, 0.5, 0.0009) * height + position;
+    top.size = SEGMENT_HORIZONTAL_SIZE * height;
+    top.is_enabled = u32(array(true, false, true, true, false, true, true, true, true, true)[value]);
+    var middle = DigitSegment();
+    middle.position = vec3f(0, 0, 0.0008) * height + position;
+    middle.size = SEGMENT_HORIZONTAL_SIZE * height;
+    middle.is_enabled = u32(array(false, false, true, true, true, true, true, false, true, true)[value]);
+    var bottom = DigitSegment();
+    bottom.position = vec3f(0, -0.5, 0.0007) * height + position;
+    bottom.size = SEGMENT_HORIZONTAL_SIZE * height;
+    bottom.is_enabled = u32(array(true, false, true, true, false, true, true, false, true, true)[value]);
+    var top_left = DigitSegment();
+    top_left.position = vec3f(-0.25, 0.25, 0.0006) * height + position;
+    top_left.size = SEGMENT_VERTICAL_SIZE * height;
+    top_left.is_enabled = u32(array(true, false, false, false, true, true, true, false, true, true)[value]);
+    var top_right = DigitSegment();
+    top_right.position = vec3f(0.25, 0.25, 0.0005) * height + position;
+    top_right.size = SEGMENT_VERTICAL_SIZE * height;
+    top_right.is_enabled = u32(array(true, true, true, true, true, false, false, true, true, true)[value]);
+    var bottom_left = DigitSegment();
+    bottom_left.position = vec3f(-0.25, -0.25, 0.0004) * height + position;
+    bottom_left.size = SEGMENT_VERTICAL_SIZE * height;
+    bottom_left.is_enabled = u32(array(true, false, true, false, false, false, true, false, true, false)[value]);
+    var bottom_right = DigitSegment();
+    bottom_right.position = vec3f(0.25, -0.25, 0.0003) * height + position;
+    bottom_right.size = SEGMENT_VERTICAL_SIZE * height;
+    bottom_right.is_enabled = u32(array(true, true, false, true, true, true, true, true, true, true)[value]);
+    return Digit(array(
+        top,
+        middle,
+        bottom,
+        top_left,
+        top_right,
+        bottom_left,
+        bottom_right,
+    ));
 }
 
 #shader<render, Vertex, DigitSegment> render
 #import ~.main
-#import config.constant
+#import constant.main
 #import _.std.math.distance
-#import _.std.state.type
+#import _.std.io.main
 #import _.std.vertex.transform
 #import _.std.vertex.type
 
@@ -87,7 +94,7 @@ fn vs_main(vertex: Vertex, instance: DigitSegment) -> Fragment {
         position,
         instance.position.xy,
         instance.size,
-        select(DISABLED_COLOR, ENABLED_COLOR, instance.is_enabled == 1)
+        select(DISABLED_COLOR, ENABLED_COLOR, bool(instance.is_enabled))
     );
 }
 

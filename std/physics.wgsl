@@ -1,3 +1,4 @@
+/// Utilities to calculate collisions between two objects.
 #mod collision
 
 /// The result of a collision check.

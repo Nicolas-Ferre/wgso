@@ -61,7 +61,8 @@ Then the example can be run with the following commands:
 ## 💥 Known issues
 
 - Android: structs can sometimes have alignment issues which cause incorrect read of fields. Adding
-  placeholder fields should resolve the problem. For example:
+  placeholder fields should resolve the problem. The issue has been found when a `f32` field is
+  after a `vec3f` field:
 
 ```wgsl
 struct MyObject {

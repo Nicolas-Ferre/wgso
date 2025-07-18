@@ -6,18 +6,18 @@ struct Paddle {
     position: vec3f,
 }
 
-#mod state
+#mod compute
 #import ~.main
-#import config.constant
+#import constant.main
 #import _.std.input.keyboard
-#import _.std.state.storage
+#import _.std.io.compute
 #import _.std.vertex.transform
 
-const _PADDLE_PLAYER_SPEED = 2.;
-const _PADDLE_BOT_SPEED = 1.2;
+const PADDLE_PLAYER_SPEED = 2.;
+const PADDLE_BOT_SPEED = 1.2;
 
-fn init_paddle(x: f32, z: f32) -> Paddle {
-    return Paddle(vec3f(x, 0, z));
+fn init_paddle(position: vec3f) -> Paddle {
+    return Paddle(position);
 }
 
 fn reset_paddle(paddle: Paddle) -> Paddle {
@@ -34,7 +34,7 @@ fn update_player_paddle(
     var updated = paddle;
     var offset = _keyboard_offset(up_key, down_key);
     if offset == 0 {
-        offset += _touch_offset(updated.position.y, touch_min_x, touch_max_x);
+        offset = _touch_offset(updated.position.y, touch_min_x, touch_max_x);
     }
     updated.position.y += offset;
     let max_paddle_y = max_position_y - PADDLE_SIZE.y / 2;
@@ -44,7 +44,7 @@ fn update_player_paddle(
 
 fn update_bot_paddle(paddle: Paddle, max_position_y: f32, target_y: f32) -> Paddle {
     var updated = paddle;
-    updated.position.y += _offset_to_target(updated.position.y, target_y, _PADDLE_BOT_SPEED);
+    updated.position.y += _offset_to_target(updated.position.y, target_y, PADDLE_BOT_SPEED);
     let max_paddle_y = max_position_y - PADDLE_SIZE.y / 2;
     updated.position.y = clamp(updated.position.y, -max_paddle_y, max_paddle_y);
     return updated;
@@ -52,7 +52,7 @@ fn update_bot_paddle(paddle: Paddle, max_position_y: f32, target_y: f32) -> Padd
 
 fn _keyboard_offset(up_key: u32, down_key: u32) -> f32 {
     let direction = input_axis(std_.keyboard.keys[down_key], std_.keyboard.keys[up_key]);
-    return _PADDLE_PLAYER_SPEED * std_.time.frame_delta_secs * direction;
+    return PADDLE_PLAYER_SPEED * std_.time.frame_delta_secs * direction;
 }
 
 fn _touch_offset(position_y: f32, touch_min_x: f32, touch_max_x: f32) -> f32 {
@@ -61,7 +61,7 @@ fn _touch_offset(position_y: f32, touch_min_x: f32, touch_max_x: f32) -> f32 {
         let finger = std_.touch.fingers[finger_index];
         let finger_position = pixel_to_world_coords(finger.position, std_.surface.size) / scale_factor;
         if is_pressed(finger.state) && finger_position.x >= touch_min_x && finger_position.x <= touch_max_x {
-            return _offset_to_target(position_y, finger_position.y, _PADDLE_PLAYER_SPEED);
+            return _offset_to_target(position_y, finger_position.y, PADDLE_PLAYER_SPEED);
         }
     }
     return 0;
@@ -74,10 +74,10 @@ fn _offset_to_target(position_y: f32, target_position_y: f32, speed: f32) -> f32
 
 #shader<render, Vertex, Paddle> render
 #import ~.main
-#import config.constant
+#import constant.main
 #import _.std.color.constant
 #import _.std.math.distance
-#import _.std.state.type
+#import _.std.io.main
 #import _.std.vertex.transform
 #import _.std.vertex.type
 

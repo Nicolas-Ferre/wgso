@@ -1,4 +1,11 @@
 #mod main
+#import ~.main
+#import objects.ball.compute
+#import objects.field.compute
+#import objects.number.compute
+#import objects.paddle.compute
+#import objects.particle.compute
+
 #init ~.init()
 #run ~.update()
 #run ~.update_particles()
@@ -16,14 +23,6 @@ const RIGHT_SCORE_Z = 0.7;
 const PADDLE_Z = 0.6;
 const BALL_Z = 0.5;
 const PARTICLE_Z = 0.4;
-
-#mod storage
-#import ~.main
-#import objects.ball.state
-#import objects.field.state
-#import objects.number.state
-#import objects.paddle.state
-#import objects.particle.state
 
 const PARTICLE_COUNT_PER_COLLISION = 30;
 const MAX_PARTICLE_COUNT = PARTICLE_COUNT_PER_COLLISION * 6;
@@ -56,9 +55,8 @@ fn enable_game(is_multiplayer: bool) {
 
 #shader<compute> init
 #import ~.main
-#import ~.storage
 #import _.std.math.random
-#import _.std.state.storage
+#import _.std.io.compute
 
 const PADDLE_POSITION_X = 0.8;
 
@@ -67,23 +65,18 @@ const PADDLE_POSITION_X = 0.8;
 fn main() {
     var seed = std_.time.start_secs;
     let ball_direction = 2 * random_f32(&seed, 0, 1) - 1;
-    game = Game(
-        init_field(-1),
-        init_ball(-1, vec2f(ball_direction, 0)),
-        init_paddle(-PADDLE_POSITION_X, -1),
-        init_paddle(PADDLE_POSITION_X, -1),
-        init_number(vec3f(0, 0, -1), 0),
-        init_number(vec3f(0, 0, -1), 0),
-        array<Particle, MAX_PARTICLE_COUNT>(),
-        0,
-        u32(false),
-    );
+    game.field = init_field(HIDDEN_Z);
+    game.ball = init_ball(HIDDEN_Z, vec2f(ball_direction, 0));
+    game.left_paddle = init_paddle(vec3f(-PADDLE_POSITION_X, 0, HIDDEN_Z));
+    game.right_paddle = init_paddle(vec3f(PADDLE_POSITION_X, 0, HIDDEN_Z));
+    game.left_score = init_number(vec3f(0, 0, HIDDEN_Z), 0);
+    game.right_score = init_number(vec3f(0, 0, HIDDEN_Z), 0);
+    game.next_particle_index = 0;
 }
 
 #shader<compute> update
 #import ~.main
-#import ~.storage
-#import config.constant
+#import constant.main
 #import _.std.physics.collision
 
 @compute
@@ -167,7 +160,7 @@ fn create_particles(position: vec2f, normal: vec2f) {
 }
 
 #shader<compute> update_particles
-#import ~.storage
+#import ~.main
 
 @compute
 @workgroup_size(MAX_PARTICLE_COUNT, 1, 1)

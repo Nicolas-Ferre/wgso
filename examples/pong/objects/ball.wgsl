@@ -12,22 +12,22 @@ struct Ball {
     trail_position_3: vec2f,
 }
 
-#mod state
+#mod compute
 #import ~.main
 #import _.std.math.constant
 #import _.std.physics.collision
-#import _.std.state.storage
+#import _.std.io.compute
 
-const _BALL_DEFAULT_SPEED = 1.0;
-const _BALL_ACCELERATION = 0.1;
-const _BALL_PADDLE_ANGLE_FACTOR = 0.1;
+const BALL_DEFAULT_SPEED = 1.0;
+const BALL_ACCELERATION = 0.1;
+const BALL_PADDLE_ANGLE_FACTOR = 0.1;
 
 fn init_ball(z: f32, direction: vec2f) -> Ball {
-    let position = vec3f(0, 0, z);
+    const default_position = vec2f(0, 0);
     return Ball(
-        position,
-        normalize(direction) * _BALL_DEFAULT_SPEED,
-        position.xy,
+        vec3f(default_position, z),
+        normalize(direction) * BALL_DEFAULT_SPEED,
+        default_position,
         UNSET_TRAIL_POSITION,
         UNSET_TRAIL_POSITION,
     );
@@ -35,7 +35,7 @@ fn init_ball(z: f32, direction: vec2f) -> Ball {
 
 fn update_ball(ball: Ball) -> Ball {
     var updated = ball;
-    updated.velocity += normalize(updated.velocity) * _BALL_ACCELERATION * std_.time.frame_delta_secs;
+    updated.velocity += normalize(updated.velocity) * BALL_ACCELERATION * std_.time.frame_delta_secs;
     updated.position += vec3f(updated.velocity * std_.time.frame_delta_secs, 0);
     return updated;
 }
@@ -52,7 +52,7 @@ fn apply_ball_paddle_collision(ball: Ball, paddle_position: vec2f, collision: Co
     var updated = ball;
     let direction = sign(-updated.velocity.x);
     updated.velocity = length(updated.velocity) * normalize(vec2f(
-        direction * _BALL_PADDLE_ANGLE_FACTOR,
+        direction * BALL_PADDLE_ANGLE_FACTOR,
         updated.position.y - paddle_position.y,
     ));
     let penetration_x = sign(updated.velocity.x) * abs(collision.penetration.x);
@@ -72,12 +72,12 @@ fn _add_trail_position(ball: Ball, position: vec2f) -> Ball {
 
 #shader<render, Vertex, Ball> render
 #import ~.main
-#import config.constant
+#import constant.main
 #import _.std.color.constant
 #import _.std.math.distance
 #import _.std.math.matrix
 #import _.std.math.vector
-#import _.std.state.type
+#import _.std.io.main
 #import _.std.vertex.transform
 #import _.std.vertex.type
 
@@ -131,7 +131,6 @@ fn ball_color(fragment: Fragment) -> vec4f {
 }
 
 fn trail_color(fragment: Fragment) -> vec4f {
-    const TRAIL_WIDTH = BALL_RADIUS * 2;
     var brightness = 0.;
     var accumulated_dist = 0.;
     if distance(fragment.world_position, fragment.ball_position) > BALL_RADIUS {

@@ -6,21 +6,21 @@ struct Particle {
     brightness: f32,
 }
 
-#mod state
+#mod compute
 #import ~.main
 #import _.std.math.matrix
 #import _.std.math.quaternion
 #import _.std.math.random
-#import _.std.state.storage
+#import _.std.io.compute
 
-const _PARTICLE_BRIGHTNESS_REDUCTION_SPEED = 2.;
-const _PARTICLE_DECELERATION = 2;
-const _PARTICLE_MIN_SPEED = 0.1;
-const _PARTICLE_MAX_SPEED = 1.0;
+const PARTICLE_BRIGHTNESS_REDUCTION_SPEED = 2.;
+const PARTICLE_DECELERATION = 2;
+const PARTICLE_MIN_SPEED = 0.1;
+const PARTICLE_MAX_SPEED = 1.0;
 
 fn init_particle(position: vec3f, min_angle: f32, max_angle: f32, seed: ptr<function, u32>) -> Particle {
     let angle = random_f32(seed, min_angle, max_angle);
-    let speed = random_f32(seed, _PARTICLE_MIN_SPEED, _PARTICLE_MAX_SPEED);
+    let speed = random_f32(seed, PARTICLE_MIN_SPEED, PARTICLE_MAX_SPEED);
     let velocity = rotation_mat(quat(vec3f(0, 0, 1), angle)) * vec4f(0, speed, 0, 1);
     return Particle(position, velocity.xy, 1.);
 }
@@ -28,17 +28,17 @@ fn init_particle(position: vec3f, min_angle: f32, max_angle: f32, seed: ptr<func
 fn update_particle(particle: Particle) -> Particle {
     var updated = particle;
     updated.position += vec3f(updated.velocity * std_.time.frame_delta_secs, 0);
-    updated.velocity -= _PARTICLE_DECELERATION * updated.velocity * std_.time.frame_delta_secs;
-    updated.brightness -= _PARTICLE_BRIGHTNESS_REDUCTION_SPEED * std_.time.frame_delta_secs;
+    updated.velocity -= PARTICLE_DECELERATION * updated.velocity * std_.time.frame_delta_secs;
+    updated.brightness -= PARTICLE_BRIGHTNESS_REDUCTION_SPEED * std_.time.frame_delta_secs;
     updated.brightness = max(updated.brightness, 0);
     return updated;
 }
 
 #shader<render, Vertex, Particle> render
 #import ~.main
-#import config.constant
+#import constant.main
 #import _.std.color.constant
-#import _.std.state.type
+#import _.std.io.main
 #import _.std.vertex.transform
 #import _.std.vertex.type
 

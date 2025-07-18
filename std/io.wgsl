@@ -1,5 +1,5 @@
-/// Storage types used retrieve or send information to the CPU.
-#mod type
+/// Types for performing I/O operations.
+#mod main
 #import ~.~.input.state
 
 /// The number of recognized keyboard keys.
@@ -89,9 +89,9 @@ struct Finger {
     delta: vec2f,
 }
 
-/// Storage used retrieve or send information to the CPU.
-#mod storage
-#import ~.type
+/// Buffer for performing I/O operations.
+#mod compute
+#import ~.main
 
 /// Main storage variable of the standard library.
 var<storage, read_write> std_: Std;

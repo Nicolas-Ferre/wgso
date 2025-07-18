@@ -1,9 +1,9 @@
 #shader<render, Vertex, UiButton> render
-#import config.constant
+#import constant.main
 #import _.std.color.constant
 #import _.std.math.distance
-#import _.std.state.type
-#import _.std.ui.type
+#import _.std.io.main
+#import _.std.ui.main
 #import _.std.vertex.transform
 #import _.std.vertex.type
 

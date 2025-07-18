@@ -6,20 +6,21 @@ struct PlayerIcon {
     button_state: u32,
 }
 
-#mod state
+#mod compute
 #import ~.main
+#import _.std.ui.main
 
 fn init_player_icon(position: vec3f, size: f32) -> PlayerIcon {
-    return PlayerIcon(position, size, 0);
+    return PlayerIcon(position, size, BUTTON_STATE_NONE);
 }
 
 #shader<render, Vertex, PlayerIcon> render
 #import ~.main
-#import config.constant
+#import constant.main
 #import _.std.color.constant
 #import _.std.math.distance
-#import _.std.state.type
-#import _.std.ui.type
+#import _.std.io.main
+#import _.std.ui.main
 #import _.std.vertex.transform
 #import _.std.vertex.type
 

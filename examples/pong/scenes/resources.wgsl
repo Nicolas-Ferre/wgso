@@ -1,8 +1,7 @@
 #mod main
-#init ~.init()
-
-#mod storage
 #import _.std.vertex.type
+
+#init ~.init()
 
 struct Vertices {
     rectangle: array<Vertex, 6>,
@@ -11,11 +10,11 @@ struct Vertices {
 var<storage, read_write> vertices: Vertices;
 
 #shader<compute> init
-#import ~.storage
+#import ~.main
 #import _.std.vertex.model
 
 @compute
 @workgroup_size(1, 1, 1)
 fn main() {
-    vertices = Vertices(rectangle_vertices());
+    vertices.rectangle = rectangle_vertices();
 }

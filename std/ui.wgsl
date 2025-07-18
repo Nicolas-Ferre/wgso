@@ -1,4 +1,5 @@
-#mod type
+/// Types for UI widgets.
+#mod main
 
 const BUTTON_STATE_NONE = 0u;
 const BUTTON_STATE_HOVERED = 1u;
@@ -21,12 +22,13 @@ struct UiButton {
     state: u32,
 }
 
-#mod state
-#import ~.type
+/// Functions to update UI widgets.
+#mod compute
+#import ~.main
 #import ~.~.input.mouse
 #import ~.~.input.state
+#import ~.~.io.compute
 #import ~.~.math.matrix
-#import ~.~.state.storage
 #import ~.~.physics.collision
 
 /// Creates a new button.

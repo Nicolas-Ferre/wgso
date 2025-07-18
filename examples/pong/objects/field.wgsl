@@ -5,19 +5,20 @@ struct Field {
     z: f32,
 }
 
-#mod state
+#mod compute
 #import ~.main
-#import _.std.state.storage
+#import _.std.io.compute
 
-const _FIELD_BORDER_COLOR_SPEED = PI / 2;
+const FIELD_BORDER_COLOR_SPEED = PI / 2;
 
 fn init_field(z: f32) -> Field {
-    return Field(0, z);
+    const angle_color = 0;
+    return Field(angle_color, z);
 }
 
 fn update_field(field: Field) -> Field {
     var updated = field;
-    updated.color_angle += std_.time.frame_delta_secs * _FIELD_BORDER_COLOR_SPEED;
+    updated.color_angle += std_.time.frame_delta_secs * FIELD_BORDER_COLOR_SPEED;
     if updated.color_angle > 2 * PI {
         updated.color_angle -= 2 * PI;
     }
@@ -26,9 +27,10 @@ fn update_field(field: Field) -> Field {
 
 #shader<render, Vertex, Field> render
 #import ~.main
-#import config.constant
+#import constant.main
+#import _.std.math.constant
 #import _.std.math.distance
-#import _.std.state.type
+#import _.std.io.main
 #import _.std.vertex.transform
 #import _.std.vertex.type
 
@@ -94,5 +96,5 @@ fn color(angle: f32) -> vec3f {
     const c = vec3f(1.00, 1.00, 1.00);
     const d = vec3f(0.00, 0.33, 0.67);
     let normalized_angle = angle / (2. * PI);
-    return a + b * cos(6.283185 * (c * normalized_angle + d));
+    return a + b * cos(2 * PI * (c * normalized_angle + d));
 }

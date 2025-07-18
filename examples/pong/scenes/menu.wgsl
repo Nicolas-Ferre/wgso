@@ -1,4 +1,8 @@
 #mod main
+#import constant.main
+#import objects.player_icon.compute
+#import _.std.ui.compute
+
 #init ~.init()
 #run ~.update()
 #draw objects.button.render<vertices.rectangle, menu.singleplayer_button>(surface=std_.surface)
@@ -11,10 +15,6 @@ const BUTTON_Z = 0.9;
 const ICON_Z_MAX = 0.8;
 const ICON_Z_MIN = 0.7;
 
-#mod storage
-#import objects.player_icon.state
-#import _.std.ui.state
-
 struct Menu {
     singleplayer_button: UiButton,
     singleplayer_icon: PlayerIcon,
@@ -26,16 +26,15 @@ struct Menu {
 var<storage, read_write> menu: Menu;
 
 fn disable_menu() {
-    menu.singleplayer_button.position.z = -1;
-    menu.singleplayer_icon.position.z = -1;
-    menu.multiplayer_button.position.z = -1;
-    menu.multiplayer_icon1.position.z = -1;
-    menu.multiplayer_icon2.position.z = -1;
+    menu.singleplayer_button.position.z = HIDDEN_Z;
+    menu.singleplayer_icon.position.z = HIDDEN_Z;
+    menu.multiplayer_button.position.z = HIDDEN_Z;
+    menu.multiplayer_icon1.position.z = HIDDEN_Z;
+    menu.multiplayer_icon2.position.z = HIDDEN_Z;
 }
 
 #shader<compute> init
 #import ~.main
-#import ~.storage
 
 const ICON_SIZE = 0.8;
 const BUTTON_SIZE = vec2f(0.85, 0.8);
@@ -54,9 +53,8 @@ fn main() {
 
 #shader<compute> update
 #import ~.main
-#import ~.storage
-#import config.constant
-#import scenes.game.storage
+#import constant.main
+#import scenes.game.main
 #import _.std.math.matrix
 #import _.std.vertex.transform
 
