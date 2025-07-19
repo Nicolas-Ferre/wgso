@@ -22,7 +22,7 @@ pub(crate) fn check_wgpu_errors(device: &Device) -> Result<(), wgpu::Error> {
     }
     #[cfg(target_arch = "wasm32")]
     {
-        let error = self.device.pop_error_scope();
+        let error = device.pop_error_scope();
         wasm_bindgen_futures::spawn_local(async move {
             if let Some(error) = error.await {
                 log::error!("{}", error);
