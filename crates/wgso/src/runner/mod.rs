@@ -93,6 +93,7 @@ impl Runner {
             // coverage: off (window cannot be tested)
             gpu::create_surface_config(&adapter, &device, surface, target.size)
         }); // coverage: on
+        device.push_error_scope(ErrorFilter::Validation);
         let depth_buffer = gpu::create_depth_buffer(&device, target.size);
         let target = if let (Some((window, surface)), Some(surface_config)) =
             (window_surface, surface_config)
@@ -134,7 +135,10 @@ impl Runner {
             instance,
             watcher: RunnerWatcher::new(&folder_path),
         };
-        if runner.load_shaders(None).await {
+        if let Some(error) = runner.device.pop_error_scope().await {
+            runner.program.errors.push(gpu::convert_error(error));
+            Err(runner.program)
+        } else if runner.load_shaders(None).await {
             Ok(runner)
         } else {
             Err(runner.program.with_sorted_errors())
@@ -191,7 +195,7 @@ impl Runner {
             field.type_.offset.into(),
             &read_buffer,
             0,
-            field.type_.size.into(),
+            Some(field.type_.size.into()),
         );
         let submission_index = self.queue.submit(Some(encoder.finish()));
         let slice = read_buffer.slice(..);
@@ -291,21 +295,10 @@ impl Runner {
             }
         }
         self.std_state.update(self.target.config.size);
-        #[cfg(not(target_arch = "wasm32"))]
-        if let Some(error) = executor::block_on(self.device.pop_error_scope()) {
+        gpu::check_wgpu_errors(&self.device).map_err(|error| {
             self.program.errors.push(gpu::convert_error(error));
-            return Err(&self.program);
-        }
-        #[cfg(target_arch = "wasm32")]
-        {
-            let error = self.device.pop_error_scope();
-            wasm_bindgen_futures::spawn_local(async move {
-                if let Some(error) = error.await {
-                    log::error!("{}", error);
-                }
-            });
-        }
-        Ok(())
+            &self.program
+        })
     }
 
     /// Reloads the runner if a file in the program directory has been updated.

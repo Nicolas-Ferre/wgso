@@ -1,11 +1,12 @@
 use crate::Error;
+use futures::executor;
 use std::sync::Arc;
 use wgpu::{
     Adapter, BackendOptions, Backends, BindGroupLayout, Buffer, BufferDescriptor, BufferUsages,
     Color, CommandEncoder, CommandEncoderDescriptor, CompositeAlphaMode, ComputePass,
     ComputePassDescriptor, Device, DeviceDescriptor, Extent3d, Features, Instance, InstanceFlags,
-    Limits, LoadOp, MemoryHints, Operations, PipelineLayout, PipelineLayoutDescriptor,
-    PowerPreference, Queue, RenderPass, RenderPassColorAttachment,
+    Limits, LoadOp, MemoryBudgetThresholds, MemoryHints, Operations, PipelineLayout,
+    PipelineLayoutDescriptor, PowerPreference, Queue, RenderPass, RenderPassColorAttachment,
     RenderPassDepthStencilAttachment, RenderPassDescriptor, RequestAdapterOptions, StoreOp,
     Surface, SurfaceConfiguration, SurfaceTexture, Texture, TextureDescriptor, TextureDimension,
     TextureFormat, TextureUsages, TextureView, TextureViewDescriptor, Trace,
@@ -13,6 +14,23 @@ use wgpu::{
 use winit::dpi::PhysicalSize;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
+
+pub(crate) fn check_wgpu_errors(device: &Device) -> Result<(), wgpu::Error> {
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Some(error) = executor::block_on(device.pop_error_scope()) {
+        return Err(error);
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        let error = self.device.pop_error_scope();
+        wasm_bindgen_futures::spawn_local(async move {
+            if let Some(error) = error.await {
+                log::error!("{}", error);
+            }
+        });
+    }
+    Ok(())
+}
 
 pub(crate) fn convert_error(error: wgpu::Error) -> Error {
     Error::WgpuValidation(match error {
@@ -39,6 +57,7 @@ pub(crate) fn create_instance() -> Instance {
     Instance::new(&wgpu::InstanceDescriptor {
         backends: Backends::from_env().unwrap_or_else(Backends::all),
         flags: InstanceFlags::default(),
+        memory_budget_thresholds: MemoryBudgetThresholds::default(),
         backend_options: BackendOptions::default(),
     })
 }
@@ -145,6 +164,7 @@ pub(crate) fn create_render_pass<'a>(
         label: Some("wgso:render_pass"),
         color_attachments: &[Some(RenderPassColorAttachment {
             view,
+            depth_slice: None,
             resolve_target: None,
             ops: Operations {
                 load: LoadOp::Clear(Color::BLACK),

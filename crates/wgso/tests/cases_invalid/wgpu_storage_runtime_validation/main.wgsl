@@ -1,12 +1,10 @@
 #shader<compute> test
-#run ~.test(param=buffer)
+#run ~.test()
 
-var<storage, read_write> buffer: u32;
-
-var<uniform> param: u32;
+var<storage, read_write> buffer: array<u32, 999999999>;
 
 @compute
 @workgroup_size(1, 1, 1)
 fn main() {
-    buffer = param;
+    buffer[0] = buffer[1];
 }

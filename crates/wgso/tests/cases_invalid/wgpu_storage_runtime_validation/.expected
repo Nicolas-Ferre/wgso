@@ -1,6 +1,5 @@
 error: Validation Error
 
 Caused by:
-  In ComputePass::end
-    In a dispatch command, indirect:false
-      Attempted to use Buffer with '`var<storage, _> buffer`' label with conflicting usages. Current usage BufferUses(STORAGE_READ_WRITE) and new usage BufferUses(UNIFORM). BufferUses(STORAGE_READ_WRITE) is an exclusive usage and cannot be used with any other usages within the usage scope (renderpass or compute dispatch).
+  In Device::create_buffer, label = '`var<storage, _> buffer`'
+    Buffer size 3999999996 is greater than the maximum buffer size (268435456)
