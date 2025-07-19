@@ -23,7 +23,7 @@ fn init_cube(position: vec3f, size: f32, color: vec4f) -> Cube {
 }
 
 fn init_cube_on_grid(size: f32, grid_pos: vec2u, grid_size: vec2u) -> Cube {
-    let index = grid_pos.x * grid_size.y + grid_pos.y;
+    let index = grid_pos.y * grid_size.x + grid_pos.x;
     var seed = std_.time.start_secs * (1 + index);
     let position = vec3f((vec2f(grid_pos) - vec2f(grid_size) / 2) * size * 2, 0);
     let color = normalize(vec3f(

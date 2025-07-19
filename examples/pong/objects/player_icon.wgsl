@@ -67,10 +67,10 @@ fn fs_main(fragment: Fragment) -> @location(0) vec4f {
     if distance(fragment.relative_position * SIZE_RATIO, HEAD_POSITION) < HEAD_RADIUS + BORDER_THICKNESS {
         return BORDER_COLOR;
     }
-    if distance(fragment.relative_position * SIZE_RATIO, BODY_POSITION) > BODY_RADIUS + BORDER_THICKNESS {
-        return INVISIBLE;
+    if distance(fragment.relative_position * SIZE_RATIO, BODY_POSITION) < BODY_RADIUS + BORDER_THICKNESS {
+        return BORDER_COLOR;
     }
-    return BORDER_COLOR;
+    return INVISIBLE;
 }
 
 fn brightness(button_state: u32) -> f32 {
