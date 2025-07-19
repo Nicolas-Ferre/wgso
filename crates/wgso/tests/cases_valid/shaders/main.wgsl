@@ -1,9 +1,9 @@
 #mod main
 #init ~.init()
-#run<42> ~.compute(mode=mode0)
-#run<-42> main.compute(mode=mode1)
-#draw<-42> ~.render<vertices, instance2>()
-#draw<42> main.render<vertices, instance1>()
+#run<-42> ~.compute(mode=mode0)
+#run<42> main.compute(mode=mode1)
+#draw<-42> main.render<vertices, instance1>()
+#draw<42> ~.render<vertices, instance2>()
 #init ~.~.main.compute(mode=modes.inner.mode0)
 
 var<storage, read_write> mode0: u32;

@@ -193,10 +193,7 @@ impl Type {
     }
 
     fn scalar_label(scalar: Scalar) -> String {
-        scalar
-            .try_to_wgsl()
-            .expect("internal error: unsupported WGSL type")
-            .into()
+        scalar.try_to_wgsl().unwrap_or("unknown").into()
     }
 
     fn vector_size_value(size: VectorSize) -> u32 {

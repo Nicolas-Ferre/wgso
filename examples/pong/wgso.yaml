@@ -1,0 +1,4 @@
+dependencies:
+  std:
+    path: ../../
+    url: https://github.com/Nicolas-Ferre/wgso/archive/refs/heads/main.zip

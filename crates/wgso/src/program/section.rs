@@ -52,9 +52,9 @@ impl Sections {
             .sorted_unstable_by_key(|(index, directive)| {
                 (
                     directive.kind() != DirectiveKind::Init,
-                    directive.priority(),
+                    -directive.priority(),
                     directive.path(),
-                    usize::MAX - index,
+                    *index,
                 )
             })
             .map(|(_, directive)| directive)
@@ -67,7 +67,7 @@ impl Sections {
             .filter(|directive| directive.kind() == DirectiveKind::Draw)
             .enumerate()
             .sorted_unstable_by_key(|(index, directive)| {
-                (directive.priority(), directive.path(), usize::MAX - index)
+                (-directive.priority(), directive.path(), *index)
             })
             .map(|(_, directive)| directive)
     }

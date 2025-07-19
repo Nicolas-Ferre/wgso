@@ -8,7 +8,7 @@ pub(crate) struct RunnerWatcher {
 
 #[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 impl RunnerWatcher {
-    const SECONDS_BEFORE_RELOADING: u64 = 2;
+    const MILLIS_BEFORE_RELOADING: u64 = 500;
 
     pub(crate) fn new(folder_path: &std::path::Path) -> Self {
         use notify::Watcher;
@@ -33,7 +33,7 @@ impl RunnerWatcher {
         if is_updated {
             self.next_update = Some(
                 web_time::Instant::now()
-                    + std::time::Duration::from_secs(Self::SECONDS_BEFORE_RELOADING),
+                    + std::time::Duration::from_millis(Self::MILLIS_BEFORE_RELOADING),
             );
         }
         if self

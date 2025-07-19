@@ -11,6 +11,14 @@ error: declaration of `error` needs a type specifier or initializer
 3 | var error;
   |     ^^^^^ needs a type specifier or initializer
   |
+  = info: The error comes from `main` module in file './tests/cases_invalid/wgsl_compilation/error_in_import.wgsl'
+error: declaration of `error` needs a type specifier or initializer
+ --> ./tests/cases_invalid/wgsl_compilation/imported_error.wgsl:3:5
+  |
+3 | var error;
+  |     ^^^^^ needs a type specifier or initializer
+  |
+  = info: The error comes from `main` module in file './tests/cases_invalid/wgsl_compilation/imported_error.wgsl'
 error: override constants are not supported by WGSO
 --> ./tests/cases_invalid/wgsl_compilation/override_constants.wgsl
  |

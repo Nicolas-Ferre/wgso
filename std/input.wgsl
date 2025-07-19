@@ -1,6 +1,6 @@
 /// Utilities to retrieve input state.
 #mod state
-#import ~.~.math.util
+#import ~.~.math.vector
 
 /// The state of an input (e.g. a button).
 alias InputState = u32;
@@ -45,6 +45,10 @@ fn input_axis(left: InputState, right: InputState) -> f32 {
     return select(0., -1., is_pressed(left)) + select(0., 1., is_pressed(right));
 }
 
+/// Converts pixel coordinates into world coordinates between -1 and 1.
+fn pixel_to_world_coords(pixel_coords: vec2f, surface_size: vec2u) -> vec2f {
+    return (pixel_coords / vec2f(surface_size) - vec2f(0.5, 0.5)) * vec2f(2, -2);
+}
 
 /// Keyboard constants.
 #mod keyboard
@@ -487,7 +491,6 @@ const KB_F33 = 191;
 const KB_F34 = 192;
 /// General-purpose function key.
 const KB_F35 = 193;
-
 
 /// Mouse constants.
 #mod mouse

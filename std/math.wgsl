@@ -4,9 +4,15 @@
 /// Archimedes’ constant (π).
 const PI = 3.14159265358979323846264338327950288;
 
+/// Minimum `f32` value.
+const F32_MIN = -3.40282300E+38;
 
-//! Math utils.
-#mod util
+/// Maximum `f32` value.
+const F32_MAX = 3.40282300E+38;
+
+//! Vector utils.
+#mod vector
+#import ~.constant
 
 /// Normalize a `vec2f` value.
 ///
@@ -22,13 +28,13 @@ fn normalize_vec3f_or_zero(value: vec3f) -> vec3f {
     return value / max(length(value), 1e-6);
 }
 
-/// Normalize a `vec4f` value.
+/// Returns the angle in radians between two vectors.
 ///
-/// If the length of the vector is zero, then `vec4f(0, 0, 0, 0)` is returned.
-fn normalize_vec4f_or_zero(value: vec4f) -> vec4f {
-    return value / max(length(value), 1e-6);
+/// Returned angle is between `0` and `2π`.
+fn angle_vec2f(direction1: vec2f, direction2: vec2f) -> f32 {
+    let angle = atan2(direction2.y, direction2.x) - atan2(direction1.y, direction1.x);
+    return select(angle + 2 * PI, angle, angle >= 0.0);
 }
-
 
 /// Quaternion utilities.
 #mod quaternion
@@ -68,33 +74,15 @@ fn quat_inverse(quat: vec4f) -> vec4f {
     return vec4f(-quat.xyz, quat.w) / squared_norm;
 }
 
-
 /// Common matrices to apply transformations.
 #mod matrix
-#import ~.quaternion
 
-/// Returns a projection matrix.
-///
-/// `ratio` is the ratio between screen width and height.
-/// `fov` is in radians.
-fn proj_mat(ratio: f32, fov: f32, far: f32, near: f32) -> mat4x4f {
-    let focal_length = 1 / (2 * tan(fov / 2));
-    return transpose(mat4x4f(
-        focal_length, 0, 0, 0,
-        0, focal_length * ratio, 0, 0,
-        0, 0, far / (far - near), -far * near / (far - near),
-        0, 0, 1, 0,
-    ));
+fn mat4x4f_to_array(mat_: mat4x4f) -> array<vec4f, 4> {
+    return array(mat_[0], mat_[1], mat_[2], mat_[3]);
 }
 
-/// Returns a model transformation matrix.
-fn model_mat(position: vec3f, scale: vec3f, rotation: vec4f) -> mat4x4f {
-    return translation_mat(position) * rotation_mat(rotation) * scale_mat(scale);
-}
-
-/// Returns a view transformation matrix.
-fn view_mat(position: vec3f, rotation: vec4f) -> mat4x4f {
-    return rotation_mat(quat_inverse(rotation)) * translation_mat(-position);
+fn array_to_mat4x4f(array_: array<vec4f, 4>) -> mat4x4f {
+    return mat4x4f(array_[0], array_[1], array_[2], array_[3]);
 }
 
 /// Returns a translation matrix.
@@ -131,6 +119,35 @@ fn rotation_mat(quat: vec4f) -> mat4x4f {
     );
 }
 
+/// Utilities to calculate distances.
+#mod distance
+
+/// Calculates signed distance between a rectangle and a point at a given `position`.
+///
+/// The rectangle has a given `size` and is centered in `vec2f(0, 0)`.
+fn rect_signed_dist(position: vec2f, size: vec2f) -> f32 {
+    let distance = abs(position) - size / 2;
+    let exterior_dist = length(max(distance, vec2f(0.0)));
+    let interior_dist = min(max(distance.x, distance.y), 0.0);
+    return exterior_dist + interior_dist;
+}
+
+/// Calculates signed distance between a circle and a point at a given `position`.
+///
+/// The circle has a given `radius` and is centered in `vec2f(0, 0)`.
+fn circle_signed_dist(position: vec2f, radius: f32) -> f32 {
+    return length(position) - radius;
+}
+
+/// Calculates signed distance between a segment and a point at a given `position`.
+///
+/// The segment has `segment_point1` and `segment_point2` endpoints.
+fn segment_signed_dist(position: vec2f, segment_point1: vec2f, segment_point2: vec2f) -> f32 {
+    let distance1 = position - segment_point1;
+    let distance2 = segment_point2 - segment_point1;
+    let factor = clamp(dot(distance1, distance2) / dot(distance2, distance2), 0., 1.);
+    return length(distance1 - distance2 * factor);
+}
 
 /// Random number generators.
 #mod random

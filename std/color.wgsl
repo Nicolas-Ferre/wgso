@@ -38,7 +38,6 @@ const PURPLE = vec4f(0.5, 0., 0.5, 1.);
 /// No color
 const INVISIBLE = vec4f(0., 0., 0., 0.);
 
-
 /// Utilities to apply lighting in a scene.
 #mod lighting
 
