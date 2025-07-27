@@ -4,4 +4,5 @@ mod draw;
 mod examples;
 mod invalid_cases;
 mod runner;
+mod toggle;
 mod valid_cases;

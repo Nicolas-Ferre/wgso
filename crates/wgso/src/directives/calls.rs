@@ -1,11 +1,10 @@
-use crate::directives::{Directive, DirectiveKind};
+use crate::directives::{Directive, BufferRef, DirectiveKind};
 use crate::program::file::Files;
 use crate::program::module::{Module, Modules};
 use crate::program::section::Sections;
 use crate::Error;
 use fxhash::FxHashSet;
 use itertools::Itertools;
-use std::mem;
 use std::ops::Range;
 use std::path::Path;
 use wgpu::Limits;
@@ -24,11 +23,11 @@ impl Directive {
         }
     }
 
-    pub(crate) fn vertex_buffer(&self) -> DirectiveArgValue {
+    pub(crate) fn vertex_buffer(&self) -> BufferRef {
         self.buffer("vertex_buffer_var", "vertex_buffer_field")
     }
 
-    pub(crate) fn instance_buffer(&self) -> DirectiveArgValue {
+    pub(crate) fn instance_buffer(&self) -> BufferRef {
         self.buffer("instance_buffer_var", "instance_buffer_field")
     }
 
@@ -86,39 +85,6 @@ impl Directive {
             })
             .collect::<Vec<_>>()
     }
-
-    fn extract_arg(tokens: &[&Token], index: usize, token: &Token) -> DirectiveArg {
-        DirectiveArg {
-            name: (*token).clone(),
-            value: DirectiveArgValue::new(
-                tokens[index + 1].clone(),
-                tokens[index + 2..]
-                    .iter()
-                    .take_while(|token| token.label.as_deref() != Some("arg_name"))
-                    .copied()
-                    .cloned()
-                    .collect(),
-            ),
-        }
-    }
-
-    fn buffer(&self, var_label: &str, field_label: &str) -> DirectiveArgValue {
-        assert_eq!(self.kind(), DirectiveKind::Draw);
-        let mut current_var = None;
-        let mut current_fields = vec![];
-        for token in &self.tokens {
-            if token.label.as_deref() == Some(var_label) {
-                current_var = Some(token.clone());
-            } else if token.label.as_deref() == Some(field_label) {
-                current_fields.push(token.clone());
-            }
-        }
-        if let Some(var) = current_var.take() {
-            DirectiveArgValue::new(var, mem::take(&mut current_fields))
-        } else {
-            unreachable!("internal error: directive arguments should be validated");
-        }
-    }
 }
 
 pub(crate) fn check<'a>(
@@ -141,12 +107,12 @@ pub(crate) fn check_args(
     modules: &Modules,
     errors: &mut Vec<Error>,
 ) {
-    for directive in sections.run_directives() {
+    for (directive, _) in sections.run_directives() {
         let shader_module = shader_module(root_path, directive, modules);
         check_arg_names(directive, shader_module, errors);
         check_arg_value(modules, directive, shader_module, errors);
     }
-    for directive in sections.draw_directives() {
+    for (directive, _) in sections.draw_directives() {
         let shader_module = shader_module(root_path, directive, modules);
         check_arg_names(directive, shader_module, errors);
         check_arg_value(modules, directive, shader_module, errors);
@@ -233,25 +199,13 @@ fn check_arg_value(
 ) {
     let offset_alignment = Limits::default().min_uniform_buffer_offset_alignment;
     for arg in directive.args() {
-        let Some(storage_type) = modules.storages.get(&arg.value.var.slice) else {
-            errors.push(Error::DirectiveParsing(ParsingError {
-                path: directive.path().into(),
-                span: arg.value.span,
-                message: format!("unknown storage variable `{}`", arg.value.var.slice),
-            }));
-            continue;
-        };
-        let arg_type = match storage_type.field_ident_type(&arg.value.fields) {
-            Ok(arg_type) => arg_type,
-            Err(error) => {
-                errors.push(error);
-                continue;
-            }
+        let Some(arg_type) = super::find_buffer_type(&arg.value, modules, errors) else {
+            return;
         };
         let Some(uniform) = shader_module.uniform_binding(&arg.name.slice) else {
             continue;
         };
-        if &*uniform.type_ != arg_type {
+        if *uniform.type_ != arg_type {
             errors.push(Error::DirectiveParsing(ParsingError {
                 path: directive.path().into(),
                 span: arg.value.span,
@@ -294,24 +248,12 @@ fn check_buffer(
     } else {
         draw_directive.instance_buffer()
     };
-    let Some(storage_type) = modules.storages.get(&buffer.var.slice) else {
-        errors.push(Error::DirectiveParsing(ParsingError {
-            path: buffer.var.path.clone(),
-            span: buffer.span,
-            message: format!("unknown storage variable `{}`", buffer.var.slice),
-        }));
+    let Some(arg_type) = super::find_buffer_type(&buffer, modules, errors) else {
         return;
-    };
-    let arg_type = match storage_type.field_ident_type(&buffer.fields) {
-        Ok(arg_type) => arg_type,
-        Err(error) => {
-            errors.push(error);
-            return;
-        }
     };
     let arg_item_type = match (arg_type.array_params.as_ref(), is_vertex) {
         (Some((arg_item_type, _)), _) => arg_item_type,
-        (None, false) => arg_type,
+        (None, false) => &arg_type,
         (None, true) => {
             errors.push(Error::DirectiveParsing(ParsingError {
                 path: draw_directive.path().into(),
@@ -338,7 +280,10 @@ fn shader_def_kind(call_kind: DirectiveKind) -> Option<DirectiveKind> {
         DirectiveKind::Init | DirectiveKind::Run => Some(DirectiveKind::ComputeShader),
         DirectiveKind::Draw => Some(DirectiveKind::RenderShader),
         DirectiveKind::Import => Some(DirectiveKind::Mod),
-        DirectiveKind::Mod | DirectiveKind::ComputeShader | DirectiveKind::RenderShader => None,
+        DirectiveKind::Mod
+        | DirectiveKind::ComputeShader
+        | DirectiveKind::RenderShader
+        | DirectiveKind::Toggle => None,
     }
 }
 
@@ -353,22 +298,5 @@ fn shader_module<'a>(root_path: &Path, directive: &Directive, modules: &'a Modul
 #[derive(Debug)]
 pub(crate) struct DirectiveArg {
     pub(crate) name: Token,
-    pub(crate) value: DirectiveArgValue,
-}
-
-#[derive(Debug)]
-pub(crate) struct DirectiveArgValue {
-    pub(crate) span: Range<usize>,
-    pub(crate) var: Token,
-    pub(crate) fields: Vec<Token>,
-}
-
-impl DirectiveArgValue {
-    fn new(var: Token, fields: Vec<Token>) -> Self {
-        Self {
-            span: var.span.start..fields.last().map_or(var.span.end, |field| field.span.end),
-            var,
-            fields,
-        }
-    }
+    pub(crate) value: BufferRef,
 }

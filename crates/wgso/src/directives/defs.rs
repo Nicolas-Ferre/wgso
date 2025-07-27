@@ -5,7 +5,7 @@ use crate::Error;
 use std::sync::Arc;
 use wgso_parser::{ParsingError, Token};
 
-const DEF_DIRECTIVE_KINDS: &[DirectiveKind] = &[
+pub(crate) const DEF_DIRECTIVE_KINDS: &[DirectiveKind] = &[
     DirectiveKind::Mod,
     DirectiveKind::ComputeShader,
     DirectiveKind::RenderShader,
