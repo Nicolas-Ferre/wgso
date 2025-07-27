@@ -25,14 +25,6 @@ struct Menu {
 
 var<storage, read_write> menu: Menu;
 
-fn disable_menu() {
-    menu.singleplayer_button.position.z = HIDDEN_Z;
-    menu.singleplayer_icon.position.z = HIDDEN_Z;
-    menu.multiplayer_button.position.z = HIDDEN_Z;
-    menu.multiplayer_icon1.position.z = HIDDEN_Z;
-    menu.multiplayer_icon2.position.z = HIDDEN_Z;
-}
-
 #shader<compute> init
 #import ~.main
 
@@ -54,16 +46,13 @@ fn main() {
 #shader<compute> update
 #import ~.main
 #import constant.main
-#import scenes.game.main
+#import scenes.orchestrator.main
 #import _.std.math.matrix
 #import _.std.vertex.transform
 
 @compute
 @workgroup_size(1, 1, 1)
 fn main() {
-    if menu.singleplayer_icon.position.z < 0 {
-        return;
-    }
     let scale_factor = vec3f(scale_factor(std_.surface.size, VISIBLE_AREA_MIN_SIZE), 1);
     let view_mat_arr = mat4x4f_to_array(view_mat(vec3f(0, 0, 0), scale_factor, DEFAULT_QUAT));
     menu.singleplayer_button = update_ui_button(menu.singleplayer_button, view_mat_arr);
@@ -72,10 +61,8 @@ fn main() {
     menu.multiplayer_icon1.button_state = menu.multiplayer_button.state;
     menu.multiplayer_icon2.button_state = menu.multiplayer_button.state;
     if menu.singleplayer_button.state == BUTTON_STATE_RELEASED {
-        disable_menu();
-        enable_game(false);
+        start_singleplayer();
     } else if menu.multiplayer_button.state == BUTTON_STATE_RELEASED {
-        disable_menu();
-        enable_game(true);
+        start_multiplayer();
     }
 }

@@ -1,4 +1,4 @@
-use crate::directives::{Directive, DirectiveKind};
+use crate::directives::{toggle, Directive, DirectiveKind};
 use crate::program::file::{File, Files};
 use fxhash::FxHashMap;
 use itertools::Itertools;
@@ -12,11 +12,11 @@ pub(crate) struct Sections {
 }
 
 impl Sections {
-    pub(crate) fn new(files: &Files) -> Self {
+    pub(crate) fn new(files: &Files, root_path: &Path) -> Self {
         Self {
             sections: files
                 .iter()
-                .flat_map(Self::file_sections)
+                .flat_map(|file| Self::file_sections(file, files, root_path))
                 .map(|section| {
                     (
                         (
@@ -41,15 +41,26 @@ impl Sections {
             .map(|(_, section)| section)
     }
 
-    pub(crate) fn run_directives(&self) -> impl Iterator<Item = &Directive> {
+    pub(crate) fn toggle_directives(&self) -> impl Iterator<Item = &Directive> {
         self.sections
             .values()
             .flat_map(|section| section.directives())
-            .filter(|directive| {
+            .filter(|directive| directive.kind() == DirectiveKind::Toggle)
+    }
+
+    pub(crate) fn run_directives(&self) -> impl Iterator<Item = (&Directive, &Section)> {
+        self.sections
+            .values()
+            .flat_map(|section| {
+                section
+                    .directives()
+                    .map(move |directive| (directive, section))
+            })
+            .filter(|(directive, _)| {
                 directive.kind() == DirectiveKind::Run || directive.kind() == DirectiveKind::Init
             })
             .enumerate()
-            .sorted_unstable_by_key(|(index, directive)| {
+            .sorted_unstable_by_key(|(index, (directive, _))| {
                 (
                     directive.kind() != DirectiveKind::Init,
                     -directive.priority(),
@@ -57,22 +68,30 @@ impl Sections {
                     *index,
                 )
             })
-            .map(|(_, directive)| directive)
+            .map(|(_, (directive, section))| (directive, &**section))
     }
 
-    pub(crate) fn draw_directives(&self) -> impl Iterator<Item = &Directive> {
+    pub(crate) fn draw_directives(&self) -> impl Iterator<Item = (&Directive, &Section)> {
         self.sections
             .values()
-            .flat_map(|section| section.directives())
-            .filter(|directive| directive.kind() == DirectiveKind::Draw)
+            .flat_map(|section| {
+                section
+                    .directives()
+                    .map(move |directive| (directive, section))
+            })
+            .filter(|(directive, _)| directive.kind() == DirectiveKind::Draw)
             .enumerate()
-            .sorted_unstable_by_key(|(index, directive)| {
+            .sorted_unstable_by_key(|(index, (directive, _))| {
                 (-directive.priority(), directive.path(), *index)
             })
-            .map(|(_, directive)| directive)
+            .map(|(_, (directive, section))| (directive, &**section))
     }
 
-    fn file_sections(file: &Arc<File>) -> impl Iterator<Item = Section> + '_ {
+    fn file_sections<'a>(
+        file: &'a Arc<File>,
+        files: &'a Files,
+        root_path: &'a Path,
+    ) -> impl Iterator<Item = Section> + 'a {
         let directives: Vec<_> = Self::section_directives(file).collect();
         directives
             .clone()
@@ -83,9 +102,21 @@ impl Sections {
                     .get(index + 1)
                     .map_or(file.code.len(), |d| d.span().start);
                 Section {
-                    file: file.clone(),
-                    span: directive.span().start..section_end,
                     directive: directive.clone(),
+                    span: directive.span().start..section_end,
+                    toggle_var_names: files
+                        .directives
+                        .iter()
+                        .filter(|toggle_directive| {
+                            toggle_directive.kind() == DirectiveKind::Toggle
+                                && toggle::has_section_path_prefix(
+                                    directive,
+                                    &toggle_directive.segment_path(root_path),
+                                )
+                        })
+                        .map(|directive| directive.toggle_value_buffer().path())
+                        .collect(),
+                    file: file.clone(),
                 }
             })
     }
@@ -106,6 +137,7 @@ impl Sections {
 pub(crate) struct Section {
     pub(crate) directive: Directive,
     pub(crate) span: Range<usize>,
+    pub(crate) toggle_var_names: Vec<String>,
     file: Arc<File>,
 }
 

@@ -53,6 +53,20 @@ instance_buffer: &instance_buffer !repeat
           label: instance_buffer_field
           config: *ident
 
+toggle_value_buffer: &toggle_value_buffer !repeat
+  min: 1
+  max: 1
+  group:
+    - !pattern
+      label: toggle_value_buffer_var
+      config: *ident
+    - !repeat
+      group:
+        - !token '.'
+        - !pattern
+          label: toggle_value_buffer_field
+          config: *ident
+
 arg_value: &arg_value !repeat
   min: 1
   max: 1
@@ -165,6 +179,12 @@ draw: &draw
   - *args
   - !token ')'
 
+toggle: &toggle
+  - !token '<'
+  - *toggle_value_buffer
+  - !token '>'
+  - *item_path
+
 main:
   - !token '#'
   - !choice
@@ -181,3 +201,5 @@ main:
     - token: 'import'
       next:
         - *item_path
+    - token: 'toggle'
+      next: *toggle

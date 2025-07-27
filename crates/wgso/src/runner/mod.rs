@@ -1,8 +1,11 @@
+use crate::directives::DirectiveKind;
 use crate::program::file::SourceFolder;
+use crate::program::module::Storage;
 use crate::runner::shaders::RenderShaderResources;
 use crate::runner::std::StdState;
 use crate::runner::target::{Target, TargetConfig, TargetSpecialized, TextureTarget, WindowTarget};
 use crate::{Error, Program};
+use ::std::mem;
 use ::std::path::PathBuf;
 use ::std::sync::Arc;
 use futures::executor;
@@ -39,8 +42,9 @@ pub struct Runner {
     render_shaders: FxHashMap<(PathBuf, String), RenderShaderResources>,
     compute_shader_executions: Vec<ShaderExecution>,
     render_shader_executions: Vec<ShaderExecution>,
-    buffers: FxHashMap<String, Buffer>,
+    buffers: FxHashMap<String, Option<Buffer>>,
     is_initialized: bool,
+    is_toggle_enabled: FxHashMap<String, bool>,
     watcher: RunnerWatcher,
 }
 
@@ -117,11 +121,12 @@ impl Runner {
                 depth_buffer,
             }
         };
-        let buffers = Self::create_buffers(&device, &program);
         let mut runner = Self {
             std_state: StdState::default(),
+            is_toggle_enabled: Self::toggle_var_names(&program)
+                .map(|var_name| (var_name, false))
+                .collect(),
             target,
-            program,
             device,
             adapter,
             queue,
@@ -129,7 +134,8 @@ impl Runner {
             render_shaders: FxHashMap::default(),
             compute_shader_executions: vec![],
             render_shader_executions: vec![],
-            buffers,
+            buffers: Self::create_buffers(&program),
+            program,
             is_initialized: false,
             instance,
             watcher: RunnerWatcher::new(&folder_path),
@@ -164,11 +170,10 @@ impl Runner {
             return;
         };
         assert_eq!(data.len(), field.type_.size as usize, "incorrect data size");
-        self.queue.write_buffer(
-            &self.buffers[&field.buffer_name],
-            field.type_.offset.into(),
-            data,
-        );
+        if let Some(buffer) = &self.buffers[&field.buffer_name] {
+            self.queue
+                .write_buffer(buffer, field.type_.offset.into(), data);
+        }
     }
 
     /// Reads GPU buffer data.
@@ -179,6 +184,9 @@ impl Runner {
         let Some(field) = self.program.parse_field(path) else {
             return vec![];
         };
+        let Some(buffer) = &self.buffers[&field.buffer_name] else {
+            return vec![];
+        };
         let read_buffer = self.device.create_buffer(&BufferDescriptor {
             label: Some("wgso:storage_read_buffer"),
             size: field.type_.size.into(),
@@ -187,7 +195,7 @@ impl Runner {
         });
         let mut encoder = gpu::create_encoder(&self.device);
         encoder.copy_buffer_to_buffer(
-            &self.buffers[&field.buffer_name],
+            buffer,
             field.type_.offset.into(),
             &read_buffer,
             0,
@@ -265,6 +273,7 @@ impl Runner {
     /// An error is returned if shader execution failed.
     pub fn run_step(&mut self) -> Result<(), &Program> {
         self.device.push_error_scope(ErrorFilter::Validation);
+        self.apply_toggle();
         if !self.is_initialized {
             self.std_state.update(self.target.config.size);
         }
@@ -272,13 +281,14 @@ impl Runner {
         let mut encoder = gpu::create_encoder(&self.device);
         let pass = gpu::start_compute_pass(&mut encoder);
         self.run_compute_step(pass);
+        let mut render_shader_executions = mem::take(&mut self.render_shader_executions);
         match &self.target.inner {
             // coverage: off (window cannot be tested)
             TargetSpecialized::Window(target) => {
                 let texture = target.create_surface_texture();
                 let view = gpu::create_surface_view(&texture, target.surface_config.format);
                 let pass = gpu::create_render_pass(&mut encoder, &view, &self.target.depth_buffer);
-                self.run_draw_step(pass);
+                self.run_draw_step(pass, &mut render_shader_executions);
                 self.queue.submit(Some(encoder.finish()));
                 texture.present();
             }
@@ -286,10 +296,11 @@ impl Runner {
             TargetSpecialized::Texture(target) => {
                 let pass =
                     gpu::create_render_pass(&mut encoder, &target.view, &self.target.depth_buffer);
-                self.run_draw_step(pass);
+                self.run_draw_step(pass, &mut render_shader_executions);
                 self.queue.submit(Some(encoder.finish()));
             }
         }
+        self.render_shader_executions = render_shader_executions;
         self.std_state.update(self.target.config.size);
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(error) = executor::block_on(self.device.pop_error_scope()) {
@@ -333,6 +344,15 @@ impl Runner {
         }
     }
 
+    fn toggle_var_names(program: &Program) -> impl Iterator<Item = String> + '_ {
+        program
+            .files
+            .directives
+            .iter()
+            .filter(|directive| directive.kind() == DirectiveKind::Toggle)
+            .map(|directive| directive.toggle_value_buffer().path())
+    }
+
     fn write_std_state(&self) {
         self.write("std_.time", &self.std_state.time.data());
         self.write("std_.surface", &self.std_state.surface.data());
@@ -368,18 +388,12 @@ impl Runner {
         }
     }
 
-    fn create_buffers(device: &Device, program: &Program) -> FxHashMap<String, Buffer> {
+    fn create_buffers(program: &Program) -> FxHashMap<String, Option<Buffer>> {
         program
             .modules
             .storages
-            .iter()
-            .map(|(name, type_)| {
-                let size = type_.size.into();
-                (
-                    name.clone(),
-                    gpu::create_buffer(device, &format!("`var<storage, _> {name}`"), size),
-                )
-            })
+            .keys()
+            .map(|name| (name.clone(), None))
             .collect()
     }
 
@@ -417,15 +431,16 @@ impl Runner {
     fn create_compute_shader_runs(
         device: &Device,
         program: &Program,
-        buffers: &FxHashMap<String, Buffer>,
+        buffers: &FxHashMap<String, Option<Buffer>>,
         compute_shaders: &FxHashMap<(PathBuf, String), ComputeShaderResources>,
     ) -> Vec<ShaderExecution> {
         program
             .sections
             .run_directives()
-            .map(|directive| {
+            .map(|(directive, section)| {
                 ShaderExecution::new(
                     program,
+                    section,
                     directive,
                     buffers,
                     device,
@@ -440,15 +455,16 @@ impl Runner {
     fn create_render_shader_draws(
         device: &Device,
         program: &Program,
-        buffers: &FxHashMap<String, Buffer>,
+        buffers: &FxHashMap<String, Option<Buffer>>,
         render_shaders: &FxHashMap<(PathBuf, String), RenderShaderResources>,
     ) -> Vec<ShaderExecution> {
         program
             .sections
             .draw_directives()
-            .map(|directive| {
+            .map(|(directive, section)| {
                 ShaderExecution::new(
                     program,
+                    section,
                     directive,
                     buffers,
                     device,
@@ -461,8 +477,23 @@ impl Runner {
     }
 
     fn run_compute_step(&mut self, mut pass: ComputePass<'_>) {
-        for run in &self.compute_shader_executions {
-            if !run.is_init || !self.is_initialized {
+        for run in &mut self.compute_shader_executions {
+            let are_all_toggles_disabled = !run.toggle_var_names.is_empty()
+                && run
+                    .toggle_var_names
+                    .iter()
+                    .all(|var_name| !self.is_toggle_enabled[var_name]);
+            if are_all_toggles_disabled {
+                run.disable();
+                continue;
+            }
+            run.enable(
+                &self.program,
+                &self.buffers,
+                &self.device,
+                self.compute_shaders[&run.shader_ident].layout.as_ref(),
+            );
+            if !run.is_init || !run.is_init_done {
                 let shader = &self.compute_shaders[&run.shader_ident];
                 pass.set_pipeline(&shader.pipeline);
                 if let Some(bind_group) = &run.bind_group {
@@ -474,13 +505,29 @@ impl Runner {
                     workgroup_count.1.into(),
                     workgroup_count.2.into(),
                 );
+                run.is_init_done = true;
             }
         }
         self.is_initialized = true;
     }
 
-    fn run_draw_step(&self, mut pass: RenderPass<'_>) {
-        for draw in &self.render_shader_executions {
+    fn run_draw_step(&self, mut pass: RenderPass<'_>, executions: &mut [ShaderExecution]) {
+        for draw in executions {
+            let are_all_toggles_disabled = !draw.toggle_var_names.is_empty()
+                && draw
+                    .toggle_var_names
+                    .iter()
+                    .all(|var_name| !self.is_toggle_enabled[var_name]);
+            if are_all_toggles_disabled {
+                draw.disable();
+                continue;
+            }
+            draw.enable(
+                &self.program,
+                &self.buffers,
+                &self.device,
+                self.render_shaders[&draw.shader_ident].layout.as_ref(),
+            );
             let shader = &self.render_shaders[&draw.shader_ident];
             pass.set_pipeline(&shader.pipeline);
             if let Some(bind_group) = &draw.bind_group {
@@ -509,13 +556,68 @@ impl Runner {
         let storage = &self.program.modules.storages[buffer_name];
         let buffer = &self.buffers[buffer_name];
         let field_type = storage
+            .type_
             .field_ident_type(&buffer_arg.fields)
             .expect("internal error: buffer fields should be validated");
         pass.set_vertex_buffer(
             slot,
-            buffer.slice(field_type.offset as u64..(field_type.offset + field_type.size) as u64),
+            buffer
+                .as_ref()
+                .expect("internal error: buffer should be activated")
+                .slice(field_type.offset as u64..(field_type.offset + field_type.size) as u64),
         );
         field_type.array_params.as_ref().map_or(1, |(_, len)| *len)
+    }
+
+    fn apply_toggle(&mut self) {
+        self.is_toggle_enabled = mem::take(&mut self.is_toggle_enabled)
+            .into_iter()
+            .map(|(var_name, is_enabled)| {
+                let value = self.read(&var_name);
+                (
+                    var_name,
+                    if value.is_empty() {
+                        is_enabled
+                    } else {
+                        value != [0, 0, 0, 0]
+                    },
+                )
+            })
+            .collect();
+        let mut buffers = mem::take(&mut self.buffers);
+        for (buffer_name, buffer) in &mut buffers {
+            let storage = &self.program.modules.storages[buffer_name.as_str()];
+            if buffer.is_some() && !self.is_buffer_activated(storage) {
+                *buffer = None;
+            }
+        }
+        for (buffer_name, buffer) in &mut buffers {
+            let storage = &self.program.modules.storages[buffer_name.as_str()];
+            if buffer.is_none() && self.is_buffer_activated(storage) {
+                *buffer = Some(gpu::create_buffer(
+                    &self.device,
+                    &format!("`var<storage, _> {buffer_name}`"),
+                    storage.type_.size.into(),
+                ));
+            }
+        }
+        self.buffers = buffers;
+    }
+
+    fn is_buffer_activated(&self, storage: &Storage) -> bool {
+        storage.is_declared_in_non_toggleable_module
+            || storage
+                .declarations
+                .iter()
+                .flat_map(|declaration| {
+                    self.program.files.directives.iter().filter(|directive| {
+                        directive.kind() == DirectiveKind::Toggle
+                            && declaration
+                                .raw_module_path
+                                .starts_with(directive.segment_path(&self.program.root_path))
+                    })
+                })
+                .any(|directive| self.is_toggle_enabled[&directive.toggle_value_buffer().path()])
     }
 
     // coverage: off (window cannot be tested)

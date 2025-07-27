@@ -75,6 +75,8 @@ struct MyObject {
 
 - Android: passing a mat4x4f as argument of a function may cause a segment fault. Passing the matrix
   as an `array<vec4f, 4>` argument or 4 `vec4f` arguments should fix the problem.
+- Android: flickering happens if wgpu is upgraded to version 0.26, so for now wgpu 0.25 is still
+  used internally.
 
 ## 📜 License
 

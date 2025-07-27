@@ -38,20 +38,9 @@ struct Game {
     right_score: Number,
     particles: array<Particle, MAX_PARTICLE_COUNT>,
     next_particle_index: u32,
-    is_multiplayer: u32,
 }
 
 var<storage, read_write> game: Game;
-
-fn enable_game(is_multiplayer: bool) {
-    game.field.z = FIELD_Z;
-    game.ball.position.z = BALL_Z;
-    game.left_score = init_number(vec3f(LEFT_SCORE_POSITION, LEFT_SCORE_Z), game.left_score.value);
-    game.right_score = init_number(vec3f(RIGHT_SCORE_POSITION, RIGHT_SCORE_Z), game.right_score.value);
-    game.left_paddle.position.z = PADDLE_Z;
-    game.right_paddle.position.z = PADDLE_Z;
-    game.is_multiplayer = u32(is_multiplayer);
-}
 
 #shader<compute> init
 #import ~.main
@@ -65,26 +54,24 @@ const PADDLE_POSITION_X = 0.8;
 fn main() {
     var seed = std_.time.start_secs;
     let ball_direction = 2 * random_f32(&seed, 0, 1) - 1;
-    game.field = init_field(HIDDEN_Z);
-    game.ball = init_ball(HIDDEN_Z, vec2f(ball_direction, 0));
-    game.left_paddle = init_paddle(vec3f(-PADDLE_POSITION_X, 0, HIDDEN_Z));
-    game.right_paddle = init_paddle(vec3f(PADDLE_POSITION_X, 0, HIDDEN_Z));
-    game.left_score = init_number(vec3f(0, 0, HIDDEN_Z), 0);
-    game.right_score = init_number(vec3f(0, 0, HIDDEN_Z), 0);
+    game.field = init_field(FIELD_Z);
+    game.ball = init_ball(BALL_Z, vec2f(ball_direction, 0));
+    game.left_paddle = init_paddle(vec3f(-PADDLE_POSITION_X, 0, PADDLE_Z));
+    game.right_paddle = init_paddle(vec3f(PADDLE_POSITION_X, 0, PADDLE_Z));
+    game.left_score = init_number(vec3f(LEFT_SCORE_POSITION, LEFT_SCORE_Z), 0);
+    game.right_score = init_number(vec3f(RIGHT_SCORE_POSITION, RIGHT_SCORE_Z), 0);
     game.next_particle_index = 0;
 }
 
 #shader<compute> update
 #import ~.main
 #import constant.main
+#import scenes.orchestrator.main
 #import _.std.physics.collision
 
 @compute
 @workgroup_size(1, 1, 1)
 fn main() {
-    if game.field.z < 0 {
-        return;
-    }
     game.field = update_field(game.field);
     update_paddles();
     game.ball = update_ball(game.ball);
@@ -96,7 +83,7 @@ fn main() {
 
 fn update_paddles() {
     game.left_paddle = update_player_paddle(game.left_paddle, FIELD_SIZE.y / 2, KB_KEY_W, KB_KEY_S, F32_MIN, 0);
-    if bool(game.is_multiplayer) {
+    if bool(orchestrator.is_multiplayer) {
         game.right_paddle = update_player_paddle(game.right_paddle, FIELD_SIZE.y / 2, KB_ARROW_UP, KB_ARROW_DOWN, 0, F32_MAX);
     } else {
         game.right_paddle = update_bot_paddle(game.right_paddle, FIELD_SIZE.y / 2, game.ball.position.y);

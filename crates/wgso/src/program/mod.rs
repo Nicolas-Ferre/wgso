@@ -49,7 +49,7 @@ impl Program {
             };
         }
         directives::defs::check(&files, &mut errors);
-        let sections = Sections::new(&files);
+        let sections = Sections::new(&files, &root_path);
         for section in sections.iter() {
             directives::calls::check(section.directives(), &files, &root_path, &mut errors);
         }
@@ -74,6 +74,16 @@ impl Program {
         }
         directives::defs::check_params(&modules, &mut errors);
         directives::calls::check_args(&root_path, &sections, &modules, &mut errors);
+        if !errors.is_empty() {
+            return Self {
+                errors,
+                root_path,
+                files,
+                sections,
+                modules,
+            };
+        }
+        directives::toggle::check(&sections, &modules, &root_path, &mut errors);
         Self {
             errors,
             root_path,
@@ -91,8 +101,8 @@ impl Program {
 
     pub(crate) fn parse_field(&self, field_path: &str) -> Option<StorageField<'_>> {
         let segments: Vec<_> = field_path.split('.').collect();
-        let storage_type = &self.modules.storages.get(segments[0])?;
-        let field_type = storage_type.field_name_type(&segments[1..])?;
+        let storage = &self.modules.storages.get(segments[0])?;
+        let field_type = storage.type_.field_name_type(&segments[1..])?;
         Some(StorageField {
             buffer_name: segments[0].into(),
             type_: field_type,

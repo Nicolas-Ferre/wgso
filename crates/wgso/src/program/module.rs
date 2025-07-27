@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 #[derive(Debug, Default)]
 pub(crate) struct Modules {
-    pub(crate) storages: FxHashMap<String, Arc<Type>>,
+    pub(crate) storages: FxHashMap<String, Storage>,
     pub(crate) compute: FxHashMap<(PathBuf, String), Arc<Module>>,
     pub(crate) render: FxHashMap<(PathBuf, String), Arc<Module>>,
 }
@@ -30,24 +30,44 @@ impl Modules {
                 }
             })
             .collect::<Vec<_>>();
-        Self {
+        let mut modules = Self {
             storages: Self::storages(&modules, errors),
             compute: Self::shaders(&modules, DirectiveKind::ComputeShader),
             render: Self::shaders(&modules, DirectiveKind::RenderShader),
-        }
+        };
+        modules.configure_storages(root_path, sections);
+        modules
     }
 
-    fn storages(modules: &[Arc<Module>], errors: &mut Vec<Error>) -> FxHashMap<String, Arc<Type>> {
+    fn storages(modules: &[Arc<Module>], errors: &mut Vec<Error>) -> FxHashMap<String, Storage> {
         let mut storages = FxHashMap::default();
         for module in modules {
+            let module_path = module
+                .section
+                .directive
+                .path()
+                .with_extension("")
+                .join(&module.section.directive.section_name().slice);
             for (name, binding) in module.storage_bindings() {
                 match storages.entry(name.clone()) {
                     Entry::Vacant(entry) => {
-                        entry.insert((module.clone(), binding.type_.clone()));
+                        entry.insert((
+                            module.clone(),
+                            Storage {
+                                type_: binding.type_.clone(),
+                                declarations: vec![StorageDecl {
+                                    raw_module_path: module_path.clone(),
+                                }],
+                                is_declared_in_non_toggleable_module: false,
+                            },
+                        ));
                     }
-                    Entry::Occupied(existing) => {
-                        let existing = existing.get();
-                        if existing.1 != binding.type_ {
+                    Entry::Occupied(mut existing) => {
+                        let existing = existing.get_mut();
+                        existing.1.declarations.push(StorageDecl {
+                            raw_module_path: module_path.clone(),
+                        });
+                        if existing.1.type_ != binding.type_ {
                             errors.push(Error::StorageConflict(
                                 existing.0.wgsl.sections[0].path().into(),
                                 module.wgsl.sections[0].path().into(),
@@ -60,7 +80,7 @@ impl Modules {
         }
         storages
             .into_iter()
-            .map(|(name, (_, type_))| (name, type_))
+            .map(|(name, (_, storage))| (name, storage))
             .collect()
     }
 
@@ -74,6 +94,25 @@ impl Modules {
             .map(|module| (module.wgsl.sections[0].ident(), module.clone()))
             .collect()
     }
+
+    fn configure_storages(&mut self, root_path: &Path, sections: &Sections) {
+        for storage in self.storages.values_mut() {
+            storage.is_declared_in_non_toggleable_module =
+                storage.declarations.iter().any(|decl| {
+                    Self::is_non_toggleable_section(sections, &decl.raw_module_path, root_path)
+                });
+        }
+    }
+
+    fn is_non_toggleable_section(
+        sections: &Sections,
+        section_path: &Path,
+        root_path: &Path,
+    ) -> bool {
+        !sections
+            .toggle_directives()
+            .any(|directive| section_path.starts_with(directive.segment_path(root_path)))
+    }
 }
 
 #[derive(Debug)]
@@ -82,6 +121,7 @@ pub(crate) struct Module {
     wgsl: WgslModule,
     types: FxHashMap<String, Type>,
     bindings: FxHashMap<String, Binding>,
+    section: Arc<Section>,
 }
 
 impl Module {
@@ -99,6 +139,7 @@ impl Module {
             types: wgsl.extract_types(),
             wgsl,
             bindings,
+            section: section.clone(),
         })
     }
 
@@ -197,4 +238,22 @@ impl Module {
         }
         idents.into_iter().collect()
     }
+}
+
+#[derive(Debug)]
+pub(crate) struct Storage {
+    pub(crate) type_: Arc<Type>,
+    pub(crate) declarations: Vec<StorageDecl>,
+    pub(crate) is_declared_in_non_toggleable_module: bool,
+}
+
+impl PartialEq for Storage {
+    fn eq(&self, other: &Self) -> bool {
+        self.type_ == other.type_
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct StorageDecl {
+    pub(crate) raw_module_path: PathBuf,
 }
