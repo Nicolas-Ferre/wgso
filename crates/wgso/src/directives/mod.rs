@@ -130,12 +130,14 @@ impl Directive {
             DirectiveKind::Init | DirectiveKind::Run => {
                 self.args().into_iter().map(|arg| arg.value).collect()
             }
+            // coverage: off (not used for now)
             DirectiveKind::Draw => self
                 .args()
                 .into_iter()
                 .map(|arg| arg.value)
                 .chain([self.vertex_buffer(), self.instance_buffer()])
                 .collect(),
+            // coverage: on
             DirectiveKind::Toggle => vec![self.toggle_value_buffer()],
             DirectiveKind::Mod
             | DirectiveKind::Import

@@ -1,6 +1,7 @@
 #mod main
 #toggle<state.valid_condition> not_matching_mod_prefix.missing
 #toggle<state.valid_condition> ~.missing
+#toggle<state.unknown> ~.toggle
 #toggle<state.invalid_type> ~.toggle
 #toggle<internal> ~.other_toggle
 

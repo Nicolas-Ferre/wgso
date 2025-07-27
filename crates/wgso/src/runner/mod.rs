@@ -617,7 +617,7 @@ impl Runner {
                                 .starts_with(directive.segment_path(&self.program.root_path))
                     })
                 })
-                .any(|directive| self.is_toggle_enabled[&directive.toggle_value_buffer().var.slice])
+                .any(|directive| self.is_toggle_enabled[&directive.toggle_value_buffer().path()])
     }
 
     // coverage: off (window cannot be tested)

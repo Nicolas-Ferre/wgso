@@ -11,20 +11,26 @@ error: no module matching toggled prefix
   |                                ^^^^^^^^^
   |
 error: cannot import a toggleable module from outside
-  --> ./tests/cases_invalid/directive_toggle_validation/invalid_toggles.wgsl:10:1
+  --> ./tests/cases_invalid/directive_toggle_validation/invalid_toggles.wgsl:11:1
    |
-10 | #import ~.toggle
+11 | #import ~.toggle
    | ^^^^^^^^^^^^^^^^
    |
-error: found toggle value with type `i32`, expected type `u32`
- --> ./tests/cases_invalid/directive_toggle_validation/invalid_toggles.wgsl:4:9
+error: unknown field for type `State`
+ --> ./tests/cases_invalid/directive_toggle_validation/invalid_toggles.wgsl:4:15
   |
-4 | #toggle<state.invalid_type> ~.toggle
+4 | #toggle<state.unknown> ~.toggle
+  |               ^^^^^^^
+  |
+error: found toggle value with type `i32`, expected type `u32`
+ --> ./tests/cases_invalid/directive_toggle_validation/invalid_toggles.wgsl:5:9
+  |
+5 | #toggle<state.invalid_type> ~.toggle
   |         ^^^^^^^^^^^^^^^^^^
   |
 error: buffer storage defined in a toggleable module cannot be used outside this module
- --> ./tests/cases_invalid/directive_toggle_validation/invalid_toggles.wgsl:5:9
+ --> ./tests/cases_invalid/directive_toggle_validation/invalid_toggles.wgsl:6:9
   |
-5 | #toggle<internal> ~.other_toggle
+6 | #toggle<internal> ~.other_toggle
   |         ^^^^^^^^
   |
