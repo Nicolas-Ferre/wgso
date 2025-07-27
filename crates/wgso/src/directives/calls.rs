@@ -1,4 +1,4 @@
-use crate::directives::{Directive, BufferRef, DirectiveKind};
+use crate::directives::{BufferRef, Directive, DirectiveKind};
 use crate::program::file::Files;
 use crate::program::module::{Module, Modules};
 use crate::program::section::Sections;

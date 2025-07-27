@@ -57,19 +57,16 @@ impl ShaderExecution {
         } else {
             &program.modules.compute[&item_ident]
         };
-        self.bind_group = layout
-            .as_ref()
-            .map(|layout| {
-                Self::create_bind_group(
-                    program,
-                    &self.directive,
-                    shader_module,
-                    buffers,
-                    device,
-                    layout,
-                )
-            })
-            .flatten();
+        self.bind_group = layout.as_ref().and_then(|layout| {
+            Self::create_bind_group(
+                program,
+                &self.directive,
+                shader_module,
+                buffers,
+                device,
+                layout,
+            )
+        });
     }
 
     #[allow(clippy::cast_possible_truncation)]
