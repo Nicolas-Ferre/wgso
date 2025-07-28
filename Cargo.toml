@@ -28,7 +28,7 @@ notify = "8"
 pico-args = "0.5"
 regex = "1.11"
 reqwest = { version = "0.12", features = ["blocking"] }
-rstest = "0.25"
+rstest = "0.26"
 serde = { version = "1.0", features = ["derive"] }
 serde_regex = "1.1"
 serde_valid = "1.0"
