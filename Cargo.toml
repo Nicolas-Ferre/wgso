@@ -44,7 +44,7 @@ winit = "0.30"
 zip = "4"
 
 naga = { version = "25.0", features = ["wgsl-in", "wgsl-out"] }
-wgpu = "25.0"
+wgpu = "26.0"
 
 wgso_deps = { version = "0.1.0", path = "crates/wgso_deps" }
 wgso_parser = { version = "0.1.0", path = "crates/wgso_parser" }
